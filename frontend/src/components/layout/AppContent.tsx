@@ -154,7 +154,7 @@ export function AppContent({ activeTab }: AppContentProps) {
   // WebSocket for task completion notifications - always enabled to receive notifications across all pages
   useWebSocket({
     enabled: true,
-    onTaskComplete: (notification: {
+    onTaskComplete: async (notification: {
       data: { session_id: string; status: string; message?: string };
     }) => {
       const { session_id, status, message } = notification.data;
@@ -162,6 +162,20 @@ export function AppContent({ activeTab }: AppContentProps) {
         isSupported,
         permission,
       });
+
+      // Fetch session name for notification title
+      let sessionName = "";
+      try {
+        const session = await sessionApi.get(session_id);
+        if (session?.name) {
+          sessionName = session.name;
+        }
+      } catch (err) {
+        console.warn(
+          "[AppContent] Failed to fetch session name for notification:",
+          err,
+        );
+      }
 
       // Navigate function for notifications
       const navigateToSession = () => {
@@ -177,14 +191,22 @@ export function AppContent({ activeTab }: AppContentProps) {
       // Show browser notification (if permitted)
       if (isSupported && permission === "granted") {
         console.log("[AppContent] Showing browser notification:", status);
+        const baseTitle =
+          status === "completed"
+            ? t("notification.taskCompleted")
+            : t("notification.taskFailed");
+        const notificationTitle = sessionName
+          ? `${sessionName} - ${baseTitle}`
+          : baseTitle;
+
         if (status === "completed") {
-          notify(t("notification.taskCompleted"), {
+          notify(notificationTitle, {
             body: message,
             onClick: navigateToSession,
             url: `/chat/${session_id}`,
           });
         } else {
-          notify(t("notification.taskFailed"), {
+          notify(notificationTitle, {
             body: message,
             onClick: navigateToSession,
             url: `/chat/${session_id}`,

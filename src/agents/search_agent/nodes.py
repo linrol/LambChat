@@ -394,8 +394,9 @@ async def _create_backend_and_prompt(
         system_prompt = SANDBOX_SYSTEM_PROMPT.replace("{work_dir}", work_dir).replace(
             "{skills}", skills_prompt
         )
+        # sandbox_backend 是 CompositeBackend(default=DaytonaBackend)，需要提取出 DaytonaBackend
         return (
-            create_sandbox_backend_factory(sandbox_backend, assistant_id, user_id=user_id),
+            create_sandbox_backend_factory(sandbox_backend.default, assistant_id, user_id=user_id),
             system_prompt,
             store,
         )
