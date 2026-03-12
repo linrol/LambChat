@@ -40,7 +40,6 @@ def _load_raw_settings():
             # Define sensitive keys to load
             sensitive_keys = [
                 "LLM_API_KEY",
-                "ANTHROPIC_API_KEY",
                 "OPENAI_API_KEY",
                 "LANGSMITH_API_KEY",
                 "EMBEDDING_API_KEY",
@@ -54,7 +53,9 @@ def _load_raw_settings():
                 try:
                     import asyncio
 
-                    value = asyncio.get_event_loop().run_until_complete(service.get_raw(key))
+                    value = asyncio.get_event_loop().run_until_complete(
+                        service.get_raw(key)
+                    )
                     if value:
                         _setting_cache[key] = value
                 except Exception:
@@ -208,8 +209,8 @@ class LLMClient:
         """创建 Anthropic Claude 模型"""
 
         # 优先使用显式传入的参数，其次使用 settings（已在 initialize_settings 时从数据库加载）
-        api_key = api_key or settings.ANTHROPIC_API_KEY or settings.LLM_API_KEY
-        api_base = api_base or settings.ANTHROPIC_BASE_URL or settings.LLM_API_BASE
+        api_key = api_key or settings.LLM_API_KEY
+        api_base = api_base or settings.LLM_API_BASE
 
         return ChatAnthropic(
             model_name=model_name,

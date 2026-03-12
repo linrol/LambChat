@@ -21,7 +21,6 @@ RESTART_REQUIRED_SETTINGS = {
 # ============================================
 SENSITIVE_SETTINGS = {
     "LLM_API_KEY",
-    "ANTHROPIC_API_KEY",
     "SESSION_TITLE_API_KEY",
     "JWT_SECRET_KEY",
     "MONGODB_URL",

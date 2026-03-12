@@ -258,6 +258,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             "backend": backend_factory,
             "context": context,  # 传递 context 以便工具访问 user_id
             "base_url": configurable.get("base_url", ""),  # 传递 base_url 给工具使用
+            "presenter": presenter,  # 传递 presenter 给工具调用
         },
         "recursion_limit": config.get("recursion_limit", settings.SESSION_MAX_RUNS_PER_SESSION),
     }

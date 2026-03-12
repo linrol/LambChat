@@ -43,6 +43,7 @@ class UserManager:
             if not existing_users:
                 # 第一个用户设为管理员
                 user_data.roles = ["admin"]
+                user_data.skip_verification = True  # 第一个管理员自动激活
             else:
                 # 从设置中读取默认角色
                 default_role = await self.settings_service.get("DEFAULT_USER_ROLE")

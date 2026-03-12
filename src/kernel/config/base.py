@@ -72,8 +72,6 @@ class Settings(BaseSettings):
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 4096
     LLM_MAX_RETRIES: int = 3
-    ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_BASE_URL: Optional[str] = None
 
     # MCP Settings
     ENABLE_MCP: bool = True
