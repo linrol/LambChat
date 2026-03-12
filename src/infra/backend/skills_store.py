@@ -398,9 +398,11 @@ class SkillsStoreBackend(BackendProtocol):
 
             # 发送 skills 变更事件
             if self._runtime:
-                from src.infra.tool.backend_utils import get_backend_from_runtime
-
-                presenter = self._runtime.config.get("configurable", {}).get("presenter") if hasattr(self._runtime, "config") else None
+                presenter = (
+                    self._runtime.config.get("configurable", {}).get("presenter")
+                    if hasattr(self._runtime, "config")
+                    else None
+                )
                 if presenter:
                     # 判断是创建还是更新
                     action = "created" if (not user_skill and not system_skill) else "updated"
@@ -501,7 +503,11 @@ class SkillsStoreBackend(BackendProtocol):
 
             # 发送 skills 变更事件
             if self._runtime:
-                presenter = self._runtime.config.get("configurable", {}).get("presenter") if hasattr(self._runtime, "config") else None
+                presenter = (
+                    self._runtime.config.get("configurable", {}).get("presenter")
+                    if hasattr(self._runtime, "config")
+                    else None
+                )
                 if presenter:
                     await presenter.emit_skills_changed(
                         action="updated",

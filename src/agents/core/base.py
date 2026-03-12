@@ -85,9 +85,7 @@ class BaseGraphAgent(ABC):
     # 格式: {"option_name": {"type": "boolean", "default": False, "label": "...", "description": "..."}}
     _options: Dict[str, Dict[str, Any]] = {}
 
-    def __init__(
-        self, recursion_limit: int | None = None, enable_checkpointer: bool = True
-    ):
+    def __init__(self, recursion_limit: int | None = None, enable_checkpointer: bool = True):
         self.recursion_limit = recursion_limit or settings.SESSION_MAX_RUNS_PER_SESSION
         self.enable_checkpointer = enable_checkpointer
         self._graph: Any = None
@@ -163,9 +161,7 @@ class BaseGraphAgent(ABC):
                     await task
                 except (asyncio.CancelledError, Exception):
                     pass
-            logger.info(
-                f"[Agent {self.agent_id}] Cancelled stream task: run_id={run_id}"
-            )
+            logger.info(f"[Agent {self.agent_id}] Cancelled stream task: run_id={run_id}")
         else:
             # 取消所有正在运行的 stream_task
             for _, task in list(self._stream_tasks.items()):
@@ -355,9 +351,7 @@ class BaseGraphAgent(ABC):
                         error = item_data.get("data", {}).get("error", "")
                         error_msg = str(error) if error else "Unknown error"
                         if name not in ["read_file", "read_todos", "write_todos"]:
-                            yield presenter.present_tool_result(
-                                name, error_msg, success=False
-                            )
+                            yield presenter.present_tool_result(name, error_msg, success=False)
 
                     # 工具调用结束
                     elif evt_type == "on_tool_end":
@@ -406,9 +400,7 @@ class BaseGraphAgent(ABC):
                             error = item_data.get("data", {}).get("error", "")
                             error_msg = str(error) if error else "Unknown error"
                             if name not in ["read_file", "read_todos", "write_todos"]:
-                                yield presenter.present_tool_result(
-                                    name, error_msg, success=False
-                                )
+                                yield presenter.present_tool_result(name, error_msg, success=False)
                         elif evt_type == "on_tool_end":
                             name = item_data.get("name", "")
                             out = item_data.get("data", {}).get("output", "")
@@ -423,9 +415,7 @@ class BaseGraphAgent(ABC):
         # 发送完成
         yield presenter.done()
 
-    async def invoke(
-        self, message: str, session_id: str = str(uuid.uuid4()), **kwargs
-    ) -> str:
+    async def invoke(self, message: str, session_id: str = str(uuid.uuid4()), **kwargs) -> str:
         """非流式执行，返回最终结果"""
         if not self._initialized:
             await self.initialize()
@@ -468,9 +458,7 @@ class GraphBuilder:
         self._entry_point: Optional[str] = None
         self._conditional_edges: List[tuple] = []
 
-    def add_node(
-        self, name: str, func: Callable, description: str = ""
-    ) -> "GraphBuilder":
+    def add_node(self, name: str, func: Callable, description: str = "") -> "GraphBuilder":
         """添加节点"""
         self._nodes[name] = func
         return self
@@ -557,9 +545,7 @@ class AgentFactory:
                 return cls._instances[agent_id]
 
             if agent_id not in _AGENT_REGISTRY:
-                raise ValueError(
-                    f"Agent '{agent_id}' 未注册。可用: {list(_AGENT_REGISTRY.keys())}"
-                )
+                raise ValueError(f"Agent '{agent_id}' 未注册。可用: {list(_AGENT_REGISTRY.keys())}")
 
             agent_cls = _AGENT_REGISTRY[agent_id]
             agent = agent_cls()
@@ -568,9 +554,7 @@ class AgentFactory:
             return agent
 
     @classmethod
-    def list_agents(
-        cls, default_agent_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def list_agents(cls, default_agent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """列出所有可用 Agent（包含选项配置），按 sort_order 和名称排序，默认 agent 排在最前面"""
         agents = [
             {

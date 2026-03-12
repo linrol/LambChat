@@ -835,7 +835,7 @@ class Presenter:
         event = self.present_skills_changed(action, skill_name, files_count)
         await self.save_event(event)
         return event
-    
+
     async def emit_sandbox_starting(self) -> Dict[str, Any]:
         """输出沙箱开始初始化并保存"""
         event = self.present_sandbox_starting()
