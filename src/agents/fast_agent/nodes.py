@@ -212,25 +212,6 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
         "{memory_guide}", memory_guide
     )
 
-    # 动态部分：记忆上下文检索，注入到用户消息而非 system prompt，避免破坏 KV cache
-    memory_context = ""
-    if settings.ENABLE_OPENVIKING:
-        try:
-            from src.infra.openviking.retrieval import retrieve_context
-
-            ov_session_id = getattr(context, "ov_session_id", None)
-            memory_context = await retrieve_context(
-                query=state.get("input", ""),
-                user_id=tenant_id,
-                ov_session_id=ov_session_id,
-            )
-            if memory_context:
-                logger.info(
-                    "[FastAgent] OpenViking context retrieved (%d chars)", len(memory_context)
-                )
-        except Exception as e:
-            logger.warning("[FastAgent] OpenViking retrieval failed: %s", e)
-
     # 使用内存 backend（无沙箱）
     backend_start = time.time()
     backend_factory = create_memory_backend_factory(
@@ -281,10 +262,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     existing_messages = inner_state.values.get("messages", [])
 
     # 构建传入的消息列表（包含附件）
-    # 动态记忆上下文注入到用户消息前缀，不污染 system prompt，保护 KV cache
     user_input = state.get("input", "")
-    if memory_context:
-        user_input = f"{memory_context}\n\n{user_input}"
     new_message = _build_human_message(user_input, attachments)
     all_messages = existing_messages + [new_message]
 

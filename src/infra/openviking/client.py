@@ -3,6 +3,8 @@ OpenViking 客户端管理
 
 单例管理 AsyncHTTPClient 生命周期，在 FastAPI app startup/shutdown 中注册。
 封装常用 API，提供类型安全的调用接口。
+
+支持多租户：每个用户使用自己的 API key 访问自己的数据。
 """
 
 import logging
@@ -12,7 +14,14 @@ from src.kernel.config import settings
 
 logger = logging.getLogger(__name__)
 
-_client: Optional[Any] = None
+# Root client（用于管理操作）
+_root_client: Optional[Any] = None
+
+# 用户客户端缓存（user_id -> client）
+_user_clients: dict[str, Any] = {}
+
+# 用户 API key 缓存（user_id -> api_key）
+_user_api_keys: dict[str, str] = {}
 
 
 class OpenVikingClient:
@@ -97,17 +106,67 @@ class OpenVikingClient:
         """关闭客户端连接。"""
         await self._client.close()
 
+    # ==================== Admin API (多租户) ====================
+
+    async def admin_create_account(self, account_id: str, admin_user_id: str) -> dict:
+        """
+        创建新账户及其管理员用户。
+
+        Args:
+            account_id: 账户 ID
+            admin_user_id: 管理员用户 ID
+
+        Returns:
+            创建结果，包含 api_key
+        """
+        return await self._client.admin_create_account(account_id, admin_user_id)
+
+    async def admin_register_user(self, account_id: str, user_id: str, role: str = "user") -> dict:
+        """
+        在账户中注册新用户。
+
+        Args:
+            account_id: 账户 ID
+            user_id: 用户 ID
+            role: 角色 (admin/user)
+
+        Returns:
+            注册结果
+        """
+        return await self._client.admin_register_user(account_id, user_id, role)
+
+    async def admin_list_accounts(self) -> list:
+        """列出所有账户。"""
+        return await self._client.admin_list_accounts()
+
+    async def admin_list_users(self, account_id: str) -> list:
+        """列出账户中的所有用户。"""
+        return await self._client.admin_list_users(account_id)
+
+    async def admin_regenerate_key(self, account_id: str, user_id: str) -> dict:
+        """
+        重新生成用户的 API Key。
+
+        Args:
+            account_id: 账户 ID
+            user_id: 用户 ID
+
+        Returns:
+            包含新 api_key 的结果
+        """
+        return await self._client.admin_regenerate_key(account_id, user_id)
+
 
 async def get_openviking_client() -> Optional[OpenVikingClient]:
     """
-    获取 OpenViking 客户端单例（封装版）。
+    获取 OpenViking Root 客户端单例。
 
-    首次调用时创建并初始化客户端。
+    用于管理操作（创建账户等）。普通数据访问应使用 get_user_client()。
     """
-    global _client
+    global _root_client
 
-    if _client is not None:
-        return _client
+    if _root_client is not None:
+        return _root_client
 
     if not settings.ENABLE_OPENVIKING:
         return None
@@ -121,27 +180,106 @@ async def get_openviking_client() -> Optional[OpenVikingClient]:
             agent_id=settings.OPENVIKING_AGENT_ID or None,
         )
         await inner_client.initialize()
-        _client = OpenVikingClient(inner_client)
-        logger.info("[OpenViking] Client initialized, url=%s", settings.OPENVIKING_URL)
-        return _client
+        _root_client = OpenVikingClient(inner_client)
+        logger.info("[OpenViking] Root client initialized, url=%s", settings.OPENVIKING_URL)
+        return _root_client
     except ImportError:
         logger.error("[OpenViking] openviking package not installed. Run: pip install openviking")
         return None
     except Exception as e:
-        logger.error("[OpenViking] Failed to initialize client: %s", e)
-        _client = None
+        logger.error("[OpenViking] Failed to initialize root client: %s", e)
+        _root_client = None
+        return None
+
+
+async def get_user_client(user_id: str, api_key: str) -> Optional[OpenVikingClient]:
+    """
+    获取用户的 OpenViking 客户端。
+
+    每个用户使用自己的 API key，只能访问自己的数据。
+
+    Args:
+        user_id: 用户 ID（用于缓存）
+        api_key: 用户的 OpenViking API key
+
+    Returns:
+        OpenVikingClient 实例
+    """
+    if not settings.ENABLE_OPENVIKING:
+        return None
+
+    # 检查缓存
+    if user_id in _user_clients:
+        return _user_clients[user_id]
+
+    try:
+        from openviking import AsyncHTTPClient
+
+        inner_client = AsyncHTTPClient(
+            url=settings.OPENVIKING_URL,
+            api_key=api_key,
+            agent_id=settings.OPENVIKING_AGENT_ID or None,
+        )
+        await inner_client.initialize()
+        client = OpenVikingClient(inner_client)
+        _user_clients[user_id] = client
+        logger.debug("[OpenViking] User client initialized for: %s", user_id)
+        return client
+    except Exception as e:
+        logger.error("[OpenViking] Failed to initialize user client for %s: %s", user_id, e)
         return None
 
 
 async def close_openviking_client() -> None:
-    """关闭 OpenViking 客户端连接。"""
-    global _client
+    """关闭所有 OpenViking 客户端连接。"""
+    global _root_client, _user_clients
 
-    if _client is not None:
+    def _is_expected_shutdown_error(e: Exception) -> bool:
+        """检查是否为预期的关闭时错误（可安全忽略）。"""
+        msg = str(e).lower()
+        return "event loop is closed" in msg or "event loop stopped" in msg
+
+    # 关闭 root client
+    if _root_client is not None:
         try:
-            await _client.close()
-            logger.info("[OpenViking] Client closed")
+            await _root_client.close()
+            logger.info("[OpenViking] Root client closed")
         except Exception as e:
-            logger.warning("[OpenViking] Error closing client: %s", e)
+            if _is_expected_shutdown_error(e):
+                logger.debug("[OpenViking] Root client cleanup skipped (event loop closed)")
+            else:
+                logger.warning("[OpenViking] Error closing root client: %s", e)
         finally:
-            _client = None
+            _root_client = None
+
+    # 关闭所有 user clients
+    for user_id, client in list(_user_clients.items()):
+        try:
+            await client.close()
+        except Exception as e:
+            if _is_expected_shutdown_error(e):
+                pass  # 预期的关闭时错误，静默忽略
+            else:
+                logger.debug("[OpenViking] Error closing user client %s: %s", user_id, e)
+    _user_clients.clear()
+
+
+async def _invalidate_user_client(user_id: str) -> None:
+    """
+    清除用户的客户端缓存。
+
+    当用户 API key 失效时调用。
+
+    Args:
+        user_id: 用户 ID
+    """
+    global _user_clients
+
+    if user_id in _user_clients:
+        try:
+            await _user_clients[user_id].close()
+        except Exception as e:
+            logger.debug("[OpenViking] Error closing user client %s: %s", user_id, e)
+        finally:
+            del _user_clients[user_id]
+            logger.debug("[OpenViking] User client invalidated: %s", user_id)

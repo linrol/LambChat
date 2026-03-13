@@ -169,7 +169,12 @@ async def sync_messages(
             await client.add_message(ov_session_id, "assistant", content=assistant_message)
 
     except Exception as e:
-        logger.warning("[OpenViking] Failed to sync messages: %s", e)
+        # 忽略关闭时的预期错误（event loop 已关闭）
+        msg = str(e).lower()
+        if "event loop is closed" in msg or "event loop stopped" in msg:
+            logger.debug("[OpenViking] Sync skipped during shutdown")
+        else:
+            logger.warning("[OpenViking] Failed to sync messages: %s", e)
 
 
 async def commit_ov_session(lambchat_session_id: str) -> None:
@@ -199,4 +204,9 @@ async def commit_ov_session(lambchat_session_id: str) -> None:
         )
 
     except Exception as e:
-        logger.warning("[OpenViking] Failed to commit session: %s", e)
+        # 忽略关闭时的错误（event loop 已关闭）
+        msg = str(e).lower()
+        if "event loop is closed" in msg or "event loop stopped" in msg:
+            logger.debug("[OpenViking] Session commit skipped during shutdown")
+        else:
+            logger.warning("[OpenViking] Failed to commit session: %s", e)

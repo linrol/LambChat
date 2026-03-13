@@ -237,25 +237,6 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     backend_init_time = time.time() - backend_start
     logger.debug(f"[Agent] Backend init: {backend_init_time * 1000:.3f}ms")
 
-    # 动态记忆上下文检索（注入用户消息，不碰 system prompt，保护 KV cache）
-    memory_context = ""
-    if settings.ENABLE_OPENVIKING:
-        try:
-            from src.infra.openviking.retrieval import retrieve_context
-
-            ov_session_id = getattr(context, "ov_session_id", None)
-            memory_context = await retrieve_context(
-                query=state.get("input", ""),
-                user_id=tenant_id,
-                ov_session_id=ov_session_id,
-            )
-            if memory_context:
-                logger.info(
-                    "[SearchAgent] OpenViking context retrieved (%d chars)", len(memory_context)
-                )
-        except Exception as e:
-            logger.warning("[SearchAgent] OpenViking retrieval failed: %s", e)
-
     # 过滤工具（懒加载 MCP 工具）
     filtered_tools = None
     if settings.ENABLE_MCP:
@@ -302,10 +283,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     existing_messages = inner_state.values.get("messages", [])
 
     # 构建传入的消息列表（包含附件）
-    # 动态记忆上下文注入到用户消息前缀，不污染 system prompt，保护 KV cache
     user_input = state.get("input", "")
-    if memory_context:
-        user_input = f"{memory_context}\n\n{user_input}"
     new_message = _build_human_message(user_input, attachments)
     all_messages = existing_messages + [new_message]
 

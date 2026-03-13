@@ -9,6 +9,8 @@ OpenViking 记忆工具
 """
 
 import logging
+import tempfile
+from pathlib import Path
 from typing import Any, Optional
 
 from langchain.tools import ToolRuntime, tool
@@ -20,12 +22,40 @@ logger = logging.getLogger(__name__)
 
 
 async def _get_client():
-    """获取 OpenViking 客户端。"""
+    """获取 OpenViking root 客户端（仅用于管理操作）。"""
     from src.infra.openviking.client import get_openviking_client
 
     client = await get_openviking_client()
     if client is None:
         raise RuntimeError("OpenViking client not available")
+    return client
+
+
+async def _get_user_client(user_id: str):
+    """
+    获取用户的 OpenViking 客户端。
+
+    自动确保用户账户存在，返回用户专属客户端。
+
+    Args:
+        user_id: 用户 ID
+
+    Returns:
+        OpenVikingClient 实例
+
+    Raises:
+        RuntimeError: 如果无法获取用户客户端
+    """
+    from src.infra.openviking.client import get_user_client
+    from src.infra.openviking.user_manager import ensure_user_account
+
+    success, api_key = await ensure_user_account(user_id)
+    if not success or not api_key:
+        raise RuntimeError(f"Failed to get OpenViking credentials for user: {user_id}")
+
+    client = await get_user_client(user_id, api_key)
+    if client is None:
+        raise RuntimeError(f"Failed to create OpenViking client for user: {user_id}")
     return client
 
 
@@ -98,20 +128,24 @@ async def search_memory(
     Args:
         query: 搜索查询，描述你想找的信息
         limit: 最大返回条数（默认 5）
-        scope: 搜索范围 - "all"(全部)、"memories"(记忆)、"resources"(资源)、"skills"(技能)
+        scope: 搜索范围 - "all"(全部)、"memories"(可写的用户记忆)、"auto_memories"(只读的自动提取记忆)、"skills"(技能)
     """
     if not settings.ENABLE_OPENVIKING:
         return "记忆系统未启用。"
 
     try:
-        client = await _get_client()
         user_id = _get_user_id(runtime)
+        client = await _get_user_client(user_id)
 
         # 根据 scope 确定 target_uri
+        # memories: 可写路径（与 /memories/ backend 路由一致）
+        # auto_memories: 只读路径（OpenViking 自动提取的记忆）
+        from src.infra.openviking.user_manager import get_user_memory_uri, get_user_resource_uri
+
         scope_map = {
-            "all": "",
-            "memories": f"viking://user/{user_id}/memories",
-            "resources": f"viking://resources/users/{user_id}",
+            "all": "",  # 搜索全部
+            "memories": get_user_resource_uri(user_id),  # 可写的用户记忆
+            "auto_memories": get_user_memory_uri(user_id),  # 只读的自动提取记忆
             "skills": "viking://agent/skills",
         }
         target_uri = scope_map.get(scope, "")
@@ -146,26 +180,78 @@ async def save_memory(
     if not settings.ENABLE_OPENVIKING:
         return "记忆系统未启用。"
 
-    try:
-        client = await _get_client()
-        user_id = _get_user_id(runtime)
+    user_id = _get_user_id(runtime)
+    from src.infra.openviking.user_manager import get_user_resource_uri
 
-        # OpenViking 的 memory 系统通过 session commit 机制工作
-        # 我们需要创建一个临时 session 来保存 memory
-        # 注意：add_resource 只支持 resources scope，不支持 user/agent scope
-        # 因此我们将 memory 保存到 resources scope 下的用户目录
-        uri = f"viking://resources/users/{user_id}/memories/{category}"
-        await client.add_resource(content, to=uri, wait=True)
-        return f"已保存到 {category} 分类。"
+    # 目标 URI：viking://resources/users/{user_id}/memories/{category}/
+    target_uri = f"{get_user_resource_uri(user_id).rstrip('/')}/{category}"
+
+    try:
+        client = await _get_user_client(user_id)
+
+        # 使用临时文件保存文本内容，确保正确索引
+        # add_resource 设计用于文件路径，直接传文本字符串可能导致索引问题
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", delete=False, encoding="utf-8"
+        ) as tmp_file:
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+
+        try:
+            # 使用临时文件路径添加资源，wait=True 确保索引完成
+            result = await client.add_resource(
+                path=tmp_path,
+                to=target_uri,
+                reason=f"User memory saved via save_memory tool, category: {category}",
+                wait=True,
+            )
+            logger.debug("[OpenViking] save_memory result: %s", result)
+            return f"已保存到 {category} 分类。"
+        finally:
+            # 清理临时文件
+            Path(tmp_path).unlink(missing_ok=True)
 
     except Exception as e:
+        error_msg = str(e)
         logger.warning("[OpenViking] save_memory failed: %s", e)
+
+        # 如果是 API Key 无效，尝试清除缓存并重试一次
+        if "Invalid API Key" in error_msg or "api key" in error_msg.lower():
+            logger.info("[OpenViking] Invalid API Key detected, clearing cache and retrying...")
+            from src.infra.openviking.user_manager import invalidate_user_cache
+
+            await invalidate_user_cache(user_id)
+            try:
+                client = await _get_user_client(user_id)
+
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".md", delete=False, encoding="utf-8"
+                ) as tmp_file:
+                    tmp_file.write(content)
+                    tmp_path = tmp_file.name
+
+                try:
+                    result = await client.add_resource(
+                        path=tmp_path,
+                        to=target_uri,
+                        reason=f"User memory saved via save_memory tool, category: {category}",
+                        wait=True,
+                    )
+                    logger.debug("[OpenViking] save_memory retry result: %s", result)
+                    return f"已保存到 {category} 分类。"
+                finally:
+                    Path(tmp_path).unlink(missing_ok=True)
+            except Exception as retry_error:
+                logger.warning("[OpenViking] save_memory retry failed: %s", retry_error)
+                return f"保存记忆失败: {retry_error}"
+
         return f"保存记忆失败: {e}"
 
 
 @tool
 async def browse_memory(
     path: str = "/",
+    scope: str = "memories",
     runtime: ToolRuntime = None,  # type: ignore[assignment]
 ) -> str:
     """浏览用户的记忆树结构，查看有哪些记忆和知识资源。
@@ -174,18 +260,30 @@ async def browse_memory(
     先用此工具了解记忆结构，再用 read_knowledge 读取具体内容。
 
     Args:
-        path: 要浏览的路径（默认根目录 "/"）
+        path: 要浏览的路径（默认根目录 "/"，相对于 scope 基础路径）
+        scope: 浏览范围 - "memories"(可写的用户记忆) 或 "auto_memories"(只读的自动提取记忆)
     """
     if not settings.ENABLE_OPENVIKING:
         return "记忆系统未启用。"
 
     try:
-        client = await _get_client()
         user_id = _get_user_id(runtime)
+        client = await _get_user_client(user_id)
 
-        # 构建 viking URI - 使用 resources scope
+        # 根据 scope 选择基础路径
+        # memories: 可写路径（与 /memories/ backend 路由一致）
+        # auto_memories: 只读路径（OpenViking 自动提取的记忆）
+        from src.infra.openviking.user_manager import get_user_memory_uri, get_user_resource_uri
+
+        if scope == "auto_memories":
+            base = get_user_memory_uri(user_id).rstrip("/")  # viking://user/{user_id}/memories
+        else:
+            # 默认使用可写路径（与 backend /memories/ 路由一致）
+            base = get_user_resource_uri(user_id).rstrip(
+                "/"
+            )  # viking://resources/users/{user_id}/memories
+
         clean_path = path.strip("/")
-        base = f"viking://resources/users/{user_id}/memories"
         uri = f"{base}/{clean_path}" if clean_path else base
 
         items = await client.ls(uri, simple=True)
@@ -230,7 +328,8 @@ async def read_knowledge(
         return "记忆系统未启用。"
 
     try:
-        client = await _get_client()
+        user_id = _get_user_id(runtime)
+        client = await _get_user_client(user_id)
         content = await client.read(uri)
         if not content:
             return f"未找到内容: {uri}"
