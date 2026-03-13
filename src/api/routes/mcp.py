@@ -236,6 +236,7 @@ async def update_server(
     # 失效全局缓存
     try:
         from src.infra.tool.mcp_global import invalidate_global_cache
+
         await invalidate_global_cache(user.sub)
         logger.info(f"[MCP API] Invalidated cache for user {user.sub} after server update")
     except Exception as e:
@@ -269,15 +270,16 @@ async def delete_server(
         raise HTTPException(
             status_code=404, detail=f"Server '{name}' not found or not owned by user"
         )
-    
+
     # 失效全局缓存
     try:
         from src.infra.tool.mcp_global import invalidate_global_cache
+
         await invalidate_global_cache(user.sub)
         logger.info(f"[MCP API] Invalidated cache for user {user.sub} after server deletion")
     except Exception as e:
         logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
-    
+
     return {"message": f"Server '{name}' deleted successfully"}
 
 
@@ -296,6 +298,7 @@ async def toggle_server(
     # 失效全局缓存
     try:
         from src.infra.tool.mcp_global import invalidate_global_cache
+
         await invalidate_global_cache(user.sub)
         logger.info(f"[MCP API] Invalidated cache for user {user.sub} after server toggle")
     except Exception as e:
@@ -409,7 +412,7 @@ async def admin_update_server(
     # 失效所有用户的全局缓存（系统服务器影响所有用户）
     try:
         from src.infra.tool.mcp_global import invalidate_all_global_cache
-        
+
         count = await invalidate_all_global_cache()
         logger.info(f"[MCP API] Invalidated {count} cache entries after system server update")
     except Exception as e:
@@ -441,15 +444,16 @@ async def admin_delete_server(
     deleted = await storage.delete_system_server(name)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"System server '{name}' not found")
-    
+
     # 失效所有用户的全局缓存（系统服务器影响所有用户）
     try:
         from src.infra.tool.mcp_global import invalidate_all_global_cache
+
         count = await invalidate_all_global_cache()
         logger.info(f"[MCP API] Invalidated {count} cache entries after system server deletion")
     except Exception as e:
         logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
-    
+
     return {"message": f"System server '{name}' deleted successfully"}
 
 
@@ -468,6 +472,7 @@ async def admin_toggle_server(
     # 失效所有用户的全局缓存（系统服务器影响所有用户）
     try:
         from src.infra.tool.mcp_global import invalidate_all_global_cache
+
         count = await invalidate_all_global_cache()
         logger.info(f"[MCP API] Invalidated {count} cache entries after system server toggle")
     except Exception as e:
@@ -514,6 +519,7 @@ async def promote_server(
     # 失效所有用户缓存（系统服务器影响所有用户）
     try:
         from src.infra.tool.mcp_global import invalidate_all_global_cache
+
         count = await invalidate_all_global_cache()
         logger.info(f"[MCP API] Invalidated {count} cache entries after server promotion")
     except Exception as e:
@@ -569,6 +575,7 @@ async def demote_server(
     # 失效所有用户缓存（系统服务器变更影响所有用户）
     try:
         from src.infra.tool.mcp_global import invalidate_all_global_cache
+
         count = await invalidate_all_global_cache()
         logger.info(f"[MCP API] Invalidated {count} cache entries after server demotion")
     except Exception as e:

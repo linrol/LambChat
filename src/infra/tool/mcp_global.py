@@ -9,7 +9,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 from langchain_core.tools import BaseTool
 
@@ -50,6 +50,7 @@ end
 @dataclass
 class GlobalMCPEntry:
     """全局 MCP 缓存条目"""
+
     manager: MCPClientManager
     tools: list[BaseTool]
     created_at: float = field(default_factory=time.time)
@@ -69,7 +70,9 @@ def _get_local_lock(user_id: str) -> asyncio.Lock:
     return _local_locks.setdefault(user_id, asyncio.Lock())
 
 
-async def acquire_distributed_lock(lock_key: str, ttl: int = DISTRIBUTED_LOCK_TTL) -> tuple[bool, str]:
+async def acquire_distributed_lock(
+    lock_key: str, ttl: int = DISTRIBUTED_LOCK_TTL
+) -> tuple[bool, str]:
     """
     获取 Redis 分布式锁
 
@@ -111,7 +114,9 @@ async def release_distributed_lock(lock_key: str, lock_value: str) -> bool:
         redis_client = get_redis_client()
         # Redis eval 参数: (script, numkeys, *keys_and_args)
         # numkeys=1 表示有1个key
-        result = await redis_client.eval(RELEASE_LOCK_SCRIPT, 1, lock_key, lock_value)
+        raw_result = redis_client.eval(RELEASE_LOCK_SCRIPT, 1, lock_key, lock_value)
+        # eval 可能返回 Awaitable，需要 await
+        result = int(await raw_result) if hasattr(raw_result, "__await__") else int(raw_result)  # type: ignore[misc]
         if result == 1:
             logger.debug(f"[Global MCP] Released lock: {lock_key}")
             return True
@@ -148,12 +153,7 @@ async def mark_init_done(user_id: str) -> None:
 
 def _cleanup_expired_entries() -> int:
     """清理过期的缓存条目，返回清理的数量"""
-    now = time.time()
-    expired_users = [
-        user_id 
-        for user_id, entry in _global_entries.items() 
-        if entry.is_expired()
-    ]
+    expired_users = [user_id for user_id, entry in _global_entries.items() if entry.is_expired()]
     for user_id in expired_users:
         entry = _global_entries.pop(user_id, None)
         if entry:
@@ -163,10 +163,10 @@ def _cleanup_expired_entries() -> int:
             except Exception:
                 pass
         _local_locks.pop(user_id, None)
-    
+
     if expired_users:
         logger.info(f"[Global MCP] Cleaned up {len(expired_users)} expired entries")
-    
+
     return len(expired_users)
 
 
@@ -177,7 +177,7 @@ def _cleanup_excess_entries() -> int:
 
     # 按最后访问时间排序，删除最旧的
     sorted_entries = sorted(_global_entries.items(), key=lambda x: x[1].last_access)
-    
+
     # 删除超出部分
     to_remove = len(_global_entries) - MAX_GLOBAL_ENTRIES
     for user_id, entry in sorted_entries[:to_remove]:
@@ -237,19 +237,21 @@ async def get_global_mcp_tools(user_id: str) -> tuple[list[BaseTool], Optional[M
         if not lock_acquired:
             # 其他实例正在初始化，等待其完成标记
             logger.info(f"[Global MCP] Waiting for other instance: {user_id}")
-            
+
             # 等待完成标记（最多 30 秒）
             for attempt in range(30):
                 await asyncio.sleep(1)
-                
+
                 # 检查本实例是否已有缓存（可能通过其他协程获取）
                 if user_id in _global_entries:
                     entry = _global_entries[user_id]
                     if entry.manager._initialized:
                         entry.touch()
-                        logger.info(f"[Global MCP] Got cache after waiting {attempt + 1}s: {user_id}")
+                        logger.info(
+                            f"[Global MCP] Got cache after waiting {attempt + 1}s: {user_id}"
+                        )
                         return entry.tools, entry.manager
-                
+
                 # 检查其他实例是否已完成
                 if await check_init_done(user_id):
                     # 等待一小段时间让本地缓存更新（如果有的话）
@@ -343,17 +345,17 @@ async def invalidate_all_global_cache() -> int:
         被失效的缓存数量
     """
     count = len(_global_entries)
-    
+
     # 关闭所有 manager
     for user_id, entry in list(_global_entries.items()):
         try:
             await entry.manager.close()
         except Exception:
             pass
-    
+
     _global_entries.clear()
     _local_locks.clear()
-    
+
     logger.info(f"[Global MCP] Invalidated all cache, {count} entries")
     return count
 
@@ -382,7 +384,7 @@ async def warmup_global_cache(user_ids: list[str]) -> None:
             await _warmup_user(user_id)
 
     await asyncio.gather(*[_warmup_with_limit(uid) for uid in user_ids])
-    logger.info(f"[Global MCP] Warmup complete")
+    logger.info("[Global MCP] Warmup complete")
 
 
 def get_cache_stats() -> dict:

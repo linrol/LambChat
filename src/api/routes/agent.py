@@ -361,7 +361,9 @@ async def list_tools(
                     )
                 )
 
-            logger.info(f"[Tools API] Got {len(mcp_tools)} MCP tools from global cache for user {user.sub}")
+            logger.info(
+                f"[Tools API] Got {len(mcp_tools)} MCP tools from global cache for user {user.sub}"
+            )
 
         except Exception as e:
             logger.warning(f"[Tools API] Failed to get MCP tools: {e}")

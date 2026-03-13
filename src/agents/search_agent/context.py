@@ -104,17 +104,25 @@ class SearchAgentContext:
         self.tools.append(reveal_project_tool)
         logger.info("[SearchAgentContext] Added reveal_project tool")
 
-        # MCP 工具 - 使用全局单例（分布式优化）
+        # MCP 工具 - 使用全局单例（分布式优化)
         if settings.ENABLE_MCP:
             try:
                 from src.infra.tool.mcp_global import get_global_mcp_tools
-                
-                logger.info(f"[SearchAgentContext] Getting MCP tools from global cache for user {self.user_id}")
-                mcp_tools, self.mcp_manager = await get_global_mcp_tools(self.user_id)
-                logger.info(
-                    f"[SearchAgentContext] Got {len(mcp_tools)} MCP tools from global cache"
-                )
-                self.tools.extend(mcp_tools)
+
+                # 确保用户 ID 不为 None
+                if not self.user_id:
+                    logger.warning(
+                        "[SearchAgentContext] MCP tools require user_id, skipping MCP initialization"
+                    )
+                else:
+                    logger.info(
+                        f"[SearchAgentContext] Getting MCP tools from global cache for user {self.user_id}"
+                    )
+                    mcp_tools, self.mcp_manager = await get_global_mcp_tools(self.user_id)
+                    logger.info(
+                        f"[SearchAgentContext] Got {len(mcp_tools)} MCP tools from global cache"
+                    )
+                    self.tools.extend(mcp_tools)
             except Exception as e:
                 logger.error(f"[SearchAgentContext] Failed to get MCP tools: {e}", exc_info=True)
         else:
@@ -137,7 +145,7 @@ class SearchAgentContext:
 
     async def close(self) -> None:
         """清理
-        
+
         注意：MCP 管理器是全局单例，不在这里关闭。
         如果需要清理全局缓存，使用 invalidate_global_cache()。
         """
