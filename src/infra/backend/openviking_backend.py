@@ -295,31 +295,21 @@ class OpenVikingBackend(BackendProtocol):
                 client = await self._get_client()
                 uri = self._to_viking_uri(path)
                 content = await client.read(uri)
-                content_bytes = (
-                    content.encode("utf-8") if isinstance(content, str) else content
-                )
-                results.append(
-                    FileDownloadResponse(path=path, content=content_bytes, error=None)
-                )
+                content_bytes = content.encode("utf-8") if isinstance(content, str) else content
+                results.append(FileDownloadResponse(path=path, content=content_bytes, error=None))
             except Exception:
                 results.append(
-                    FileDownloadResponse(
-                        path=path, content=None, error="file_not_found"
-                    )
+                    FileDownloadResponse(path=path, content=None, error="file_not_found")
                 )
         return results
 
     def upload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
         return _run_async(self.aupload_files(files))
 
-    async def aupload_files(
-        self, files: list[tuple[str, bytes]]
-    ) -> list[FileUploadResponse]:
+    async def aupload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
         results = []
         for path, content in files:
-            content_str = (
-                content.decode("utf-8") if isinstance(content, bytes) else content
-            )
+            content_str = content.decode("utf-8") if isinstance(content, bytes) else content
             result = await self.awrite(path, content_str)
             if result.error:
                 results.append(FileUploadResponse(path=path, error="permission_denied"))
@@ -337,6 +327,4 @@ def create_openviking_backend(
     runtime: Any = None,
 ) -> OpenVikingBackend:
     """创建 OpenViking Backend 实例。"""
-    return OpenVikingBackend(
-        user_id=user_id, route_prefix=route_prefix, runtime=runtime
-    )
+    return OpenVikingBackend(user_id=user_id, route_prefix=route_prefix, runtime=runtime)

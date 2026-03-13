@@ -37,14 +37,10 @@ async def get_openviking_client():
             agent_id=settings.OPENVIKING_AGENT_ID or None,
         )
         await _client.initialize()
-        logger.info(
-            "[OpenViking] Client initialized, url=%s", settings.OPENVIKING_URL
-        )
+        logger.info("[OpenViking] Client initialized, url=%s", settings.OPENVIKING_URL)
         return _client
     except ImportError:
-        logger.error(
-            "[OpenViking] openviking package not installed. Run: pip install openviking"
-        )
+        logger.error("[OpenViking] openviking package not installed. Run: pip install openviking")
         return None
     except Exception as e:
         logger.error("[OpenViking] Failed to initialize client: %s", e)

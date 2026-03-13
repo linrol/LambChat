@@ -188,9 +188,7 @@ class FastAgentContext:
                     user_id=self.user_id,
                 )
                 if self.ov_session_id:
-                    logger.info(
-                        "[FastAgentContext] OpenViking session: %s", self.ov_session_id
-                    )
+                    logger.info("[FastAgentContext] OpenViking session: %s", self.ov_session_id)
             except Exception as e:
                 logger.warning("[FastAgentContext] OpenViking session init failed: %s", e)
 

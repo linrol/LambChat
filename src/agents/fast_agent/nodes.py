@@ -225,7 +225,9 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
                 session_id=ov_session_id,
             )
             if memory_context:
-                logger.info("[FastAgent] OpenViking context retrieved (%d chars)", len(memory_context))
+                logger.info(
+                    "[FastAgent] OpenViking context retrieved (%d chars)", len(memory_context)
+                )
         except Exception as e:
             logger.warning("[FastAgent] OpenViking retrieval failed: %s", e)
 

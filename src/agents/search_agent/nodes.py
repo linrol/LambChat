@@ -250,7 +250,9 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
                 session_id=ov_session_id,
             )
             if memory_context:
-                logger.info("[SearchAgent] OpenViking context retrieved (%d chars)", len(memory_context))
+                logger.info(
+                    "[SearchAgent] OpenViking context retrieved (%d chars)", len(memory_context)
+                )
         except Exception as e:
             logger.warning("[SearchAgent] OpenViking retrieval failed: %s", e)
 
