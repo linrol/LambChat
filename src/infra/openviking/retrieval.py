@@ -11,7 +11,7 @@ Agent 可通过 read_knowledge 工具按需深入获取完整内容。
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from src.kernel.config import settings
 
@@ -87,7 +87,7 @@ def _has_content(results) -> bool:
 
 def _extract_contexts(results) -> list:
     """从 FindResult 或列表中提取所有 context 对象。"""
-    all_contexts = []
+    all_contexts: list[Any] = []
 
     # FindResult 包含 memories, resources, skills 三个列表
     if hasattr(results, "memories"):

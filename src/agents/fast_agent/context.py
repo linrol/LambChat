@@ -111,6 +111,7 @@ class FastAgentContext:
         try:
             logger.info(f"[FastAgentContext] Lazy loading MCP tools for user {self.user_id}")
             # 使用全局缓存，避免重复初始化
+            assert self.user_id is not None  # Already guarded above
             mcp_tools, self.mcp_manager = await get_global_mcp_tools(self.user_id)
             logger.info(
                 f"[FastAgentContext] Loaded {len(mcp_tools)} MCP tools: {[t.name for t in mcp_tools]}"

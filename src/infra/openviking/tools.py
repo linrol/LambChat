@@ -9,7 +9,7 @@ OpenViking 记忆工具
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from langchain.tools import ToolRuntime, tool
 from langchain_core.tools import BaseTool
@@ -44,7 +44,7 @@ def _format_find_results(results) -> list[str]:
     sections = []
 
     # FindResult 包含 memories, resources, skills 三个列表
-    all_contexts = []
+    all_contexts: list[Any] = []
     if hasattr(results, "memories"):
         all_contexts.extend(results.memories or [])
     if hasattr(results, "resources"):
