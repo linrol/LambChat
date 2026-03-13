@@ -36,7 +36,7 @@ async def _get_redis():
         from src.infra.storage.redis import get_redis_client
 
         client = get_redis_client()
-        await client.ping()
+        await client.ping()  # type: ignore[misc]
         _redis_client = client
         _redis_checked = True
         return client

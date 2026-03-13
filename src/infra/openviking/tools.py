@@ -149,7 +149,7 @@ async def browse_memory(
         for item in items:
             if isinstance(item, dict):
                 name = item.get("name", item.get("uri", ""))
-                is_dir = item.get("is_dir", name.endswith("/"))
+                is_dir = item.get("is_dir", name.endswith("/") if name else False)
                 abstract = item.get("abstract", "")
                 prefix = "[DIR] " if is_dir else "[FILE]"
                 line = f"{prefix} {name}"

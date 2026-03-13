@@ -199,7 +199,7 @@ class OpenVikingBackend(BackendProtocol):
             entries: list[FileInfo] = []
             for item in items:
                 if isinstance(item, dict):
-                    item_path = item.get("name", item.get("uri", ""))
+                    item_path = item.get("name", item.get("uri", "")) or ""
                     is_dir = item.get("is_dir", item_path.endswith("/"))
                     size = item.get("size", 0)
                 elif isinstance(item, str):
@@ -267,7 +267,7 @@ class OpenVikingBackend(BackendProtocol):
             entries: list[FileInfo] = []
             for item in results:
                 if isinstance(item, dict):
-                    item_path = item.get("uri", item.get("path", ""))
+                    item_path = item.get("uri", item.get("path", "")) or ""
                     is_dir = item.get("is_dir", False)
                 elif isinstance(item, str):
                     item_path = item

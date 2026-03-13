@@ -11,6 +11,7 @@ import logging
 from typing import Any, Callable, Optional
 
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
+from deepagents.backends.protocol import BackendProtocol
 
 from src.kernel.config import settings
 
@@ -62,7 +63,7 @@ def create_memory_backend_factory(
 
         skills_backend = create_skills_backend(user_id=user_id or "default", runtime=rt)
 
-        routes = {
+        routes: dict[str, BackendProtocol] = {
             "/skills/": skills_backend,
         }
         # OpenViking 路由（memories + resources）
@@ -107,7 +108,7 @@ def create_postgres_backend_factory(
         # Skills 使用 SkillsStoreBackend（读写 MongoDB）
         skills_backend = create_skills_backend(user_id=user_id or "default", runtime=rt)
 
-        routes = {
+        routes: dict[str, BackendProtocol] = {
             "/skills/": skills_backend,
         }
 
@@ -155,7 +156,7 @@ def create_sandbox_backend_factory(
         # Skills 使用 SkillsStoreBackend（读写 MongoDB）
         skills_backend = create_skills_backend(user_id=user_id or "default", runtime=rt)
 
-        routes = {
+        routes: dict[str, BackendProtocol] = {
             "/skills/": skills_backend,
         }
 

@@ -5,13 +5,13 @@ OpenViking 客户端管理
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from src.kernel.config import settings
 
 logger = logging.getLogger(__name__)
 
-_client: Optional[object] = None
+_client: Optional[Any] = None
 
 
 async def get_openviking_client():
