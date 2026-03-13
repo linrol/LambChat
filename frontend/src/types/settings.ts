@@ -16,7 +16,8 @@ export type SettingCategory =
   | "s3"
   | "tools"
   | "tracing"
-  | "user";
+  | "user"
+  | "openviking";
 
 // Setting dependency condition
 export interface SettingDependsOn {

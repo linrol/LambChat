@@ -40,8 +40,15 @@ class FastAgentContext:
         self.user_id = user_id
         self.disabled_tools = disabled_tools
         self.mcp_manager: Optional[MCPClientManager] = None
+        self._mcp_loaded: bool = False
         self.tools: List[Any] = []
         self.skills: List[dict] = []
+        self.ov_session_id: Optional[str] = None
+
+    async def get_tools(self) -> List[Any]:
+        """获取所有工具（懒加载 MCP 工具）"""
+        await self._lazy_load_mcp_tools()
+        return self.tools
 
     def filter_tools(self) -> List[Any]:
         """根据 disabled_tools 过滤工具"""
@@ -87,6 +94,31 @@ class FastAgentContext:
         )
         return filtered
 
+    async def _lazy_load_mcp_tools(self) -> None:
+        """懒加载 MCP 工具（仅在首次调用 get_tools 时初始化）"""
+        if self._mcp_loaded:
+            return  # 已经尝试过加载
+
+        self._mcp_loaded = True
+
+        if not settings.ENABLE_MCP:
+            logger.debug("[FastAgentContext] MCP is disabled (ENABLE_MCP=False)")
+            return
+
+        try:
+            logger.info(f"[FastAgentContext] Lazy loading MCP tools for user {self.user_id}")
+            self.mcp_manager = MCPClientManager(
+                config_path=None, user_id=self.user_id, use_database=True
+            )
+            await self.mcp_manager.initialize()
+            mcp_tools = await self.mcp_manager.get_tools()
+            logger.info(
+                f"[FastAgentContext] Loaded {len(mcp_tools)} MCP tools: {[t.name for t in mcp_tools]}"
+            )
+            self.tools.extend(mcp_tools)
+        except Exception as e:
+            logger.error(f"[FastAgentContext] Failed to load MCP tools: {e}", exc_info=True)
+
     async def setup(self) -> None:
         """初始化：工具 + 技能"""
         logger.info(
@@ -106,23 +138,8 @@ class FastAgentContext:
         self.tools.append(reveal_project_tool)
         logger.info("[FastAgentContext] Added reveal_project tool")
 
-        # MCP 工具
-        if settings.ENABLE_MCP:
-            try:
-                logger.info(f"[FastAgentContext] Initializing MCP client for user {self.user_id}")
-                self.mcp_manager = MCPClientManager(
-                    config_path=None, user_id=self.user_id, use_database=True
-                )
-                await self.mcp_manager.initialize()
-                mcp_tools = await self.mcp_manager.get_tools()
-                logger.info(
-                    f"[FastAgentContext] Loaded {len(mcp_tools)} MCP tools: {[t.name for t in mcp_tools]}"
-                )
-                self.tools.extend(mcp_tools)
-            except Exception as e:
-                logger.error(f"[FastAgentContext] Failed to load MCP tools: {e}", exc_info=True)
-        else:
-            logger.warning("[FastAgentContext] MCP is disabled (ENABLE_MCP=False)")
+        # MCP 工具延迟加载（不在 setup 时初始化）
+        logger.info("[FastAgentContext] MCP tools will be lazy loaded on first use")
 
         # 加载技能（使用与 Search Agent 相同的方式，保持一致）
         if settings.ENABLE_SKILLS and self.user_id:
@@ -145,7 +162,37 @@ class FastAgentContext:
             except Exception as e:
                 logger.warning(f"[FastAgentContext] Failed to load skills: {e}")
 
+        # OpenViking 记忆工具
+        if settings.ENABLE_OPENVIKING:
+            try:
+                from src.infra.openviking.tools import get_openviking_tools
+
+                ov_tools = get_openviking_tools()
+                if ov_tools:
+                    self.tools.extend(ov_tools)
+                    logger.info(
+                        "[FastAgentContext] Added %d OpenViking memory tools", len(ov_tools)
+                    )
+            except Exception as e:
+                logger.warning("[FastAgentContext] Failed to load OpenViking tools: %s", e)
+
         logger.info(f"[FastAgentContext] Setup complete, total {len(self.tools)} tools available")
+
+        # 初始化 OpenViking session
+        if settings.ENABLE_OPENVIKING and self.user_id:
+            try:
+                from src.infra.openviking.session import ensure_ov_session
+
+                self.ov_session_id = await ensure_ov_session(
+                    lambchat_session_id=self.session_id,
+                    user_id=self.user_id,
+                )
+                if self.ov_session_id:
+                    logger.info(
+                        "[FastAgentContext] OpenViking session: %s", self.ov_session_id
+                    )
+            except Exception as e:
+                logger.warning("[FastAgentContext] OpenViking session init failed: %s", e)
 
     async def close(self) -> None:
         """清理"""

@@ -1,0 +1,1 @@
+"""OpenViking integration module."""

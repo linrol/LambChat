@@ -190,6 +190,14 @@ async def delete_session(
 
     verify_session_ownership(session, user)
 
+    # 提交 OpenViking session（触发记忆提取）
+    try:
+        from src.infra.openviking.session import commit_ov_session
+
+        await commit_ov_session(session_id)
+    except Exception:
+        pass  # 不阻塞删除流程
+
     success = await manager.delete_session(session_id)
     if not success:
         raise HTTPException(status_code=500, detail="删除失败")

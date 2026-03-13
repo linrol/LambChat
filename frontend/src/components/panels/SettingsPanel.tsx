@@ -39,6 +39,7 @@ const CATEGORY_ORDER: SettingCategory[] = [
   "skills",
   "tools",
   "tracing",
+  "openviking",
   "user",
 ];
 
@@ -81,6 +82,7 @@ export function SettingsPanel() {
     s3: t("categories.s3"),
     tools: t("categories.tools"),
     tracing: t("categories.tracing"),
+    openviking: t("categories.openviking"),
     user: t("categories.user"),
   };
 

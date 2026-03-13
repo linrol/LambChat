@@ -126,6 +126,12 @@ class Settings(BaseSettings):
     # Skills Settings
     ENABLE_SKILLS: bool = True
 
+    # OpenViking Settings
+    ENABLE_OPENVIKING: bool = False
+    OPENVIKING_URL: str = "http://localhost:1933"
+    OPENVIKING_API_KEY: str = ""
+    OPENVIKING_AGENT_ID: str = "lambchat"
+
     # LangSmith Tracing Settings
     LANGSMITH_TRACING: bool = False
     LANGSMITH_API_KEY: Optional[str] = None

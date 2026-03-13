@@ -63,4 +63,5 @@ When uncertain about the user's intent, missing required information, or need cl
 - Don't guess or proceed with incomplete information
 - It's better to ask than to do the wrong thing
 {skills}
+{memory_guide}
 """

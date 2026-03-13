@@ -635,6 +635,37 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "frontend_visible": True,
     },
     # ============================================
+    # OpenViking Settings
+    # ============================================
+    "ENABLE_OPENVIKING": {
+        "type": SettingType.BOOLEAN,
+        "category": SettingCategory.OPENVIKING,
+        "description": "Enable OpenViking context database integration",
+        "default": False,
+    },
+    "OPENVIKING_URL": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.OPENVIKING,
+        "description": "OpenViking server URL",
+        "default": "http://localhost:1933",
+        "depends_on": "ENABLE_OPENVIKING",
+    },
+    "OPENVIKING_API_KEY": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.OPENVIKING,
+        "description": "OpenViking API key",
+        "default": "",
+        "depends_on": "ENABLE_OPENVIKING",
+        "is_sensitive": True,
+    },
+    "OPENVIKING_AGENT_ID": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.OPENVIKING,
+        "description": "OpenViking agent identifier",
+        "default": "lambchat",
+        "depends_on": "ENABLE_OPENVIKING",
+    },
+    # ============================================
     # Email Settings (Resend)
     # ============================================
     "EMAIL_ENABLED": {

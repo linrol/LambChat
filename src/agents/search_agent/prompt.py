@@ -139,6 +139,7 @@ write_file("/skills/my-skill/helper.py", python_code)
 | Run Python scripts | `execute("python {work_dir}/script.py")` |
 
 {skills}
+{memory_guide}
 """
 
 DEFAULT_SYSTEM_PROMPT = """
@@ -187,6 +188,7 @@ write_file("/skills/my-skill/helper.py", code)
 - User skills are fully editable
 
 {skills}
+{memory_guide}
 """
 
 # ============================================================================

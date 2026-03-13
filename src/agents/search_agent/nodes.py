@@ -237,10 +237,28 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     backend_init_time = time.time() - backend_start
     logger.debug(f"[Agent] Backend init: {backend_init_time * 1000:.3f}ms")
 
-    # 过滤工具
+    # 动态记忆上下文检索（注入用户消息，不碰 system prompt，保护 KV cache）
+    memory_context = ""
+    if settings.ENABLE_OPENVIKING:
+        try:
+            from src.infra.openviking.retrieval import retrieve_context
+
+            ov_session_id = getattr(context, "ov_session_id", None)
+            memory_context = await retrieve_context(
+                query=state.get("input", ""),
+                user_id=tenant_id,
+                session_id=ov_session_id,
+            )
+            if memory_context:
+                logger.info("[SearchAgent] OpenViking context retrieved (%d chars)", len(memory_context))
+        except Exception as e:
+            logger.warning("[SearchAgent] OpenViking retrieval failed: %s", e)
+
+    # 过滤工具（懒加载 MCP 工具）
     filtered_tools = None
     if settings.ENABLE_MCP:
-        filtered_tools = context.filter_tools()
+        await context.get_tools()
+        filtered_tools = context.filter_tools() or None
 
     # 创建内层 graph (deep agent)
     checkpointer_start = time.time()
@@ -258,7 +276,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
         model=llm,
         system_prompt=system_prompt,
         backend=backend_factory,
-        tools=filtered_tools if filtered_tools else None,
+        tools=filtered_tools,
         checkpointer=inner_checkpointer,
         store=store,  # 传递 PostgresStore
         skills=None,  # 禁用 SkillsMiddleware，使用 build_skills_prompt 代替
@@ -282,7 +300,11 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     existing_messages = inner_state.values.get("messages", [])
 
     # 构建传入的消息列表（包含附件）
-    new_message = _build_human_message(state.get("input", ""), attachments)
+    # 动态记忆上下文注入到用户消息前缀，不污染 system prompt，保护 KV cache
+    user_input = state.get("input", "")
+    if memory_context:
+        user_input = f"{memory_context}\n\n{user_input}"
+    new_message = _build_human_message(user_input, attachments)
     all_messages = existing_messages + [new_message]
 
     # 传递 messages
@@ -304,6 +326,21 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
 
     # 发送 token 使用统计事件
     await _emit_token_usage(event_processor, presenter, start_time)
+
+    # 同步消息到 OpenViking session
+    if settings.ENABLE_OPENVIKING:
+        try:
+            from src.infra.openviking.session import sync_messages
+
+            ov_session_id = getattr(context, "ov_session_id", None)
+            if ov_session_id:
+                await sync_messages(
+                    ov_session_id=ov_session_id,
+                    user_message=state.get("input", ""),
+                    assistant_message=event_processor.output_text or "",
+                )
+        except Exception as e:
+            logger.warning("[SearchAgent] OpenViking message sync failed: %s", e)
 
     # 获取内层 graph 的最终状态
     inner_state = await inner_graph.aget_state(inner_config)
@@ -348,6 +385,13 @@ async def _create_backend_and_prompt(
         except Exception as e:
             logger.warning(f"Failed to build skills prompt: {e}")
 
+    # 静态记忆指引（KV cache 友好，每轮不变）
+    memory_guide = ""
+    if settings.ENABLE_OPENVIKING:
+        from src.infra.openviking.prompt import MEMORY_SYSTEM_PROMPT
+
+        memory_guide = MEMORY_SYSTEM_PROMPT
+
     # 根据设置决定是否使用长期存储
     if settings.ENABLE_LONG_TERM_STORAGE:
         # 使用 PostgreSQL 长期存储，每个 agent 创建独立的 store 实例
@@ -371,7 +415,9 @@ async def _create_backend_and_prompt(
             backend_factory = create_memory_backend_factory(assistant_id, user_id=user_id)
         return (
             backend_factory,
-            DEFAULT_SYSTEM_PROMPT.replace("{skills}", skills_prompt),
+            DEFAULT_SYSTEM_PROMPT.replace("{skills}", skills_prompt).replace(
+                "{memory_guide}", memory_guide
+            ),
             store,
         )
 
@@ -404,9 +450,11 @@ async def _create_backend_and_prompt(
 
         logger.info(f"Sandbox enabled, using sandbox backend for assistant: {assistant_id}")
 
-        # 格式化沙箱提示词，注入 work_dir 和 skills
-        system_prompt = SANDBOX_SYSTEM_PROMPT.replace("{work_dir}", work_dir).replace(
-            "{skills}", skills_prompt
+        # 格式化沙箱提示词，注入 work_dir、skills 和 memory_guide
+        system_prompt = (
+            SANDBOX_SYSTEM_PROMPT.replace("{work_dir}", work_dir)
+            .replace("{skills}", skills_prompt)
+            .replace("{memory_guide}", memory_guide)
         )
         # sandbox_backend 是 CompositeBackend(default=DaytonaBackend)，需要提取出 DaytonaBackend
         return (

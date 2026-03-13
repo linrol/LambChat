@@ -37,9 +37,41 @@ class SearchAgentContext:
         self.user_id = user_id
         self.disabled_tools = disabled_tools
         self.mcp_manager: Optional[MCPClientManager] = None
+        self._mcp_loaded: bool = False
         self.tools: List[Any] = []
         self.skills: List[dict] = []
         self.skill_files: Dict[str, Any] = {}
+        self.ov_session_id: Optional[str] = None
+
+    async def _lazy_load_mcp_tools(self) -> None:
+        """懒加载 MCP 工具（仅在首次调用 get_tools 时初始化）"""
+        if self._mcp_loaded:
+            return  # 已经尝试过加载
+
+        self._mcp_loaded = True
+
+        if not settings.ENABLE_MCP:
+            logger.debug("[SearchAgentContext] MCP is disabled (ENABLE_MCP=False)")
+            return
+
+        try:
+            logger.info(f"[SearchAgentContext] Lazy loading MCP tools for user {self.user_id}")
+            self.mcp_manager = MCPClientManager(
+                config_path=None, user_id=self.user_id, use_database=True
+            )
+            await self.mcp_manager.initialize()
+            mcp_tools = await self.mcp_manager.get_tools()
+            logger.info(
+                f"[SearchAgentContext] Loaded {len(mcp_tools)} MCP tools: {[t.name for t in mcp_tools]}"
+            )
+            self.tools.extend(mcp_tools)
+        except Exception as e:
+            logger.error(f"[SearchAgentContext] Failed to load MCP tools: {e}", exc_info=True)
+
+    async def get_tools(self) -> List[Any]:
+        """获取所有工具（懒加载 MCP 工具）"""
+        await self._lazy_load_mcp_tools()
+        return self.tools
 
     def filter_tools(self) -> List[Any]:
         """根据 disabled_tools 过滤工具"""
@@ -104,29 +136,8 @@ class SearchAgentContext:
         self.tools.append(reveal_project_tool)
         logger.info("[SearchAgentContext] Added reveal_project tool")
 
-        # MCP 工具 - 使用全局单例（分布式优化)
-        if settings.ENABLE_MCP:
-            try:
-                from src.infra.tool.mcp_global import get_global_mcp_tools
-
-                # 确保用户 ID 不为 None
-                if not self.user_id:
-                    logger.warning(
-                        "[SearchAgentContext] MCP tools require user_id, skipping MCP initialization"
-                    )
-                else:
-                    logger.info(
-                        f"[SearchAgentContext] Getting MCP tools from global cache for user {self.user_id}"
-                    )
-                    mcp_tools, self.mcp_manager = await get_global_mcp_tools(self.user_id)
-                    logger.info(
-                        f"[SearchAgentContext] Got {len(mcp_tools)} MCP tools from global cache"
-                    )
-                    self.tools.extend(mcp_tools)
-            except Exception as e:
-                logger.error(f"[SearchAgentContext] Failed to get MCP tools: {e}", exc_info=True)
-        else:
-            logger.warning("[SearchAgentContext] MCP is disabled (ENABLE_MCP=False)")
+        # MCP 工具延迟加载（不在 setup 时初始化）
+        logger.info("[SearchAgentContext] MCP tools will be lazy loaded on first use")
 
         # 加载技能
         if settings.ENABLE_SKILLS:
@@ -142,6 +153,36 @@ class SearchAgentContext:
                 logger.warning(f"[SearchAgentContext] Failed to load skills: {e}")
 
         logger.info(f"[SearchAgentContext] Setup complete, total {len(self.tools)} tools available")
+
+        # OpenViking 记忆工具
+        if settings.ENABLE_OPENVIKING:
+            try:
+                from src.infra.openviking.tools import get_openviking_tools
+
+                ov_tools = get_openviking_tools()
+                if ov_tools:
+                    self.tools.extend(ov_tools)
+                    logger.info(
+                        "[SearchAgentContext] Added %d OpenViking memory tools", len(ov_tools)
+                    )
+            except Exception as e:
+                logger.warning("[SearchAgentContext] Failed to load OpenViking tools: %s", e)
+
+        # 初始化 OpenViking session
+        if settings.ENABLE_OPENVIKING and self.user_id:
+            try:
+                from src.infra.openviking.session import ensure_ov_session
+
+                self.ov_session_id = await ensure_ov_session(
+                    lambchat_session_id=self.session_id,
+                    user_id=self.user_id,
+                )
+                if self.ov_session_id:
+                    logger.info(
+                        "[SearchAgentContext] OpenViking session: %s", self.ov_session_id
+                    )
+            except Exception as e:
+                logger.warning("[SearchAgentContext] OpenViking session init failed: %s", e)
 
     async def close(self) -> None:
         """清理

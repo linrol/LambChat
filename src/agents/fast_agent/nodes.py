@@ -201,7 +201,33 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
             logger.warning(f"Failed to build skills prompt: {e}")
 
     # 构建系统提示
-    system_prompt = FAST_SYSTEM_PROMPT.replace("{skills}", skills_prompt)
+    # 静态部分：skills + memory_guide 通过模板占位符注入，每轮不变，KV cache 友好
+    memory_guide = ""
+    if settings.ENABLE_OPENVIKING:
+        from src.infra.openviking.prompt import MEMORY_SYSTEM_PROMPT
+
+        memory_guide = MEMORY_SYSTEM_PROMPT
+
+    system_prompt = FAST_SYSTEM_PROMPT.replace("{skills}", skills_prompt).replace(
+        "{memory_guide}", memory_guide
+    )
+
+    # 动态部分：记忆上下文检索，注入到用户消息而非 system prompt，避免破坏 KV cache
+    memory_context = ""
+    if settings.ENABLE_OPENVIKING:
+        try:
+            from src.infra.openviking.retrieval import retrieve_context
+
+            ov_session_id = getattr(context, "ov_session_id", None)
+            memory_context = await retrieve_context(
+                query=state.get("input", ""),
+                user_id=tenant_id,
+                session_id=ov_session_id,
+            )
+            if memory_context:
+                logger.info("[FastAgent] OpenViking context retrieved (%d chars)", len(memory_context))
+        except Exception as e:
+            logger.warning("[FastAgent] OpenViking retrieval failed: %s", e)
 
     # 使用内存 backend（无沙箱）
     backend_start = time.time()
@@ -212,10 +238,11 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     logger.debug(f"[FastAgent] Backend init: {backend_init_time * 1000:.3f}ms")
     logger.info(f"[FastAgent] Using in-memory backend for assistant: {assistant_id}")
 
-    # 过滤工具
+    # 过滤工具（懒加载 MCP 工具）
     filtered_tools = None
     if settings.ENABLE_MCP:
-        filtered_tools = context.filter_tools()
+        await context.get_tools()
+        filtered_tools = context.filter_tools() or None
 
     # 创建内层 graph (deep agent)
     checkpointer_start = time.time()
@@ -228,7 +255,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
         model=llm,
         system_prompt=system_prompt,
         backend=backend_factory,
-        tools=filtered_tools if filtered_tools else None,
+        tools=filtered_tools,
         checkpointer=inner_checkpointer,
         store=None,  # Fast Agent 不使用长期存储
         skills=None,
@@ -252,7 +279,11 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     existing_messages = inner_state.values.get("messages", [])
 
     # 构建传入的消息列表（包含附件）
-    new_message = _build_human_message(state.get("input", ""), attachments)
+    # 动态记忆上下文注入到用户消息前缀，不污染 system prompt，保护 KV cache
+    user_input = state.get("input", "")
+    if memory_context:
+        user_input = f"{memory_context}\n\n{user_input}"
+    new_message = _build_human_message(user_input, attachments)
     all_messages = existing_messages + [new_message]
 
     # 传递 messages
@@ -275,6 +306,21 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
 
     # 发送 token 使用统计事件
     await _emit_token_usage(event_processor, presenter, start_time)
+
+    # 同步消息到 OpenViking session
+    if settings.ENABLE_OPENVIKING:
+        try:
+            from src.infra.openviking.session import sync_messages
+
+            ov_session_id = getattr(context, "ov_session_id", None)
+            if ov_session_id:
+                await sync_messages(
+                    ov_session_id=ov_session_id,
+                    user_message=state.get("input", ""),
+                    assistant_message=event_processor.output_text or "",
+                )
+        except Exception as e:
+            logger.warning("[FastAgent] OpenViking message sync failed: %s", e)
 
     # 获取内层 graph 的最终状态
     inner_state = await inner_graph.aget_state(inner_config)

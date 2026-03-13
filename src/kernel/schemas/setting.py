@@ -41,6 +41,7 @@ class SettingCategory(str, Enum):
     TOOLS = "tools"
     TRACING = "tracing"
     USER = "user"
+    OPENVIKING = "openviking"
 
 
 class SettingItem(BaseModel):
