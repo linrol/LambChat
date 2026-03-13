@@ -3,7 +3,11 @@ OpenViking 上下文检索
 
 每轮对话前从 OpenViking 检索相关上下文，以 L0 摘要注入用户消息。
 Agent 可通过 read_knowledge 工具按需深入获取完整内容。
-支持多轮上下文感知查询构建。
+
+改进：
+- 使用 search() 替代 find()，利用 session context 做意图分析
+- 传递 ov_session_id 让检索更智能
+- 跨 session 记忆通过 user_id 隔离
 """
 
 import logging
@@ -14,43 +18,26 @@ from src.kernel.config import settings
 logger = logging.getLogger(__name__)
 
 
-def build_retrieval_query(
-    current_input: str,
-    recent_messages: Optional[list[dict]] = None,
-) -> str:
-    """
-    构建更智能的检索查询。
-
-    结合当前输入和最近 3 轮对话历史，提升检索相关性。
-    """
-    parts = []
-
-    # 最近 3 轮历史（如果有）
-    if recent_messages:
-        for msg in recent_messages[-3:]:
-            content = msg.get("content", "")
-            if isinstance(content, str) and content.strip():
-                # 截取前 200 字符避免查询过长
-                parts.append(content[:200])
-
-    # 当前输入放最后（权重最高）
-    parts.append(current_input)
-
-    return " ".join(parts)
-
-
 async def retrieve_context(
     query: str,
     user_id: str,
-    session_id: Optional[str] = None,
+    ov_session_id: Optional[str] = None,
     limit: int = 5,
-    recent_messages: Optional[list[dict]] = None,
 ) -> str:
     """
-    从 OpenViking 检索相关上下文，返回格式化的 system prompt 片段。
+    从 OpenViking 检索相关上下文，返回格式化的 prompt 片段。
 
     采用 L0 渐进式加载：仅注入摘要（abstract），Agent 可通过
     read_knowledge 工具按需深入获取完整内容，节省 token。
+
+    Args:
+        query: 用户输入
+        user_id: 用户 ID，用于检索用户级别的记忆
+        ov_session_id: OpenViking session ID，用于上下文感知检索
+        limit: 返回结果数量限制
+
+    Returns:
+        格式化的上下文字符串，用于注入到 prompt
     """
     if not settings.ENABLE_OPENVIKING:
         return ""
@@ -62,11 +49,26 @@ async def retrieve_context(
         if client is None:
             return ""
 
-        # 智能查询构建：结合历史上下文
-        search_query = build_retrieval_query(query, recent_messages)
+        # 使用 search() 做智能检索（如果 session 可用）
+        if ov_session_id and hasattr(client, "search"):
+            # 带 session context 的智能检索
+            results = await client.search(
+                query=query,
+                session_id=ov_session_id,
+                limit=limit,
+            )
+        else:
+            # 回退到 find()（无 session context）
+            # 搜索用户的 memories 和 resources
+            target_uri = f"viking://user/{user_id}/memories/"
+            results = await client.find(query, limit=limit, target_uri=target_uri)
 
-        results = await client.find(search_query, limit=limit)
-        if not results:
+            # 如果没找到，尝试搜索 resources
+            if not results or not _has_content(results):
+                target_uri = f"viking://resources/users/{user_id}/"
+                results = await client.find(query, limit=limit, target_uri=target_uri)
+
+        if not results or not _has_content(results):
             return ""
 
         return _format_context(results)
@@ -76,11 +78,49 @@ async def retrieve_context(
         return ""
 
 
-def _format_context(results: list) -> str:
+def _has_content(results) -> bool:
+    """检查检索结果是否有内容。"""
+    if hasattr(results, "memories"):
+        return bool(results.memories or results.resources or results.skills)
+    return bool(results)
+
+
+def _extract_contexts(results) -> list:
+    """从 FindResult 或列表中提取所有 context 对象。"""
+    all_contexts = []
+
+    # FindResult 包含 memories, resources, skills 三个列表
+    if hasattr(results, "memories"):
+        all_contexts.extend(results.memories or [])
+    if hasattr(results, "resources"):
+        all_contexts.extend(results.resources or [])
+    if hasattr(results, "skills"):
+        all_contexts.extend(results.skills or [])
+
+    # 兼容旧格式（直接返回列表）
+    if not all_contexts and isinstance(results, list):
+        all_contexts = results
+
+    return all_contexts
+
+
+def _format_context(results) -> str:
     """将检索结果格式化为 L0 摘要注入块。"""
+    all_contexts = _extract_contexts(results)
+
     sections = []
-    for item in results:
-        if isinstance(item, dict):
+    for item in all_contexts:
+        if hasattr(item, "uri"):
+            # MatchedContext 对象
+            uri = item.uri
+            abstract = getattr(item, "abstract", "") or ""
+            score = getattr(item, "score", 0) or 0
+            try:
+                score_str = f"{float(score):.2f}"
+            except (TypeError, ValueError):
+                score_str = str(score)
+            sections.append(f"- [{uri}] (相关度: {score_str}): {abstract}")
+        elif isinstance(item, dict):
             uri = item.get("uri", item.get("path", ""))
             abstract = item.get("abstract", item.get("content", ""))
             score = item.get("score", 0)

@@ -39,10 +39,56 @@ def _get_user_id(runtime: Optional[ToolRuntime]) -> str:
     return "default"
 
 
+def _format_find_results(results) -> list[str]:
+    """将 FindResult 格式化为可读字符串列表。"""
+    sections = []
+
+    # FindResult 包含 memories, resources, skills 三个列表
+    all_contexts = []
+    if hasattr(results, "memories"):
+        all_contexts.extend(results.memories or [])
+    if hasattr(results, "resources"):
+        all_contexts.extend(results.resources or [])
+    if hasattr(results, "skills"):
+        all_contexts.extend(results.skills or [])
+
+    # 兼容旧格式（直接返回列表）
+    if not all_contexts and isinstance(results, list):
+        all_contexts = results
+
+    for item in all_contexts:
+        if hasattr(item, "uri"):
+            # MatchedContext 对象
+            uri = item.uri
+            abstract = getattr(item, "abstract", "") or ""
+            score = getattr(item, "score", 0) or 0
+            context_type = getattr(item, "context_type", "unknown") or "unknown"
+            try:
+                score_str = f"{float(score):.2f}"
+            except (TypeError, ValueError):
+                score_str = str(score)
+            type_label = f"[{context_type}] " if context_type != "unknown" else ""
+            sections.append(f"{type_label}[{uri}] (相关度: {score_str})\n{abstract}")
+        elif isinstance(item, dict):
+            uri = item.get("uri", item.get("path", ""))
+            abstract = item.get("abstract", item.get("content", ""))
+            score = item.get("score", 0)
+            try:
+                score_str = f"{float(score):.2f}"
+            except (TypeError, ValueError):
+                score_str = str(score)
+            sections.append(f"[{uri}] (相关度: {score_str})\n{abstract}")
+        elif isinstance(item, str):
+            sections.append(item)
+
+    return sections
+
+
 @tool
 async def search_memory(
     query: str,
     limit: int = 5,
+    scope: str = "all",
     runtime: ToolRuntime = None,  # type: ignore[assignment]
 ) -> str:
     """搜索用户的记忆和知识库，返回与查询最相关的内容。
@@ -52,31 +98,29 @@ async def search_memory(
     Args:
         query: 搜索查询，描述你想找的信息
         limit: 最大返回条数（默认 5）
+        scope: 搜索范围 - "all"(全部)、"memories"(记忆)、"resources"(资源)、"skills"(技能)
     """
     if not settings.ENABLE_OPENVIKING:
         return "记忆系统未启用。"
 
     try:
         client = await _get_client()
+        user_id = _get_user_id(runtime)
 
-        results = await client.find(query, limit=limit)
+        # 根据 scope 确定 target_uri
+        scope_map = {
+            "all": "",
+            "memories": f"viking://user/{user_id}/memories",
+            "resources": f"viking://resources/users/{user_id}",
+            "skills": "viking://agent/skills",
+        }
+        target_uri = scope_map.get(scope, "")
+
+        results = await client.find(query, limit=limit, target_uri=target_uri)
         if not results:
             return f"未找到与 '{query}' 相关的记忆。"
 
-        sections = []
-        for item in results:
-            if isinstance(item, dict):
-                uri = item.get("uri", item.get("path", ""))
-                abstract = item.get("abstract", item.get("content", ""))
-                score = item.get("score", 0)
-                try:
-                    score_str = f"{float(score):.2f}"
-                except (TypeError, ValueError):
-                    score_str = str(score)
-                sections.append(f"[{uri}] (相关度: {score_str})\n{abstract}")
-            elif isinstance(item, str):
-                sections.append(item)
-
+        sections = _format_find_results(results)
         return "\n\n---\n\n".join(sections) if sections else "未找到相关记忆。"
 
     except Exception as e:

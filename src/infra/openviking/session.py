@@ -4,7 +4,13 @@ OpenViking Session 生命周期管理
 将 LambChat 会话映射到 OpenViking session，
 在会话结束时 commit 触发自动记忆提取。
 
-支持 Redis 持久化映射（分布式部署），回退到进程内缓存。
+设计原则：
+- Session 贯穿整个 LambChat 会话，不频繁重建
+- 只在 LambChat session 结束时 commit（提取长期记忆）
+- 同 session 内使用 search() 智能检索，利用对话上下文
+- 跨 session 记忆通过 find() 检索用户的 memories
+
+支持 Redis 振久化映射（分布式部署），回退到进程内缓存。
 """
 
 import logging
@@ -139,8 +145,14 @@ async def sync_messages(
     ov_session_id: str,
     user_message: str,
     assistant_message: str,
+    lambchat_session_id: Optional[str] = None,
 ) -> None:
-    """将用户消息和 assistant 回复同步到 OpenViking session。"""
+    """
+    将用户消息和 assistant 回复同步到 OpenViking session。
+
+    注意：不再自动 commit，session 保持连续性。
+    记忆提取在 LambChat session 结束时通过 commit_ov_session() 触发。
+    """
     if not settings.ENABLE_OPENVIKING or not ov_session_id:
         return
 

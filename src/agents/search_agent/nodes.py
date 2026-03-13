@@ -247,7 +247,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             memory_context = await retrieve_context(
                 query=state.get("input", ""),
                 user_id=tenant_id,
-                session_id=ov_session_id,
+                ov_session_id=ov_session_id,
             )
             if memory_context:
                 logger.info(
@@ -340,6 +340,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
                     ov_session_id=ov_session_id,
                     user_message=state.get("input", ""),
                     assistant_message=event_processor.output_text or "",
+                    lambchat_session_id=state.get("session_id"),
                 )
         except Exception as e:
             logger.warning("[SearchAgent] OpenViking message sync failed: %s", e)
