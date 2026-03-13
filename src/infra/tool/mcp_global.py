@@ -10,7 +10,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional, Set
 
 from langchain_core.tools import BaseTool
 
@@ -24,6 +24,15 @@ _global_entries: dict[str, "GlobalMCPEntry"] = {}
 
 # 本地异步锁（进程内）
 _local_locks: dict[str, asyncio.Lock] = {}
+
+# 后台任务追踪集合
+_background_tasks: Set[asyncio.Task] = set()
+
+# 清理计数器（用于定期清理检查）
+_cleanup_counter = 0
+
+# 清理检查间隔（每 N 次访问检查一次）
+CLEANUP_CHECK_INTERVAL = 50
 
 # 分布式锁超时时间（秒）
 DISTRIBUTED_LOCK_TTL = 30
@@ -121,15 +130,18 @@ async def release_distributed_lock(lock_key: str, lock_value: str) -> bool:
         redis_client = get_redis_client()
         # Redis eval 参数: (script, numkeys, *keys_and_args)
         # numkeys=1 表示有1个key
-        raw_result = redis_client.eval(RELEASE_LOCK_SCRIPT, 1, lock_key, lock_value)
-        # eval 可能返回 Awaitable，需要 await
-        result = int(await raw_result) if hasattr(raw_result, "__await__") else int(raw_result)  # type: ignore[misc]
-        if result == 1:
+        result = redis_client.eval(RELEASE_LOCK_SCRIPT, 1, lock_key, lock_value)
+
+        # 处理同步/异步返回值
+        if hasattr(result, "__await__"):
+            result = await result
+
+        released = int(result) == 1  # type: ignore[misc]
+        if released:
             logger.debug(f"[Global MCP] Released lock: {lock_key}")
-            return True
         else:
             logger.warning(f"[Global MCP] Lock not owned or already released: {lock_key}")
-            return False
+        return released
     except Exception as e:
         logger.warning(f"[Global MCP] Failed to release lock {lock_key}: {e}")
         return False
@@ -158,6 +170,12 @@ async def mark_init_done(user_id: str) -> None:
         logger.warning(f"[Global MCP] Failed to mark init done for {user_id}: {e}")
 
 
+def _track_background_task(task: asyncio.Task) -> None:
+    """追踪后台任务，完成后自动从集合中移除"""
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
 def _cleanup_expired_entries() -> int:
     """清理过期的缓存条目，返回清理的数量"""
     expired_users = [user_id for user_id, entry in _global_entries.items() if entry.is_expired()]
@@ -165,10 +183,12 @@ def _cleanup_expired_entries() -> int:
         entry = _global_entries.pop(user_id, None)
         if entry:
             try:
-                # 尝试关闭 manager
-                asyncio.create_task(entry.manager.close())
+                # 创建关闭任务并追踪
+                task = asyncio.create_task(entry.manager.close())
+                _track_background_task(task)
             except Exception:
                 pass
+        # 同步清理本地锁
         _local_locks.pop(user_id, None)
 
     if expired_users:
@@ -189,9 +209,11 @@ def _cleanup_excess_entries() -> int:
     to_remove = len(_global_entries) - MAX_GLOBAL_ENTRIES
     for user_id, entry in sorted_entries[:to_remove]:
         _global_entries.pop(user_id, None)
+        # 同步清理本地锁
         _local_locks.pop(user_id, None)
         try:
-            asyncio.create_task(entry.manager.close())
+            task = asyncio.create_task(entry.manager.close())
+            _track_background_task(task)
         except Exception:
             pass
 
@@ -214,8 +236,12 @@ async def get_global_mcp_tools(user_id: str) -> tuple[list[BaseTool], Optional[M
     Returns:
         (tools, manager) - 工具列表和管理器
     """
-    # 定期清理过期条目
-    if len(_global_entries) > 0 and len(_global_entries) % 50 == 0:
+    global _cleanup_counter
+
+    # 定期清理过期条目（使用计数器避免竞态条件）
+    _cleanup_counter += 1
+    if _cleanup_counter >= CLEANUP_CHECK_INTERVAL:
+        _cleanup_counter = 0
         _cleanup_expired_entries()
         _cleanup_excess_entries()
 
@@ -224,7 +250,7 @@ async def get_global_mcp_tools(user_id: str) -> tuple[list[BaseTool], Optional[M
         entry = _global_entries[user_id]
         if entry.manager._initialized and not entry.is_expired():
             entry.touch()
-            logger.info(f"[Global MCP] Hit singleton for user {user_id}, {len(entry.tools)} tools")
+            logger.debug(f"[Global MCP] Hit singleton for user {user_id}, {len(entry.tools)} tools")
             return entry.tools, entry.manager
 
     # 2. 获取本地锁（防止同一进程内并发）
@@ -235,6 +261,7 @@ async def get_global_mcp_tools(user_id: str) -> tuple[list[BaseTool], Optional[M
             entry = _global_entries[user_id]
             if entry.manager._initialized and not entry.is_expired():
                 entry.touch()
+                logger.debug(f"[Global MCP] Hit singleton (double-check) for user {user_id}")
                 return entry.tools, entry.manager
 
         # 4. 获取 Redis 分布式锁
@@ -374,7 +401,12 @@ async def warmup_global_cache(user_ids: list[str]) -> None:
     Args:
         user_ids: 要预热的用户 ID 列表
     """
+    if not user_ids:
+        logger.info("[Global MCP] No users to warm up, skipping")
+        return
+
     logger.info(f"[Global MCP] Warming up cache for {len(user_ids)} users")
+    start_time = time.time()
 
     async def _warmup_user(user_id: str):
         try:
@@ -391,7 +423,64 @@ async def warmup_global_cache(user_ids: list[str]) -> None:
             await _warmup_user(user_id)
 
     await asyncio.gather(*[_warmup_with_limit(uid) for uid in user_ids])
-    logger.info("[Global MCP] Warmup complete")
+
+    elapsed = time.time() - start_time
+    logger.info(f"[Global MCP] Warmup complete in {elapsed:.2f}s for {len(user_ids)} users")
+
+
+async def warmup_active_users_mcp(limit: int = 10) -> None:
+    """
+    预热所有用户的 MCP 缓存
+
+    获取所有用户 ID，并预热他们的 MCP 配置。
+    这可以显著减少首次请求的延迟。
+
+    优化策略：
+    - 限制并发数，避免资源耗尽
+    - 后台执行，不阻塞应用启动
+    - 失败的用户不影响其他用户
+
+    Args:
+        limit: 最多预热多少个用户（默认 10 个，0 表示无限制）
+    """
+    logger.info("[Global MCP] Starting MCP warmup for all users")
+    start_time = time.time()
+
+    try:
+        # 获取所有用户 ID
+        from src.infra.storage.mongodb import get_mongo_client
+        from src.kernel.config import settings
+
+        client = get_mongo_client()
+        db = client[settings.MONGODB_DB]
+        users_collection = db["users"]
+
+        # 查询所有用户（去重）
+        pipeline: list[dict[str, Any]] = [
+            {"$group": {"_id": "$_id"}},
+        ]
+
+        if limit > 0:
+            pipeline.append({"$limit": limit})
+
+        cursor = users_collection.aggregate(pipeline)
+        user_docs = await cursor.to_list(length=limit if limit > 0 else None)
+        user_ids = [str(doc["_id"]) for doc in user_docs]
+
+        if not user_ids:
+            logger.info("[Global MCP] No users found, skipping warmup")
+            return
+
+        logger.info(f"[Global MCP] Found {len(user_ids)} users to warm up")
+
+        # 预热这些用户的 MCP 缓存
+        await warmup_global_cache(user_ids)
+
+        elapsed = time.time() - start_time
+        logger.info(f"[Global MCP] Warmup completed in {elapsed:.2f}s for {len(user_ids)} users")
+
+    except Exception as e:
+        logger.warning(f"[Global MCP] Failed to warmup users: {e}")
 
 
 def get_cache_stats() -> dict:

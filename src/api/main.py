@@ -4,6 +4,7 @@ FastAPI 主应用
 API 入口点。
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -105,6 +106,13 @@ async def lifespan(app: FastAPI):
     from src.infra.skill.builtin import init_builtin_skills
 
     await init_builtin_skills()
+
+    # 预热 MCP 连接（后台执行，不阻塞启动）
+    # 预热所有用户，限制并发数避免资源耗尽
+    from src.infra.tool.mcp_global import warmup_active_users_mcp
+
+    asyncio.create_task(warmup_active_users_mcp(limit=0))  # limit=0 表示预热所有用户
+    logger.info("MCP warmup task started in background (all users)")
 
     yield
 
