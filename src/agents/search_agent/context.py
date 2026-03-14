@@ -44,7 +44,6 @@ class SearchAgentContext:
         self.tools: List[Any] = []
         self.skills: List[dict] = []
         self.skill_files: Dict[str, Any] = {}
-        self.ov_session_id: Optional[str] = None
 
     async def _lazy_load_mcp_tools(self) -> None:
         """懒加载 MCP 工具（仅在首次调用 get_tools 时初始化）"""
@@ -137,6 +136,21 @@ class SearchAgentContext:
         self.tools.append(reveal_project_tool)
         logger.info("[SearchAgentContext] Added reveal_project tool")
 
+        # Memory 工具（Hindsight）
+        if settings.HINDSIGHT_ENABLED:
+            try:
+                from src.infra.memory.hindsight import get_all_memory_tools
+
+                memory_tools = get_all_memory_tools()
+                self.tools.extend(memory_tools)
+                logger.info(f"[SearchAgentContext] Added {len(memory_tools)} memory tools")
+            except ImportError:
+                logger.warning(
+                    "[SearchAgentContext] hindsight-client not installed, skipping memory tools"
+                )
+            except Exception as e:
+                logger.warning(f"[SearchAgentContext] Failed to load memory tools: {e}")
+
         # MCP 工具延迟加载（不在 setup 时初始化）
         logger.info("[SearchAgentContext] MCP tools will be lazy loaded on first use")
 
@@ -154,34 +168,6 @@ class SearchAgentContext:
                 logger.warning(f"[SearchAgentContext] Failed to load skills: {e}")
 
         logger.info(f"[SearchAgentContext] Setup complete, total {len(self.tools)} tools available")
-
-        # OpenViking 记忆工具
-        if settings.ENABLE_OPENVIKING:
-            try:
-                from src.infra.openviking.tools import get_openviking_tools
-
-                ov_tools = get_openviking_tools()
-                if ov_tools:
-                    self.tools.extend(ov_tools)
-                    logger.info(
-                        "[SearchAgentContext] Added %d OpenViking memory tools", len(ov_tools)
-                    )
-            except Exception as e:
-                logger.warning("[SearchAgentContext] Failed to load OpenViking tools: %s", e)
-
-        # 初始化 OpenViking session
-        # if settings.ENABLE_OPENVIKING and self.user_id:
-        #     try:
-        #         from src.infra.openviking.session import ensure_ov_session
-
-        #         self.ov_session_id = await ensure_ov_session(
-        #             lambchat_session_id=self.session_id,
-        #             user_id=self.user_id,
-        #         )
-        #         if self.ov_session_id:
-        #             logger.info("[SearchAgentContext] OpenViking session: %s", self.ov_session_id)
-        #     except Exception as e:
-        #         logger.warning("[SearchAgentContext] OpenViking session init failed: %s", e)
 
     async def close(self) -> None:
         """清理

@@ -134,6 +134,7 @@
     "frontend": "Frontend",
     "llm": "LLM",
     "long_term_storage": "Long-term Storage",
+    "memory": "Memory",
     "s3": "S3 Storage",
     "sandbox": "Sandbox",
     "security": "Security",
@@ -141,7 +142,6 @@
     "skills": "Skills",
     "tools": "Tools",
     "tracing": "Tracing",
-    "openviking": "OpenViking Memory",
     "user": "Profile"
   },
   "chat": {

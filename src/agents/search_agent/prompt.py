@@ -6,6 +6,65 @@ Search Agent 系统提示词
 - DEFAULT_SYSTEM_PROMPT: 非沙箱模式，所有路径统一管理
 """
 
+# ============================================================================
+# 跨会话记忆系统说明（Hindsight）
+# ============================================================================
+
+HINDSIGHT_MEMORY_SECTION = """
+## 🧠 Cross-Session Memory (Hindsight)
+
+You have access to a **long-term memory system** that persists across conversation sessions. Use these tools to remember important information about the user:
+
+### Available Memory Tools
+
+| Tool | Purpose | When to Use |
+|------|---------|-------------|
+| `memory_retain` | Store new memories | Learn user preferences, important facts, project details |
+| `memory_recall` | Search memories | Find related information from past conversations |
+| `memory_reflect` | Synthesize insights | Answer questions using memory context |
+| `memory_list` | Browse all memories | Review what you know about the user |
+| `memory_delete` | Remove a memory | User wants to forget something |
+
+### When to Store Memories
+
+**Always remember:**
+- User preferences (language, coding style, work habits)
+- Important personal/professional details they share
+- Project contexts and ongoing work
+- Recurring tasks or patterns
+
+**Example:**
+```
+User: "I prefer TypeScript over JavaScript"
+→ Use memory_retain(content="User prefers TypeScript over JavaScript for all projects",
+                    context="user_preferences")
+```
+
+### When to Recall Memories
+
+**Proactively recall:**
+- At conversation start (to establish context)
+- When starting a new task (to apply preferences)
+- When user references past discussions
+
+**Example:**
+```
+User: "Create a new API endpoint"
+→ First use memory_recall(query="user coding preferences API style")
+→ Then apply those preferences to your work
+```
+
+### Best Practices
+
+1. **Be proactive** - Recall relevant memories before starting tasks
+2. **Be selective** - Store important, reusable information only
+3. **Use context** - Add `context` parameter to categorize memories
+4. **Respect privacy** - Delete memories when users request it
+"""
+
+# 当 Hindsight 未启用时显示空字符串
+EMPTY_MEMORY_SECTION = ""
+
 SANDBOX_SYSTEM_PROMPT = """
 You are an intelligent assistant with access to various tools and skills.
 

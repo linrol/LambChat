@@ -106,25 +106,12 @@ async def lifespan(app: FastAPI):
 
     await init_builtin_skills()
 
-    # 初始化 OpenViking 客户端
-    if settings.ENABLE_OPENVIKING:
-        from src.infra.openviking.client import get_openviking_client
-
-        await get_openviking_client()
-        logger.info("OpenViking client initialized")
-
     yield
 
     # 关闭时清理
     from src.agents import AgentFactory
     from src.infra.sandbox import SandboxFactory
     from src.infra.task.manager import get_task_manager
-
-    # 关闭 OpenViking 客户端
-    if settings.ENABLE_OPENVIKING:
-        from src.infra.openviking.client import close_openviking_client
-
-        await close_openviking_client()
 
     # 标记所有运行中的任务为失败
     task_manager = get_task_manager()

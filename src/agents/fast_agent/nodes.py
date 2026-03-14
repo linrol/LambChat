@@ -28,6 +28,62 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# 自动记忆存储
+# ============================================================================
+
+
+def _schedule_auto_retain(
+    user_input: str,
+    assistant_output: str,
+    user_id: str | None,
+) -> None:
+    """
+    调度自动记忆存储任务（异步，不阻塞响应）。
+
+    从对话中提取重要信息并异步存储到 Hindsight。
+    """
+    if not settings.HINDSIGHT_ENABLED or not user_id:
+        return
+
+    # 构建对话摘要
+    summary = _extract_conversation_summary(user_input, assistant_output)
+    if not summary:
+        return
+
+    # 延迟导入避免循环依赖
+    from src.infra.memory.hindsight import schedule_auto_retain
+
+    schedule_auto_retain(
+        user_id=user_id,
+        conversation_summary=summary,
+        context="conversation",
+    )
+
+
+def _extract_conversation_summary(user_input: str, assistant_output: str) -> str:
+    """
+    从对话中提取重要信息用于存储。
+
+    只存储用户输入中的关键信息，避免存储冗余内容。
+    """
+    # 简单的摘要：用户输入 + 助手回复的关键部分
+    user_part = user_input.strip()[:500] if user_input else ""
+
+    if not user_part:
+        return ""
+
+    # 构建摘要
+    summary = f"User: {user_part}"
+
+    # 如果助手回复包含重要信息（如确认用户偏好），也包含进来
+    output_part = assistant_output.strip()[:300] if assistant_output else ""
+    if output_part and len(output_part) > 20:
+        summary += f"\nAssistant: {output_part}"
+
+    return summary
+
+
+# ============================================================================
 # 消息构建工具
 # ============================================================================
 
@@ -201,16 +257,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
             logger.warning(f"Failed to build skills prompt: {e}")
 
     # 构建系统提示
-    # 静态部分：skills + memory_guide 通过模板占位符注入，每轮不变，KV cache 友好
-    memory_guide = ""
-    if settings.ENABLE_OPENVIKING:
-        from src.infra.openviking.prompt import MEMORY_SYSTEM_PROMPT
-
-        memory_guide = MEMORY_SYSTEM_PROMPT
-
-    system_prompt = FAST_SYSTEM_PROMPT.replace("{skills}", skills_prompt).replace(
-        "{memory_guide}", memory_guide
-    )
+    system_prompt = FAST_SYSTEM_PROMPT.replace("{skills}", skills_prompt)
 
     # 使用内存 backend（无沙箱）
     backend_start = time.time()
@@ -293,38 +340,8 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
 
     final_messages = new_messages if len(new_messages) > len(all_messages) else all_messages
 
-    # 同步消息到 OpenViking session（只同步新增的消息）
-    # if settings.ENABLE_OPENVIKING:
-    #     try:
-    #         from src.infra.openviking.session import commit_and_rotate_session, sync_messages
-
-    #         ov_session_id = getattr(context, "ov_session_id", None)
-    #         if ov_session_id:
-    #             # 计算本轮新增的消息（从已有消息之后）
-    #             incremental_messages = final_messages[len(existing_messages) :]
-    #             synced_count = 0
-    #             if incremental_messages:
-    #                 synced_count = len(incremental_messages)
-    #                 await sync_messages(
-    #                     ov_session_id=ov_session_id,
-    #                     messages=incremental_messages,
-    #                     lambchat_session_id=state.get("session_id"),
-    #                 )
-
-    #                 # 对话结束后 commit 旧 session 并创建新 session（触发记忆提取）
-    #                 new_ov_session_id = await commit_and_rotate_session(
-    #                     lambchat_session_id=state.get("session_id"),
-    #                     user_id=context.user_id or "default",
-    #                     synced_messages_count=synced_count,
-    #                 )
-    #                 if new_ov_session_id:
-    #                     context.ov_session_id = new_ov_session_id
-    #                     logger.debug(
-    #                         "[FastAgent] OpenViking session rotated: %s",
-    #                         new_ov_session_id,
-    #                     )
-    #     except Exception as e:
-    #         logger.warning("[FastAgent] OpenViking message sync failed: %s", e)
+    # 自动记忆存储（异步，不阻塞响应）
+    _schedule_auto_retain(user_input, event_processor.output_text, context.user_id)
 
     return {
         "output": event_processor.output_text,

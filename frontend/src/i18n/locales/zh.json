@@ -134,6 +134,7 @@
     "frontend": "前端",
     "llm": "大语言模型",
     "long_term_storage": "长期存储",
+    "memory": "记忆",
     "s3": "S3 存储",
     "sandbox": "沙盒",
     "security": "安全",
@@ -141,7 +142,6 @@
     "skills": "技能",
     "tools": "工具",
     "tracing": "追踪",
-    "openviking": "OpenViking 记忆",
     "user": "个人资料"
   },
   "chat": {

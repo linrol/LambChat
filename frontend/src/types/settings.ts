@@ -11,13 +11,13 @@ export type SettingCategory =
   | "skills"
   | "database"
   | "long_term_storage"
+  | "memory"
   | "security"
   | "sandbox"
   | "s3"
   | "tools"
   | "tracing"
-  | "user"
-  | "openviking";
+  | "user";
 
 // Setting dependency condition
 export interface SettingDependsOn {

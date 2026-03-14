@@ -46,7 +46,6 @@ class FastAgentContext:
         self._mcp_loaded: bool = False
         self.tools: List[Any] = []
         self.skills: List[dict] = []
-        self.ov_session_id: Optional[str] = None
 
     async def get_tools(self) -> List[Any]:
         """获取所有工具（懒加载 MCP 工具）"""
@@ -139,6 +138,21 @@ class FastAgentContext:
         self.tools.append(reveal_project_tool)
         logger.info("[FastAgentContext] Added reveal_project tool")
 
+        # Memory 工具（Hindsight）
+        if settings.HINDSIGHT_ENABLED:
+            try:
+                from src.infra.memory.hindsight import get_all_memory_tools
+
+                memory_tools = get_all_memory_tools()
+                self.tools.extend(memory_tools)
+                logger.info(f"[FastAgentContext] Added {len(memory_tools)} memory tools")
+            except ImportError:
+                logger.warning(
+                    "[FastAgentContext] hindsight-all not installed, skipping memory tools"
+                )
+            except Exception as e:
+                logger.warning(f"[FastAgentContext] Failed to load memory tools: {e}")
+
         # MCP 工具延迟加载（不在 setup 时初始化）
         logger.info("[FastAgentContext] MCP tools will be lazy loaded on first use")
 
@@ -163,35 +177,7 @@ class FastAgentContext:
             except Exception as e:
                 logger.warning(f"[FastAgentContext] Failed to load skills: {e}")
 
-        # OpenViking 记忆工具
-        if settings.ENABLE_OPENVIKING:
-            try:
-                from src.infra.openviking.tools import get_openviking_tools
-
-                ov_tools = get_openviking_tools()
-                if ov_tools:
-                    self.tools.extend(ov_tools)
-                    logger.info(
-                        "[FastAgentContext] Added %d OpenViking memory tools", len(ov_tools)
-                    )
-            except Exception as e:
-                logger.warning("[FastAgentContext] Failed to load OpenViking tools: %s", e)
-
         logger.info(f"[FastAgentContext] Setup complete, total {len(self.tools)} tools available")
-
-        # 初始化 OpenViking session
-        # if settings.ENABLE_OPENVIKING and self.user_id:
-        #     try:
-        #         from src.infra.openviking.session import ensure_ov_session
-
-        #         self.ov_session_id = await ensure_ov_session(
-        #             lambchat_session_id=self.session_id,
-        #             user_id=self.user_id,
-        #         )
-        #         if self.ov_session_id:
-        #             logger.info("[FastAgentContext] OpenViking session: %s", self.ov_session_id)
-        #     except Exception as e:
-        #         logger.warning("[FastAgentContext] OpenViking session init failed: %s", e)
 
     async def close(self) -> None:
         """清理（注意：不关闭 mcp_manager，因为它是全局缓存的）"""

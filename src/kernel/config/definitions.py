@@ -635,37 +635,6 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "frontend_visible": True,
     },
     # ============================================
-    # OpenViking Settings
-    # ============================================
-    "ENABLE_OPENVIKING": {
-        "type": SettingType.BOOLEAN,
-        "category": SettingCategory.OPENVIKING,
-        "description": "Enable OpenViking context database integration",
-        "default": False,
-    },
-    "OPENVIKING_URL": {
-        "type": SettingType.STRING,
-        "category": SettingCategory.OPENVIKING,
-        "description": "OpenViking server URL",
-        "default": "http://localhost:1933",
-        "depends_on": "ENABLE_OPENVIKING",
-    },
-    "OPENVIKING_API_KEY": {
-        "type": SettingType.STRING,
-        "category": SettingCategory.OPENVIKING,
-        "description": "OpenViking API key",
-        "default": "",
-        "depends_on": "ENABLE_OPENVIKING",
-        "is_sensitive": True,
-    },
-    "OPENVIKING_AGENT_ID": {
-        "type": SettingType.STRING,
-        "category": SettingCategory.OPENVIKING,
-        "description": "OpenViking agent identifier",
-        "default": "lambchat",
-        "depends_on": "ENABLE_OPENVIKING",
-    },
-    # ============================================
     # Email Settings (Resend)
     # ============================================
     "EMAIL_ENABLED": {
@@ -697,5 +666,29 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "default": False,
         "depends_on": "EMAIL_ENABLED",
         "frontend_visible": True,
+    },
+    # ============================================
+    # Hindsight Memory Settings
+    # ============================================
+    "HINDSIGHT_ENABLED": {
+        "type": SettingType.BOOLEAN,
+        "category": SettingCategory.MEMORY,
+        "description": "Enable Hindsight cross-session memory",
+        "default": False,
+        "frontend_visible": True,
+    },
+    "HINDSIGHT_BASE_URL": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.MEMORY,
+        "description": "Hindsight server URL (required, e.g., http://localhost:8888)",
+        "default": "",
+        "depends_on": "HINDSIGHT_ENABLED",
+    },
+    "HINDSIGHT_API_KEY": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.MEMORY,
+        "description": "Hindsight API key (optional, depends on server config)",
+        "default": "",
+        "depends_on": "HINDSIGHT_ENABLED",
     },
 }

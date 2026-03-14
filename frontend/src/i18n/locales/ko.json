@@ -134,6 +134,7 @@
     "frontend": "프론트엔드",
     "llm": "LLM",
     "long_term_storage": "장기 스토리지",
+    "memory": "메모리",
     "s3": "S3 스토리지",
     "sandbox": "샌드박스",
     "security": "보안",
@@ -141,7 +142,6 @@
     "skills": "스킬",
     "tools": "도구",
     "tracing": "추적",
-    "openviking": "OpenViking 메모리",
     "user": "프로필"
   },
   "chat": {

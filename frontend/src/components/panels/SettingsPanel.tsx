@@ -33,13 +33,13 @@ const CATEGORY_ORDER: SettingCategory[] = [
   "session",
   "database",
   "long_term_storage",
+  "memory",
   "security",
   "s3",
   "sandbox",
   "skills",
   "tools",
   "tracing",
-  "openviking",
   "user",
 ];
 
@@ -77,12 +77,12 @@ export function SettingsPanel() {
     skills: t("categories.skills"),
     database: t("categories.database"),
     long_term_storage: t("categories.long_term_storage"),
+    memory: t("categories.memory"),
     security: t("categories.security"),
     sandbox: t("categories.sandbox"),
     s3: t("categories.s3"),
     tools: t("categories.tools"),
     tracing: t("categories.tracing"),
-    openviking: t("categories.openviking"),
     user: t("categories.user"),
   };
 
