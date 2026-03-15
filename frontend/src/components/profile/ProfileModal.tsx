@@ -771,7 +771,7 @@ function UserAgentPreferencePanel() {
         </div>
       )}
 
-      <div className="bg-gray-50 dark:bg-stone-700/50 rounded-lg p-3 sm:p-4">
+      <div className="bg-gray-50 dark:bg-stone-700/50 rounded-lg p-3 sm:p-4 overflow-hidden">
         {availableAgents.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-stone-400">
             {t("agentConfig.noAvailableAgents")}
@@ -781,7 +781,7 @@ function UserAgentPreferencePanel() {
             {availableAgents.map((agent) => (
               <label
                 key={agent.id}
-                className={`flex cursor-pointer items-start sm:items-center gap-2.5 sm:gap-3 rounded-lg p-2.5 sm:p-3 transition-colors ${
+                className={`flex cursor-pointer items-start sm:items-center gap-2.5 sm:gap-3 rounded-lg p-2.5 sm:p-3 transition-colors overflow-hidden ${
                   selectedAgent === agent.id
                     ? "bg-white dark:bg-stone-600 ring-2 ring-amber-500/50"
                     : "bg-white/50 dark:bg-stone-600/50 hover:bg-white dark:hover:bg-stone-600"
