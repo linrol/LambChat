@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import html
 import json
-import logging
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
@@ -14,9 +13,10 @@ from typing import Optional
 
 import httpx
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Resend API endpoint
 RESEND_API_URL = "https://api.resend.com/emails"

@@ -13,7 +13,6 @@ Skills Store Backend
 """
 
 import asyncio
-import logging
 import re
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -27,12 +26,13 @@ from deepagents.backends.protocol import (
     WriteResult,
 )
 
+from src.infra.logging import get_logger
 from src.infra.skill.storage import SkillStorage
 
 if TYPE_CHECKING:
     pass
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 路径格式：/skills/{skill_name}/{file_path}
 # 内部统一使用带 /skills/ 前缀的路径

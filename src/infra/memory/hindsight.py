@@ -11,7 +11,6 @@ Documentation: https://docs.hindsight.ai
 
 import asyncio
 import json
-import logging
 import os
 from datetime import datetime
 from typing import Annotated, Any, Callable, Literal, Optional
@@ -19,9 +18,10 @@ from typing import Annotated, Any, Callable, Literal, Optional
 from langchain.tools import ToolRuntime, tool
 from langchain_core.tools import BaseTool
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ============================================================================
 # Concurrency Configuration
@@ -209,7 +209,7 @@ class AsyncHindsight:
         url = f"{self._base_url}/v1/default/banks/{bank_id}"
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
             async with session.put(
                 url,
                 json=body,

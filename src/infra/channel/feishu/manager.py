@@ -2,16 +2,16 @@
 Feishu channel manager for managing multiple user bot connections.
 """
 
-import logging
 from typing import Any, Callable, Optional, cast
 
 from src.infra.channel.base import UserChannelManager
 from src.infra.channel.channel_storage import ChannelStorage
 from src.infra.channel.feishu.channel import FEISHU_AVAILABLE, FeishuChannel
+from src.infra.logging import get_logger
 from src.kernel.schemas.channel import ChannelType
 from src.kernel.schemas.feishu import FeishuConfig, FeishuGroupPolicy
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FeishuChannelManager(UserChannelManager):

@@ -395,7 +395,12 @@ export function SkillsPanel() {
       <PanelHeader
         title={t("skills.title")}
         subtitle={t("skills.subtitle")}
-        icon={<FolderOpen size={18} className="text-stone-600 dark:text-stone-400" />}
+        icon={
+          <FolderOpen
+            size={18}
+            className="text-stone-600 dark:text-stone-400"
+          />
+        }
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder={t("skills.searchPlaceholder")}
@@ -404,36 +409,31 @@ export function SkillsPanel() {
             <>
               <button
                 onClick={handleGithubClick}
-                className="btn-secondary !py-1.5 !px-2 sm:!py-2 sm:!px-3"
+                className="btn-secondary"
                 title={t("skills.importFromGitHub")}
               >
-                <Github size={16} />
+                <Github size={16} className="sm:size-[18px]" />
                 <span className="hidden sm:inline">GitHub</span>
               </button>
               <button
                 onClick={handleImportClick}
-                className="btn-secondary !py-1.5 !px-2 sm:!py-2 sm:!px-3"
+                className="btn-secondary"
                 title={t("skills.importFromJSON")}
               >
-                <Upload size={16} />
+                <Upload size={16} className="sm:size-[18px]" />
                 <span className="hidden sm:inline">{t("common.import")}</span>
               </button>
               <button
                 onClick={handleExport}
-                className="btn-secondary !py-1.5 !px-2 sm:!py-2 sm:!px-3"
+                className="btn-secondary"
                 title={t("skills.exportToJSON")}
               >
-                <Download size={16} />
+                <Download size={16} className="sm:size-[18px]" />
                 <span className="hidden sm:inline">{t("common.export")}</span>
               </button>
-              <button
-                onClick={handleCreate}
-                className="btn-primary !py-1.5 !px-2 sm:!py-2 sm:!px-3 whitespace-nowrap"
-              >
+              <button onClick={handleCreate} className="btn-primary">
                 <Plus size={16} />
-                <span className="hidden sm:inline">
-                  {t("skills.newSkill")}
-                </span>
+                <span className="hidden sm:inline">{t("skills.newSkill")}</span>
               </button>
             </>
           )

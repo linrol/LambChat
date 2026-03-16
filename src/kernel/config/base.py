@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import secrets
 from functools import lru_cache
@@ -10,6 +9,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
+
+from src.infra.logging import get_logger
 
 from .constants import JWT_SECRET_KEY_MIN_LENGTH
 from .utils import (
@@ -23,7 +24,7 @@ from .utils import (
 if TYPE_CHECKING:
     from src.infra.storage.s3 import S3Config
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Settings(BaseSettings):
@@ -153,6 +154,13 @@ class Settings(BaseSettings):
     S3_MAX_FILE_SIZE: int = 10 * 1024 * 1024
     S3_PUBLIC_BUCKET: bool = False
     S3_PRESIGNED_URL_EXPIRES: int = 7 * 24 * 3600
+
+    # File Upload Settings
+    FILE_UPLOAD_MAX_SIZE_IMAGE: int = 10
+    FILE_UPLOAD_MAX_SIZE_VIDEO: int = 100
+    FILE_UPLOAD_MAX_SIZE_AUDIO: int = 50
+    FILE_UPLOAD_MAX_SIZE_DOCUMENT: int = 50
+    FILE_UPLOAD_MAX_FILES: int = 10
 
     # Frontend Settings
     DEFAULT_AGENT: str = "default"

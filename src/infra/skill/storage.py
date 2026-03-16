@@ -8,10 +8,10 @@ Follows the same pattern as MCP storage for consistency.
 
 import copy
 import json
-import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
+from src.infra.logging import get_logger
 from src.infra.skill.cache import SkillCacheMixin
 from src.infra.skill.converters import (
     doc_to_effective_dict,
@@ -33,7 +33,7 @@ from src.kernel.schemas.skill import (
     UserSkill,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 if TYPE_CHECKING:

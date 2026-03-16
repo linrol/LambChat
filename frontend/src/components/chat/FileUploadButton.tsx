@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, memo, useEffect } from "react";
 import { Paperclip, Image, Video, Music, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import toast from "react-hot-toast";
 import { useAuth } from "../../hooks/useAuth";
-import { uploadApi } from "../../services/api";
+import { useFileUpload } from "../../hooks/useFileUpload";
 import type { MessageAttachment, FileCategory } from "../../types";
 import { Permission } from "../../types";
 
@@ -39,16 +40,8 @@ const CATEGORY_ICONS: Record<FileCategory, React.ElementType> = {
   document: FileText,
 };
 
-function getFileCategory(file: File): FileCategory {
-  const type = file.type.toLowerCase();
-  if (type.startsWith("image/")) return "image";
-  if (type.startsWith("video/")) return "video";
-  if (type.startsWith("audio/")) return "audio";
-  return "document";
-}
-
 export const FileUploadButton = memo(function FileUploadButton({
-  attachments: _attachments = [],
+  attachments = [],
   onAttachmentsChange,
 }: FileUploadButtonProps) {
   const { t } = useTranslation();
@@ -59,6 +52,11 @@ export const FileUploadButton = memo(function FileUploadButton({
   const [selectedCategory, setSelectedCategory] = useState<FileCategory | null>(
     null,
   );
+
+  const { uploadLimits, uploadFiles } = useFileUpload({
+    attachments,
+    onAttachmentsChange: onAttachmentsChange!,
+  });
 
   // Get available categories based on permissions
   const availableCategories = Object.keys(CATEGORY_PERMISSIONS).filter((cat) =>
@@ -82,76 +80,44 @@ export const FileUploadButton = memo(function FileUploadButton({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Handle file selection - immediately adds attachment card with progress
+  // Handle file selection from the dropdown or file picker
   const handleFiles = useCallback(
-    async (files: FileList | null, category?: FileCategory) => {
+    (files: FileList | null, category?: FileCategory) => {
       if (!files || files.length === 0) return;
 
-      const fileArray = Array.from(files);
+      for (const file of Array.from(files)) {
+        const fileCategory =
+          category || file.type.startsWith("image/")
+            ? "image"
+            : file.type.startsWith("video/")
+              ? "video"
+              : file.type.startsWith("audio/")
+                ? "audio"
+                : "document";
 
-      for (const file of fileArray) {
-        const fileCategory = category || getFileCategory(file);
-        const perm = CATEGORY_PERMISSIONS[fileCategory];
-
-        if (!hasPermission(perm)) {
-          console.warn(`No permission to upload ${fileCategory} files`);
+        if (!hasPermission(CATEGORY_PERMISSIONS[fileCategory])) {
+          toast.error(
+            t("fileUpload.noPermission", {
+              type: t(`fileUpload.categories.${fileCategory}`),
+            }),
+          );
           continue;
         }
 
-        const tempId = `temp-${crypto.randomUUID()}`;
-
-        // Immediately add temp attachment to show progress card
-        const tempAttachment: MessageAttachment = {
-          id: tempId,
-          key: "",
-          name: file.name,
-          type: fileCategory,
-          mimeType: file.type,
-          size: file.size,
-          url: "",
-        };
-
-        // Use functional update to support multiple file uploads
-        onAttachmentsChange?.((prev) => [...prev, tempAttachment]);
-
-        try {
-          const result = await uploadApi.uploadFile(file, {
-            onProgress: (progress) => {
-              // Update attachment with progress - use functional update pattern
-              onAttachmentsChange?.((prev: MessageAttachment[]) =>
-                prev.map((a) =>
-                  a.id === tempId
-                    ? { ...a, uploadProgress: progress, isUploading: true }
-                    : a,
-                ),
-              );
-            },
-          });
-
-          const finalAttachment: MessageAttachment = {
-            id: crypto.randomUUID(),
-            key: result.key,
-            name: result.name || file.name,
-            type: result.type as FileCategory,
-            mimeType: result.mimeType,
-            size: result.size,
-            url: result.url,
-          };
-
-          // Replace temp with final attachment
-          onAttachmentsChange?.((prev: MessageAttachment[]) =>
-            prev.map((a) => (a.id === tempId ? finalAttachment : a)),
-          );
-        } catch (error) {
-          console.error("Upload failed:", error);
-          // Remove temp attachment on error
-          onAttachmentsChange?.((prev: MessageAttachment[]) =>
-            prev.filter((a) => a.id !== tempId),
-          );
+        // Check per-file size
+        if (uploadLimits) {
+          const maxMB = uploadLimits[fileCategory];
+          if (file.size > maxMB * 1024 * 1024) {
+            toast.error(`${t("fileUpload.fileTooLarge")} (${maxMB}MB)`);
+            continue;
+          }
         }
       }
+
+      // Delegate count validation + upload to the hook
+      uploadFiles(files, category);
     },
-    [hasPermission, onAttachmentsChange],
+    [hasPermission, uploadLimits, uploadFiles, t],
   );
 
   // Handle category selection from dropdown
@@ -189,7 +155,7 @@ export const FileUploadButton = memo(function FileUploadButton({
       <button
         type="button"
         onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center justify-center rounded-full p-2 border border-gray-200 dark:border-stone-700 bg-transparent hover:bg-gray-100 dark:hover:bg-stone-700 text-stone-500 dark:text-stone-300 transition-all duration-300"
+        className="flex items-center justify-center rounded-full w-8 h-8 border border-gray-200 dark:border-stone-700 bg-transparent hover:bg-gray-100 dark:hover:bg-stone-700 text-stone-500 dark:text-stone-300 transition-all duration-300"
         title={t("fileUpload.title")}
       >
         <Paperclip size={18} />
@@ -197,7 +163,7 @@ export const FileUploadButton = memo(function FileUploadButton({
 
       {/* Dropdown menu */}
       {showDropdown && (
-        <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[140px] rounded-xl bg-white dark:bg-stone-800 shadow-lg border border-gray-200 dark:border-stone-700 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="absolute bottom-full left-0 mb-2 z-50 w-52 rounded-xl bg-white dark:bg-stone-800 shadow-lg border border-stone-200/80 dark:border-stone-700/80 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
           {availableCategories.map((category) => {
             const Icon = CATEGORY_ICONS[category];
             return (
@@ -205,13 +171,32 @@ export const FileUploadButton = memo(function FileUploadButton({
                 key={category}
                 type="button"
                 onClick={() => handleCategorySelect(category)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-stone-200 hover:bg-gray-50 dark:hover:bg-stone-700 transition-colors"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700/60 transition-colors"
               >
-                <Icon size={16} />
-                {t(`fileUpload.categories.${category}`)}
+                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-700">
+                  <Icon
+                    size={14}
+                    className="text-stone-500 dark:text-stone-400"
+                  />
+                </div>
+                <span className="flex-1 text-left font-medium">
+                  {t(`fileUpload.categories.${category}`)}
+                </span>
+                {uploadLimits && (
+                  <span className="text-[11px] tabular-nums text-stone-400 dark:text-stone-500">
+                    {uploadLimits[category]}MB
+                  </span>
+                )}
               </button>
             );
           })}
+          {uploadLimits && (
+            <div className="px-3.5 py-2 border-t border-stone-100 dark:border-stone-700/60 text-[11px] text-stone-400 dark:text-stone-500">
+              {t("fileUpload.maxFilesSummary", {
+                maxFiles: uploadLimits.maxFiles,
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

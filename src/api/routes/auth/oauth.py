@@ -2,7 +2,6 @@
 OAuth authentication routes
 """
 
-import logging
 import secrets
 from typing import Annotated
 from urllib.parse import urlencode
@@ -12,13 +11,14 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, StringConstraints
 
 from src.infra.auth.turnstile import get_turnstile_service
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 from src.kernel.schemas.user import OAuthProvider
 
 from .utils import _get_client_ip, _get_frontend_url, _store_oauth_state, _verify_oauth_state
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # OAuth provider path parameter with validation

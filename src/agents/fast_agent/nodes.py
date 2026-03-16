@@ -5,7 +5,6 @@ Fast Agent 节点 - 无沙箱，快速响应
 """
 
 import asyncio
-import logging
 import time
 import uuid
 from typing import Any, Dict
@@ -24,11 +23,12 @@ from src.agents.fast_agent.prompt import (
 from src.infra.agent import AgentEventProcessor
 from src.infra.backend.deepagent import create_memory_backend_factory
 from src.infra.llm.client import LLMClient
+from src.infra.logging import get_logger
 from src.infra.skill.loader import build_skills_prompt
 from src.infra.storage.checkpoint import get_async_checkpointer
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ============================================================================

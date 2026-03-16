@@ -45,6 +45,28 @@ function RoleFormModal({
   const [maxChannels, setMaxChannels] = useState<number | "">(
     role?.limits?.max_channels ?? "",
   );
+  const [maxConcurrentChats, setMaxConcurrentChats] = useState<number | "">(
+    role?.limits?.max_concurrent_chats ?? "",
+  );
+  const [maxQueuedChats, setMaxQueuedChats] = useState<number | "">(
+    role?.limits?.max_queued_chats ?? "",
+  );
+  const [maxUploadSizeImage, setMaxUploadSizeImage] = useState<number | "">(
+    role?.limits?.max_file_size_image ?? "",
+  );
+  const [maxUploadSizeVideo, setMaxUploadSizeVideo] = useState<number | "">(
+    role?.limits?.max_file_size_video ?? "",
+  );
+  const [maxUploadSizeAudio, setMaxUploadSizeAudio] = useState<number | "">(
+    role?.limits?.max_file_size_audio ?? "",
+  );
+  const [maxUploadSizeDocument, setMaxUploadSizeDocument] = useState<
+    number | ""
+  >(role?.limits?.max_file_size_document ?? "");
+  const [maxUploadFiles, setMaxUploadFiles] = useState<number | "">(
+    role?.limits?.max_files ?? "",
+  );
+  const [showUploadLimits, setShowUploadLimits] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
     role?.permissions || [],
   );
@@ -69,10 +91,84 @@ function RoleFormModal({
 
     try {
       const limits: RoleLimits = {};
-      if (maxChannels !== "" && maxChannels !== null && maxChannels !== undefined) {
+      if (
+        maxChannels !== "" &&
+        maxChannels !== null &&
+        maxChannels !== undefined
+      ) {
         const numValue = Number(maxChannels);
         if (!isNaN(numValue) && numValue >= 0) {
           limits.max_channels = numValue;
+        }
+      }
+      if (
+        maxConcurrentChats !== "" &&
+        maxConcurrentChats !== null &&
+        maxConcurrentChats !== undefined
+      ) {
+        const numValue = Number(maxConcurrentChats);
+        if (!isNaN(numValue) && numValue >= 0) {
+          limits.max_concurrent_chats = numValue;
+        }
+      }
+      if (
+        maxQueuedChats !== "" &&
+        maxQueuedChats !== null &&
+        maxQueuedChats !== undefined
+      ) {
+        const numValue = Number(maxQueuedChats);
+        if (!isNaN(numValue) && numValue >= 0) {
+          limits.max_queued_chats = numValue;
+        }
+      }
+      if (
+        maxUploadSizeImage !== "" &&
+        maxUploadSizeImage !== null &&
+        maxUploadSizeImage !== undefined
+      ) {
+        const numValue = Number(maxUploadSizeImage);
+        if (!isNaN(numValue) && numValue >= 0) {
+          limits.max_file_size_image = numValue;
+        }
+      }
+      if (
+        maxUploadSizeVideo !== "" &&
+        maxUploadSizeVideo !== null &&
+        maxUploadSizeVideo !== undefined
+      ) {
+        const numValue = Number(maxUploadSizeVideo);
+        if (!isNaN(numValue) && numValue >= 0) {
+          limits.max_file_size_video = numValue;
+        }
+      }
+      if (
+        maxUploadSizeAudio !== "" &&
+        maxUploadSizeAudio !== null &&
+        maxUploadSizeAudio !== undefined
+      ) {
+        const numValue = Number(maxUploadSizeAudio);
+        if (!isNaN(numValue) && numValue >= 0) {
+          limits.max_file_size_audio = numValue;
+        }
+      }
+      if (
+        maxUploadSizeDocument !== "" &&
+        maxUploadSizeDocument !== null &&
+        maxUploadSizeDocument !== undefined
+      ) {
+        const numValue = Number(maxUploadSizeDocument);
+        if (!isNaN(numValue) && numValue >= 0) {
+          limits.max_file_size_document = numValue;
+        }
+      }
+      if (
+        maxUploadFiles !== "" &&
+        maxUploadFiles !== null &&
+        maxUploadFiles !== undefined
+      ) {
+        const numValue = Number(maxUploadFiles);
+        if (!isNaN(numValue) && numValue >= 0) {
+          limits.max_files = numValue;
         }
       }
       const data: RoleCreate | RoleUpdate = {
@@ -209,6 +305,130 @@ function RoleFormModal({
               <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
                 {t("roles.maxChannelsHint")}
               </p>
+            </div>
+
+            {/* 并发限制 */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-stone-700 dark:text-stone-300">
+                {t("roles.concurrentChatsTitle")}
+              </label>
+              <div className="space-y-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-400">
+                    {t("roles.maxConcurrentChats")}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={maxConcurrentChats}
+                    onChange={(e) =>
+                      setMaxConcurrentChats(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    className="w-full rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-500 dark:focus:ring-stone-500/20"
+                    placeholder="5"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-400">
+                    {t("roles.maxQueuedChats")}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={maxQueuedChats}
+                    onChange={(e) =>
+                      setMaxQueuedChats(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    className="w-full rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-500 dark:focus:ring-stone-500/20"
+                    placeholder="10"
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                {t("roles.concurrentChatsHint")}
+              </p>
+            </div>
+
+            {/* 上传限制 */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowUploadLimits(!showUploadLimits)}
+                className="flex items-center justify-between w-full text-sm font-medium text-stone-700 dark:text-stone-300"
+              >
+                {t("roles.uploadLimitsTitle")}
+                <svg
+                  className={`w-4 h-4 transition-transform ${
+                    showUploadLimits ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              {showUploadLimits && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {t("roles.uploadLimitsHint")}
+                  </p>
+                  {[
+                    {
+                      label: "maxUploadSizeImage",
+                      value: maxUploadSizeImage,
+                      setter: setMaxUploadSizeImage,
+                    },
+                    {
+                      label: "maxUploadSizeVideo",
+                      value: maxUploadSizeVideo,
+                      setter: setMaxUploadSizeVideo,
+                    },
+                    {
+                      label: "maxUploadSizeAudio",
+                      value: maxUploadSizeAudio,
+                      setter: setMaxUploadSizeAudio,
+                    },
+                    {
+                      label: "maxUploadSizeDocument",
+                      value: maxUploadSizeDocument,
+                      setter: setMaxUploadSizeDocument,
+                    },
+                    {
+                      label: "maxFiles",
+                      value: maxUploadFiles,
+                      setter: setMaxUploadFiles,
+                    },
+                  ].map(({ label, value, setter }) => (
+                    <div key={label}>
+                      <label className="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-400">
+                        {t(`roles.${label}`)}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={value}
+                        onChange={(e) =>
+                          setter(
+                            e.target.value === "" ? "" : Number(e.target.value),
+                          )
+                        }
+                        className="w-full rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-500 dark:focus:ring-stone-500/20"
+                        placeholder={t("roles.maxChannelsPlaceholder")}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* 权限选择 */}

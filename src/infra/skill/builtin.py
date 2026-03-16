@@ -4,16 +4,16 @@ Builtin skills initialization
 Load skills from src/skills/ directory into the database on startup.
 """
 
-import logging
 from pathlib import Path
 from typing import Optional
 
 import yaml
 
+from src.infra.logging import get_logger
 from src.infra.skill.storage import SkillStorage
 from src.kernel.schemas.skill import SkillCreate, SkillSource
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Builtin skills directory
 BUILTIN_SKILLS_DIR = Path(__file__).parent.parent.parent / "skills"

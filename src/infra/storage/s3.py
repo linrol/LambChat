@@ -12,7 +12,6 @@ Supports multiple S3-compatible providers:
 from __future__ import annotations
 
 import io
-import logging
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -25,8 +24,10 @@ from pydantic import BaseModel, Field
 if TYPE_CHECKING:
     import minio
 
+from src.infra.logging import get_logger
+
 # Log configuration for debugging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class S3Provider(str, Enum):

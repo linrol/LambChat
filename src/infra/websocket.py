@@ -7,12 +7,13 @@ WebSocket Manager - WebSocket 连接管理器
 
 import asyncio
 import json
-import logging
 from typing import Dict, Optional, Set
 
 from fastapi import WebSocket
 
-logger = logging.getLogger(__name__)
+from src.infra.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Redis channel for WebSocket broadcast
 WS_BROADCAST_CHANNEL = "ws:broadcast"

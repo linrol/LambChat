@@ -6,14 +6,15 @@ MCP 服务器连接池
 """
 
 import asyncio
-import logging
 import time
 from typing import Any, Optional, Set
 
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-logger = logging.getLogger(__name__)
+from src.infra.logging import get_logger
+
+logger = get_logger(__name__)
 
 # 连接池：server_name -> PooledConnection
 _connection_pool: dict[str, "PooledConnection"] = {}
@@ -157,16 +158,11 @@ async def cleanup_expired_connections() -> int:
             pooled = _connection_pool.pop(server_name, None)
             if pooled:
                 try:
-                    # 尝试关闭客户端
-                    # MultiServerMCPClient 使用 async context manager 模式
-                    if hasattr(pooled.client, "__aexit__"):
-                        # __aexit__ 返回 None，不需要返回值
-                        await pooled.client.__aexit__(None, None, None)  # type: ignore[func-returns-value]
-                    elif hasattr(pooled.client, "close"):
-                        task = asyncio.create_task(pooled.client.close())
-                        _track_background_task(task)
+                    # MultiServerMCPClient 不支持 async context manager（__aexit__ 会抛 NotImplementedError）
+                    # 也没有 async close()，直接移除引用即可让 GC 回收
+                    del pooled.client
                 except Exception as e:
-                    logger.debug(f"[MCP Pool] Error closing client: {e}")
+                    logger.debug(f"[MCP Pool] Error cleaning up client: {e}")
 
         if expired_servers:
             logger.info(f"[MCP Pool] Cleaned up {len(expired_servers)} expired connections")

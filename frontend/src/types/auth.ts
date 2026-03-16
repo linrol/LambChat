@@ -92,6 +92,13 @@ export interface UserListResponse {
 // 角色限制配置
 export interface RoleLimits {
   max_channels?: number | null; // 最大渠道数量，null = 无限制
+  max_concurrent_chats?: number | null; // 每用户最大并发聊天数，null = 无限制
+  max_queued_chats?: number | null; // 每用户最大排队数，null = 无限制
+  max_file_size_image?: number | null; // 图片上传大小限制（MB），null = 使用全局默认
+  max_file_size_video?: number | null; // 视频上传大小限制（MB）
+  max_file_size_audio?: number | null; // 音频上传大小限制（MB）
+  max_file_size_document?: number | null; // 文档上传大小限制（MB）
+  max_files?: number | null; // 最大上传文件数，null = 使用全局默认
   [key: string]: number | null | undefined; // 允许扩展
 }
 

@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import logging
 import subprocess
 import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from src.infra.logging import get_logger
+
 if TYPE_CHECKING:
     pass
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Project root directory (where pyproject.toml is)
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent

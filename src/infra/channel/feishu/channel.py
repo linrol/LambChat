@@ -7,7 +7,6 @@ Supports per-user bot configurations - each user can have their own Feishu bot.
 import asyncio
 import importlib.util
 import json
-import logging
 import threading
 import time
 from collections import OrderedDict
@@ -20,10 +19,11 @@ from src.infra.channel.feishu.utils import (
     extract_post_content,
     extract_share_card_content,
 )
+from src.infra.logging import get_logger
 from src.kernel.schemas.channel import ChannelCapability, ChannelType
 from src.kernel.schemas.feishu import FeishuConfig, FeishuGroupPolicy
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 FEISHU_AVAILABLE = importlib.util.find_spec("lark_oapi") is not None
 

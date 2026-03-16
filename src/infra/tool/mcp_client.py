@@ -7,7 +7,6 @@ MCP 客户端管理器
 
 import asyncio
 import json
-import logging
 import os
 from typing import Any, Optional
 
@@ -15,7 +14,9 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-logger = logging.getLogger(__name__)
+from src.infra.logging import get_logger
+
+logger = get_logger(__name__)
 
 # MCP 重试配置
 MCP_MAX_RETRIES = 3

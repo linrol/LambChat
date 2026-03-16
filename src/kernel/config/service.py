@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, Optional
+
+from src.infra.logging import get_logger
 
 from .base import settings
 
 if TYPE_CHECKING:
     from src.infra.settings.service import SettingsService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # SettingsService integration
 _settings_service: Optional["SettingsService"] = None

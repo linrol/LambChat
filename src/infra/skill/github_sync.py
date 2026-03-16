@@ -217,7 +217,7 @@ class GitHubSyncService:
         owner, repo = self._parse_repo_url(repo_url)
         skills = []
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
             # Try to fetch skills.json manifest
             manifest_url = f"{self.GITHUB_RAW_BASE}/{owner}/{repo}/{branch}/skills.json"
             manifest = await self._fetch_json(session, manifest_url)
@@ -316,7 +316,7 @@ class GitHubSyncService:
         """
         owner, repo = self._parse_repo_url(repo_url)
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
             skill_md_url = f"{self.GITHUB_RAW_BASE}/{owner}/{repo}/{branch}/{skill_path}/SKILL.md"
             content = await self._fetch_text(session, skill_md_url)
 

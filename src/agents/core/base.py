@@ -6,7 +6,6 @@ Graph Agent 基类
 """
 
 import asyncio
-import logging
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
@@ -17,10 +16,11 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from src.infra.agent import AgentEventProcessor
+from src.infra.logging import get_logger
 from src.infra.writer.present import Presenter, PresenterConfig
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ============================================================================
 # Agent 注册表

@@ -95,6 +95,28 @@ export function ProfileModal({
     }
   }, [showProfileModal]);
 
+  // Body scroll lock
+  useEffect(() => {
+    if (showProfileModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showProfileModal]);
+
+  // ESC key to close
+  useEffect(() => {
+    if (!showProfileModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseProfileModal();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showProfileModal, onCloseProfileModal]);
+
   // Compress image file to target size (default 100KB)
   const compressImage = async (
     file: File,
@@ -283,74 +305,68 @@ export function ProfileModal({
 
   if (!showProfileModal) return null;
 
+  const tabs: { key: typeof activeTab; label: string }[] = [
+    { key: "info", label: t("profile.title") },
+    { key: "password", label: t("profile.changePassword") },
+    { key: "notification", label: t("profile.notifications") },
+    { key: "agent", label: t("agentConfig.defaultAgent") },
+  ];
+
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[200] flex items-end sm:items-center sm:justify-center"
       onClick={() => onCloseProfileModal()}
     >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 animate-fade-in" />
+
+      {/* Dialog: bottom sheet on mobile, centered card on desktop */}
       <div
-        className="w-full max-w-md rounded-xl bg-white dark:bg-stone-800 shadow-2xl border border-gray-200 dark:border-stone-700 overflow-hidden mx-4 max-h-[90vh] max-h-[90dvh] flex flex-col"
+        className="relative z-10 w-full sm:max-w-md sm:mx-4 bg-white dark:bg-stone-800 sm:rounded-xl rounded-t-2xl shadow-xl border border-gray-200 dark:border-stone-700 overflow-hidden max-h-[90vh] max-h-[90dvh] flex flex-col animate-slide-up-sheet sm:animate-in sm:fade-in sm:zoom-in-95 sm:duration-200"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile drag handle */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 bg-gray-300 dark:bg-stone-600 rounded-full" />
+        </div>
+
         {/* Modal Header */}
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-stone-700 flex items-center justify-between">
+        <div className="px-4 sm:px-5 py-3 flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-900 dark:text-stone-100">
             {t("profile.title")}
           </h3>
           <button
             onClick={onCloseProfileModal}
-            className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-stone-700"
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-stone-700 transition-colors"
           >
-            <X size={20} className="text-gray-500 dark:text-stone-400" />
+            <X size={18} className="text-gray-500 dark:text-stone-400" />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-stone-700">
-          <button
-            onClick={() => setActiveTab("info")}
-            className={`flex-1 py-2.5 text-xs font-medium transition-colors ${
-              activeTab === "info"
-                ? "text-amber-600 border-b-2 border-amber-600"
-                : "text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-200"
-            }`}
-          >
-            {t("profile.title")}
-          </button>
-          <button
-            onClick={() => setActiveTab("password")}
-            className={`flex-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
-              activeTab === "password"
-                ? "text-amber-600 border-b-2 border-amber-600"
-                : "text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-200"
-            }`}
-          >
-            {t("profile.changePassword")}
-          </button>
-          <button
-            onClick={() => setActiveTab("notification")}
-            className={`flex-1 py-2.5 text-xs font-medium transition-colors ${
-              activeTab === "notification"
-                ? "text-amber-600 border-b-2 border-amber-600"
-                : "text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-200"
-            }`}
-          >
-            {t("profile.notifications")}
-          </button>
-          <button
-            onClick={() => setActiveTab("agent")}
-            className={`flex-1 py-2.5 text-xs font-medium transition-colors ${
-              activeTab === "agent"
-                ? "text-amber-600 border-b-2 border-amber-600"
-                : "text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-200"
-            }`}
-          >
-            {t("agentConfig.defaultAgent")}
-          </button>
+        {/* Tabs - scrollable on mobile */}
+        <div className="px-4 sm:px-5 border-b border-gray-100 dark:border-stone-700/80">
+          <div className="flex gap-4 overflow-x-auto scrollbar-none -mb-px">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`relative flex-shrink-0 px-1 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-200"
+                }`}
+              >
+                {tab.label}
+                {activeTab === tab.key && (
+                  <span className="absolute bottom-0 left-1 right-1 h-0.5 bg-amber-500 dark:bg-amber-400 rounded-full" />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
           {activeTab === "info" && (
             <>
               {/* Avatar */}
@@ -360,18 +376,18 @@ export function ProfileModal({
                     <img
                       src={userData.avatar_url}
                       alt="Avatar"
-                      className="w-20 h-20 rounded-full object-cover border-4 border-white dark:border-stone-700 shadow-md"
+                      className="w-20 h-20 rounded-full object-cover border-4 border-white dark:border-stone-700 shadow-lg ring-2 ring-gray-100 dark:ring-stone-600"
                       onError={() => setImgError(true)}
                     />
                   ) : (
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-stone-500 to-stone-700 flex items-center justify-center border-4 border-white dark:border-stone-700 shadow-md">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center border-4 border-white dark:border-stone-700 shadow-lg ring-2 ring-gray-100 dark:ring-stone-600">
                       <span className="text-2xl font-bold text-white">
                         {userData?.username?.charAt(0).toUpperCase() || "U"}
                       </span>
                     </div>
                   )}
                   {isUploading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full backdrop-blur-sm">
                       <Loader2 size={24} className="animate-spin text-white" />
                     </div>
                   )}
@@ -405,16 +421,16 @@ export function ProfileModal({
               </div>
 
               {/* User Info */}
-              <div className="space-y-2">
+              <div className="space-y-0">
                 {/* Username - editable */}
-                <div className="py-3 border-b border-gray-100 dark:border-stone-700">
+                <div className="py-3.5 border-b border-gray-100 dark:border-stone-700/60">
                   {isEditingUsername ? (
                     <div className="space-y-2">
                       <input
                         type="text"
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 dark:border-stone-600 bg-gray-50 dark:bg-stone-900 px-3 py-2 text-sm text-gray-900 dark:text-stone-100 placeholder-gray-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        className="w-full rounded-lg border border-gray-300 dark:border-stone-600 bg-gray-50 dark:bg-stone-900 px-3 py-2.5 text-sm text-gray-900 dark:text-stone-100 placeholder-gray-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                         minLength={3}
                         maxLength={50}
                         placeholder="Enter new username"
@@ -432,13 +448,14 @@ export function ProfileModal({
                             isUpdatingUsername ||
                             newUsername === userData?.username
                           }
-                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                          className="flex-1 sm:flex-none px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                         >
                           {isUpdatingUsername ? (
                             <Loader2 size={14} className="animate-spin" />
                           ) : (
-                            t("common.save")
+                            <Check size={14} />
                           )}
+                          {t("common.save")}
                         </button>
                         <button
                           onClick={() => {
@@ -446,19 +463,19 @@ export function ProfileModal({
                             setNewUsername("");
                             setUsernameError("");
                           }}
-                          className="px-3 py-1.5 border border-gray-200 dark:border-stone-600 text-gray-600 dark:text-stone-400 text-xs font-medium rounded-md hover:bg-gray-50 dark:hover:bg-stone-700 transition-colors"
+                          className="flex-1 sm:flex-none px-4 py-2 border border-gray-200 dark:border-stone-600 text-gray-600 dark:text-stone-400 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-stone-700 transition-colors"
                         >
                           {t("common.cancel")}
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 dark:text-stone-400">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-gray-500 dark:text-stone-400 shrink-0">
                         {t("profile.username")}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900 dark:text-stone-100">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium text-gray-900 dark:text-stone-100 truncate">
                           {userData?.username || "-"}
                         </span>
                         <button
@@ -466,32 +483,39 @@ export function ProfileModal({
                             setNewUsername(userData?.username || "");
                             setIsEditingUsername(true);
                           }}
-                          className="text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-md transition-colors"
+                          className="shrink-0 text-amber-500 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-md p-1 transition-colors"
                           title={t("common.edit")}
                         >
-                          <Pencil size={14} />
+                          <Pencil size={13} />
                         </button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-stone-700">
-                  <span className="text-sm text-gray-500 dark:text-stone-400">
+                <div className="flex items-center justify-between py-3.5 border-b border-gray-100 dark:border-stone-700/60 gap-3">
+                  <span className="text-sm text-gray-500 dark:text-stone-400 shrink-0">
                     {t("profile.email")}
                   </span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-stone-100">
+                  <span className="text-sm font-medium text-gray-900 dark:text-stone-100 truncate text-right">
                     {userData?.email || "-"}
                   </span>
                 </div>
                 {userData?.roles && userData.roles.length > 0 && (
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-stone-700">
-                    <span className="text-sm text-gray-500 dark:text-stone-400">
+                  <div className="flex items-center justify-between py-3.5 gap-3">
+                    <span className="text-sm text-gray-500 dark:text-stone-400 shrink-0">
                       {t("profile.roles")}
                     </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-stone-100">
-                      {userData.roles.join(", ")}
-                    </span>
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {userData.roles.map((role) => (
+                        <span
+                          key={role}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300"
+                        >
+                          {role}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -499,22 +523,24 @@ export function ProfileModal({
           )}
 
           {activeTab === "password" && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {passwordSuccess && (
-                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-sm">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-sm">
+                  <Check size={16} className="shrink-0" />
                   {t("profile.passwordChanged")}
                 </div>
               )}
 
               {passwordError && (
-                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
+                  <AlertCircle size={16} className="shrink-0" />
                   {passwordError}
                 </div>
               )}
 
               {/* Old Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-1.5">
                   {t("profile.oldPassword")}
                 </label>
                 <div className="relative">
@@ -522,13 +548,13 @@ export function ProfileModal({
                     type={showPassword ? "text" : "password"}
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 pr-10 rounded-lg border border-gray-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-gray-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-gray-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-gray-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm"
                     placeholder={t("profile.oldPassword")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-stone-300"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-stone-300 transition-colors"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -537,28 +563,28 @@ export function ProfileModal({
 
               {/* New Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-1.5">
                   {t("profile.newPassword")}
                 </label>
                 <input
                   type={showPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-gray-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-gray-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm"
                   placeholder={t("profile.newPassword")}
                 />
               </div>
 
               {/* Confirm Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-1.5">
                   {t("profile.confirmPassword")}
                 </label>
                 <input
                   type={showPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-gray-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-gray-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm"
                   placeholder={t("profile.confirmPassword")}
                 />
               </div>
@@ -567,11 +593,11 @@ export function ProfileModal({
               <button
                 onClick={handlePasswordChange}
                 disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 dark:disabled:bg-amber-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={16} className="animate-spin" />
                     {t("common.loading")}
                   </>
                 ) : (
@@ -582,31 +608,31 @@ export function ProfileModal({
           )}
 
           {activeTab === "notification" && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Browser Notification Setting */}
-              <div className="bg-gray-50 dark:bg-stone-700/50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-stone-100">
+              <div className="rounded-xl bg-gray-50 dark:bg-stone-700/50 p-3.5 sm:p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h4 className="font-medium text-sm text-gray-900 dark:text-stone-100">
                       {t("profile.browserNotification")}
                     </h4>
-                    <p className="text-sm text-gray-500 dark:text-stone-400 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-stone-400 mt-1 leading-relaxed">
                       {t("profile.browserNotificationDesc")}
                     </p>
                   </div>
                   {!isSupported ? (
-                    <span className="text-xs text-gray-400">
+                    <span className="shrink-0 text-xs text-gray-400 mt-0.5">
                       {t("profile.notSupported")}
                     </span>
                   ) : permission === "granted" ? (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <Check size={16} />
+                    <span className="shrink-0 text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5">
+                      <Check size={14} />
                       {t("profile.enabled")}
                     </span>
                   ) : (
                     <button
                       onClick={requestPermission}
-                      className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+                      className="shrink-0 px-3 py-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors font-medium"
                     >
                       {permission === "denied"
                         ? t("profile.retry")
@@ -616,7 +642,8 @@ export function ProfileModal({
                 </div>
 
                 {permission === "denied" && (
-                  <p className="text-xs text-red-500 mt-2">
+                  <p className="text-xs text-red-500 mt-2.5 flex items-start gap-1.5">
+                    <AlertCircle size={12} className="shrink-0 mt-0.5" />
                     {t("profile.notificationDeniedHint")}
                   </p>
                 )}
@@ -624,26 +651,26 @@ export function ProfileModal({
 
               {/* Mobile Notification Status */}
               {isMobile && (
-                <div className="bg-gray-50 dark:bg-stone-700/50 rounded-lg p-4">
-                  <div className="flex items-center justify-between gap-2 flex-nowrap">
+                <div className="rounded-xl bg-gray-50 dark:bg-stone-700/50 p-3.5 sm:p-4">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h4 className="font-medium text-gray-900 dark:text-stone-100">
+                      <h4 className="font-medium text-sm text-gray-900 dark:text-stone-100">
                         {t("profile.mobileNotification")}
                       </h4>
-                      <p className="text-sm text-gray-500 dark:text-stone-400 mt-1 hidden sm:block">
+                      <p className="text-xs text-gray-500 dark:text-stone-400 mt-1 leading-relaxed">
                         {t("profile.mobileNotificationDesc")}
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 text-sm flex items-center gap-1 ${
+                      className={`shrink-0 text-xs flex items-center gap-1 mt-0.5 ${
                         isMobileNotificationSupported()
-                          ? "text-green-600"
-                          : "text-amber-600"
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-amber-600 dark:text-amber-400"
                       }`}
                     >
                       {isMobileNotificationSupported() ? (
                         <>
-                          <Check size={16} />
+                          <Check size={14} />
                           {t("profile.supported")}
                         </>
                       ) : (
@@ -655,13 +682,13 @@ export function ProfileModal({
               )}
 
               {/* WebSocket Connection Status */}
-              <div className="bg-gray-50 dark:bg-stone-700/50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-stone-100">
+              <div className="rounded-xl bg-gray-50 dark:bg-stone-700/50 p-3.5 sm:p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h4 className="font-medium text-sm text-gray-900 dark:text-stone-100">
                       {t("profile.realtimeNotification")}
                     </h4>
-                    <p className="text-sm text-gray-500 dark:text-stone-400 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-stone-400 mt-1 leading-relaxed">
                       {t("profile.realtimeNotificationDesc")}
                     </p>
                   </div>
@@ -674,15 +701,21 @@ export function ProfileModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-4 py-3 bg-gray-50 dark:bg-stone-700/50 flex items-center justify-end">
+        <div className="px-4 sm:px-5 py-3 border-t border-gray-100 dark:border-stone-700/60 flex items-center justify-between safe-area-bottom">
           <div className="text-xs text-gray-400 dark:text-stone-500">
             <span className="font-semibold text-gray-500 dark:text-stone-400 font-serif">
               LambChat
             </span>
             {versionInfo?.app_version && (
-              <span className="ml-2">v{versionInfo.app_version}</span>
+              <span className="ml-1.5">v{versionInfo.app_version}</span>
             )}
           </div>
+          <button
+            onClick={onCloseProfileModal}
+            className="text-xs text-gray-400 dark:text-stone-500 hover:text-gray-600 dark:hover:text-stone-300 transition-colors"
+          >
+            {t("common.close")}
+          </button>
         </div>
       </div>
     </div>,
@@ -761,19 +794,17 @@ function UserAgentPreferencePanel() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {error && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={18} />
-            <span>{error}</span>
-          </div>
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
+          <AlertCircle size={16} className="shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
-      <div className="bg-gray-50 dark:bg-stone-700/50 rounded-lg p-3 sm:p-4 overflow-hidden">
+      <div className="rounded-xl bg-gray-50 dark:bg-stone-700/50 p-3 sm:p-4">
         {availableAgents.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-stone-400">
+          <p className="text-sm text-gray-500 dark:text-stone-400 py-2">
             {t("agentConfig.noAvailableAgents")}
           </p>
         ) : (
@@ -781,9 +812,9 @@ function UserAgentPreferencePanel() {
             {availableAgents.map((agent) => (
               <label
                 key={agent.id}
-                className={`flex cursor-pointer items-start sm:items-center gap-2.5 sm:gap-3 rounded-lg p-2.5 sm:p-3 transition-colors overflow-hidden ${
+                className={`flex cursor-pointer items-start sm:items-center gap-2.5 sm:gap-3 rounded-lg p-2.5 sm:p-3 transition-all overflow-hidden ${
                   selectedAgent === agent.id
-                    ? "bg-white dark:bg-stone-600 ring-2 ring-amber-500/50"
+                    ? "bg-white dark:bg-stone-600 ring-2 ring-amber-500/40 shadow-sm"
                     : "bg-white/50 dark:bg-stone-600/50 hover:bg-white dark:hover:bg-stone-600"
                 }`}
               >
@@ -799,7 +830,7 @@ function UserAgentPreferencePanel() {
                   <div className="text-sm font-medium text-gray-900 dark:text-stone-100 truncate">
                     {t(agent.name)}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-stone-400 line-clamp-2 sm:truncate">
+                  <div className="text-xs text-gray-500 dark:text-stone-400 line-clamp-2 sm:truncate mt-0.5">
                     {t(agent.description)}
                   </div>
                 </div>
@@ -814,7 +845,7 @@ function UserAgentPreferencePanel() {
           <button
             onClick={handleSave}
             disabled={isSaving || !selectedAgent}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 dark:disabled:bg-amber-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 text-sm"
           >
             {isSaving ? (
               <>
@@ -823,7 +854,7 @@ function UserAgentPreferencePanel() {
               </>
             ) : (
               <>
-                <Save size={16} />
+                <Save size={15} />
                 {t("common.save")}
               </>
             )}
@@ -833,8 +864,11 @@ function UserAgentPreferencePanel() {
 
       {currentPreference && !hasChanges && (
         <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-stone-400">
-          <Check size={16} className="text-green-600 dark:text-green-400" />
-          <span>
+          <Check
+            size={16}
+            className="text-green-500 dark:text-green-400 shrink-0"
+          />
+          <span className="truncate">
             {t("agentConfig.currentPreference", {
               agentName: t(
                 availableAgents.find((a) => a.id === currentPreference)?.name ||

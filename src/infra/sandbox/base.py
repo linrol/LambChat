@@ -8,16 +8,16 @@ Sandbox 工厂和配置
 from __future__ import annotations
 
 import asyncio
-import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 
 if TYPE_CHECKING:
     from deepagents.backends.protocol import SandboxBackendProtocol
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # =============================================================================

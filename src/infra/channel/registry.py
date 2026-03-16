@@ -7,15 +7,16 @@ external plugins registered via entry points.
 from __future__ import annotations
 
 import importlib
-import logging
 import pkgutil
 from typing import TYPE_CHECKING, Optional
+
+from src.infra.logging import get_logger
 
 if TYPE_CHECKING:
     from src.infra.channel.base import BaseChannel, UserChannelManager
     from src.kernel.schemas.channel import ChannelType
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 # Internal modules to skip during discovery
 _INTERNAL = frozenset({"base", "registry", "manager", "__init__"})
 

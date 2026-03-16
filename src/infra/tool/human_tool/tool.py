@@ -5,15 +5,15 @@ Human Tool 实现
 """
 
 import json
-import logging
 from typing import Any, Dict, List, Optional, Type
 
 from langchain_core.tools import BaseTool
 
 from src.api.routes.human import create_approval, wait_for_response
+from src.infra.logging import get_logger
 from src.infra.tool.human_tool.models import AskHumanInput, FieldType, FormField
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AskHumanTool(BaseTool):

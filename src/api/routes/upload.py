@@ -6,7 +6,6 @@ Provides endpoints for file uploads to S3-compatible storage.
 
 import asyncio
 import base64
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
@@ -20,12 +19,12 @@ from src.api.routes.file_type import (
     get_permission_for_category,
 )
 from src.infra.auth.rbac import check_permission
-from src.infra.settings.service import get_settings_service
+from src.infra.logging import get_logger
 from src.infra.storage.s3 import S3Config, S3Provider, get_storage_service, init_storage
 from src.kernel.config import settings
 from src.kernel.schemas.user import TokenPayload
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _parse_bool(value: Any) -> bool:
@@ -42,71 +41,16 @@ def _parse_bool(value: Any) -> bool:
 router = APIRouter()
 
 
-async def get_s3_enabled() -> bool:
-    """Get S3 enabled status from settings (supports database settings)"""
-    # First try to get from settings service (database)
-    try:
-        service = get_settings_service()
-        s3_enabled = await service.get("S3_ENABLED")
-        if s3_enabled is not None:
-            return bool(s3_enabled)
-    except Exception:
-        pass
-    # Fall back to environment/config
-    return settings.S3_ENABLED
+def get_s3_enabled() -> bool:
+    """Get S3 enabled status from cached settings"""
+    return bool(settings.S3_ENABLED)
 
 
 async def get_s3_config_from_settings() -> S3Config:
-    """Get S3 configuration from settings (supports database settings)"""
-    # Try to get from settings service first (database)
-    s3_enabled = await get_s3_enabled()
-    logger.info(f"S3 enabled: {s3_enabled}")
-    if not s3_enabled:
-        # Fall back to config
+    """Get S3 configuration from cached settings"""
+    if not get_s3_enabled():
         return settings.get_s3_config()
 
-    # Get all settings from database
-    try:
-        service = get_settings_service()
-        # Use get_raw for sensitive settings to get actual values
-        s3_provider = await service.get_raw("S3_PROVIDER")
-        s3_endpoint = await service.get_raw("S3_ENDPOINT_URL")
-        s3_access_key = await service.get_raw("S3_ACCESS_KEY")
-        s3_secret_key = await service.get_raw("S3_SECRET_KEY")
-        s3_region = await service.get_raw("S3_REGION")
-        s3_bucket = await service.get_raw("S3_BUCKET_NAME")
-        s3_custom_domain = await service.get_raw("S3_CUSTOM_DOMAIN")
-        s3_path_style = await service.get_raw("S3_PATH_STYLE")
-        s3_max_size = await service.get_raw("S3_MAX_FILE_SIZE")
-        s3_public_bucket = await service.get_raw("S3_PUBLIC_BUCKET")
-
-        logger.info(
-            f"S3 config from DB - provider: {s3_provider}, endpoint: {s3_endpoint}, bucket: {s3_bucket}, region: {s3_region}, path_style: {s3_path_style}, public: {s3_public_bucket}"
-        )
-    except Exception as e:
-        # Fall back to config
-        logger.warning(f"Failed to get S3 config from database: {e}")
-        return settings.get_s3_config()
-
-    # Use config values as fallback
-    s3_provider = s3_provider if s3_provider is not None else settings.S3_PROVIDER
-    s3_endpoint = s3_endpoint if s3_endpoint is not None else settings.S3_ENDPOINT_URL
-    s3_access_key = s3_access_key if s3_access_key is not None else settings.S3_ACCESS_KEY
-    s3_secret_key = s3_secret_key if s3_secret_key is not None else settings.S3_SECRET_KEY
-    s3_region = s3_region if s3_region is not None else settings.S3_REGION
-    s3_bucket = s3_bucket if s3_bucket is not None else settings.S3_BUCKET_NAME
-    s3_custom_domain = (
-        s3_custom_domain if s3_custom_domain is not None else settings.S3_CUSTOM_DOMAIN
-    )
-    s3_path_style = s3_path_style if s3_path_style is not None else settings.S3_PATH_STYLE
-    s3_max_size = s3_max_size if s3_max_size is not None else settings.S3_MAX_FILE_SIZE
-    s3_public_bucket = (
-        s3_public_bucket
-        if s3_public_bucket is not None
-        else getattr(settings, "S3_PUBLIC_BUCKET", False)
-    )
-
-    # Map provider string to enum
     provider_map = {
         "aws": S3Provider.AWS,
         "aliyun": S3Provider.ALIYUN,
@@ -116,26 +60,70 @@ async def get_s3_config_from_settings() -> S3Config:
     }
 
     return S3Config(
-        provider=provider_map.get(str(s3_provider).lower(), S3Provider.AWS),
-        endpoint_url=s3_endpoint if s3_endpoint else None,
-        access_key=str(s3_access_key) if s3_access_key else "",
-        secret_key=str(s3_secret_key) if s3_secret_key else "",
-        region=str(s3_region) if s3_region else "us-east-1",
-        bucket_name=str(s3_bucket) if s3_bucket else "",
-        custom_domain=s3_custom_domain if s3_custom_domain else None,
-        path_style=_parse_bool(s3_path_style),
-        public_bucket=_parse_bool(s3_public_bucket),
-        max_file_size=int(s3_max_size) if s3_max_size else 10485760,
+        provider=provider_map.get(str(settings.S3_PROVIDER).lower(), S3Provider.AWS),
+        endpoint_url=settings.S3_ENDPOINT_URL if settings.S3_ENDPOINT_URL else None,
+        access_key=str(settings.S3_ACCESS_KEY) if settings.S3_ACCESS_KEY else "",
+        secret_key=str(settings.S3_SECRET_KEY) if settings.S3_SECRET_KEY else "",
+        region=str(settings.S3_REGION) if settings.S3_REGION else "us-east-1",
+        bucket_name=str(settings.S3_BUCKET_NAME) if settings.S3_BUCKET_NAME else "",
+        custom_domain=settings.S3_CUSTOM_DOMAIN if settings.S3_CUSTOM_DOMAIN else None,
+        path_style=_parse_bool(settings.S3_PATH_STYLE),
+        public_bucket=_parse_bool(settings.S3_PUBLIC_BUCKET),
+        max_file_size=int(settings.S3_MAX_FILE_SIZE) if settings.S3_MAX_FILE_SIZE else 10485760,
     )
 
 
 async def get_or_init_storage():
     """Initialize and get storage service"""
-    s3_enabled = await get_s3_enabled()
+    s3_enabled = get_s3_enabled()
     if s3_enabled:
         config = await get_s3_config_from_settings()
         await init_storage(config)
     return get_storage_service()
+
+
+async def resolve_upload_limits(user_roles: list[str]) -> dict:
+    """Resolve effective upload limits for a user based on their roles.
+
+    Most permissive value across roles wins. Falls back to global settings.
+    """
+    from src.infra.role.storage import RoleStorage
+
+    defaults = {
+        "image": settings.FILE_UPLOAD_MAX_SIZE_IMAGE,
+        "video": settings.FILE_UPLOAD_MAX_SIZE_VIDEO,
+        "audio": settings.FILE_UPLOAD_MAX_SIZE_AUDIO,
+        "document": settings.FILE_UPLOAD_MAX_SIZE_DOCUMENT,
+        "maxFiles": settings.FILE_UPLOAD_MAX_FILES,
+    }
+
+    field_map = {
+        "image": "max_file_size_image",
+        "video": "max_file_size_video",
+        "audio": "max_file_size_audio",
+        "document": "max_file_size_document",
+        "maxFiles": "max_files",
+    }
+
+    resolved = dict(defaults)
+    role_overrides: dict[str, int] = {}
+
+    try:
+        role_storage = RoleStorage()
+        for role_name in user_roles:
+            role = await role_storage.get_by_name(role_name)
+            if role and role.limits:
+                for key, field_name in field_map.items():
+                    value = getattr(role.limits, field_name, None)
+                    if value is not None:
+                        role_overrides[key] = max(role_overrides.get(key, value), value)
+
+        # Only apply role overrides for fields where at least one role set a value
+        resolved.update(role_overrides)
+    except Exception as e:
+        logger.warning(f"Failed to resolve role upload limits, using defaults: {e}")
+
+    return resolved
 
 
 @router.post("/file")
@@ -158,7 +146,7 @@ async def upload_file(
     Returns:
         Upload result with URL and metadata
     """
-    if not await get_s3_enabled():
+    if not get_s3_enabled():
         raise HTTPException(
             status_code=503,
             detail="File storage is not enabled. Please configure S3 settings in System Settings.",
@@ -166,10 +154,7 @@ async def upload_file(
 
     storage = await get_or_init_storage()
 
-    # Read file content first for validation
-    content = await file.read()
-
-    # Determine file category
+    # Determine file category from filename and content_type (no need to read content)
     category = get_file_category(file.filename or "", file.content_type)
     permission = get_permission_for_category(category)
 
@@ -188,24 +173,28 @@ async def upload_file(
             detail=f"No permission to upload {category_label} files",
         )
 
-    # Validate file size based on category
-    settings_service = get_settings_service()
-
+    # Resolve per-role upload limits
+    upload_limits = await resolve_upload_limits(current_user.roles)
     size_limits = {
-        FileCategory.IMAGE: await settings_service.get("FILE_UPLOAD_MAX_SIZE_IMAGE") or 10,
-        FileCategory.VIDEO: await settings_service.get("FILE_UPLOAD_MAX_SIZE_VIDEO") or 100,
-        FileCategory.AUDIO: await settings_service.get("FILE_UPLOAD_MAX_SIZE_AUDIO") or 50,
-        FileCategory.DOCUMENT: await settings_service.get("FILE_UPLOAD_MAX_SIZE_DOCUMENT") or 50,
+        FileCategory.IMAGE: upload_limits["image"],
+        FileCategory.VIDEO: upload_limits["video"],
+        FileCategory.AUDIO: upload_limits["audio"],
+        FileCategory.DOCUMENT: upload_limits["document"],
         FileCategory.UNKNOWN: 10,
     }
     max_size_mb = size_limits.get(category, 10)
     max_size_bytes = max_size_mb * 1024 * 1024
 
-    if len(content) > max_size_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File size exceeds maximum of {max_size_mb}MB",
-        )
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > max_size_bytes:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File size exceeds maximum of {max_size_mb}MB",
+                )
+        except ValueError:
+            pass
 
     # Validate file extension
     ext = (file.filename or "").lower().split(".")[-1]
@@ -216,9 +205,7 @@ async def upload_file(
             detail=f"File extension '.{ext}' is not allowed for {category.value} files",
         )
 
-    # Reset file position after reading
-    await file.seek(0)
-
+    # Upload - stream file directly to S3 without buffering in memory
     # Upload - use user_id as folder
     try:
         result = await storage.upload_file(
@@ -393,7 +380,7 @@ async def delete_file(
     Returns:
         Deletion status
     """
-    if not await get_s3_enabled():
+    if not get_s3_enabled():
         raise HTTPException(
             status_code=503,
             detail="File storage is not enabled. Please configure S3 settings in System Settings.",
@@ -415,37 +402,32 @@ async def delete_file(
 
 
 @router.get("/config")
-async def get_storage_config() -> dict:
+async def get_storage_config(
+    current_user: TokenPayload = Depends(get_current_user_required),
+) -> dict:
     """
     Get storage configuration status and file upload limits
+
+    Returns effective upload limits for the current user based on their roles.
+    Falls back to global settings if no role-specific limits are configured.
 
     Returns:
         Storage configuration and upload limits
     """
-    from src.infra.settings.service import get_settings_service
+    s3_enabled = get_s3_enabled()
 
-    s3_enabled = await get_s3_enabled()
-    settings_service = get_settings_service()
-
-    # Get upload limits from settings
-    max_size_image = await settings_service.get("FILE_UPLOAD_MAX_SIZE_IMAGE") or 10
-    max_size_video = await settings_service.get("FILE_UPLOAD_MAX_SIZE_VIDEO") or 100
-    max_size_audio = await settings_service.get("FILE_UPLOAD_MAX_SIZE_AUDIO") or 50
-    max_size_document = await settings_service.get("FILE_UPLOAD_MAX_SIZE_DOCUMENT") or 50
-    max_files = await settings_service.get("FILE_UPLOAD_MAX_FILES") or 10
+    # Resolve per-role upload limits for current user
+    upload_limits = await resolve_upload_limits(current_user.roles)
 
     return {
         "enabled": s3_enabled,
         "provider": settings.S3_PROVIDER if s3_enabled else None,
-        "max_file_size": (
-            settings.S3_MAX_FILE_SIZE if s3_enabled and settings.S3_MAX_FILE_SIZE else None
-        ),
         "uploadLimits": {
-            "image": max_size_image,
-            "video": max_size_video,
-            "audio": max_size_audio,
-            "document": max_size_document,
-            "maxFiles": max_files,
+            "image": upload_limits["image"],
+            "video": upload_limits["video"],
+            "audio": upload_limits["audio"],
+            "document": upload_limits["document"],
+            "maxFiles": upload_limits["maxFiles"],
         },
     }
 
@@ -500,7 +482,7 @@ async def get_signed_urls(
     Returns:
         List of signed URLs for each requested key
     """
-    if not await get_s3_enabled():
+    if not get_s3_enabled():
         raise HTTPException(
             status_code=503,
             detail="File storage is not enabled. Please configure S3 settings.",
@@ -552,7 +534,7 @@ async def get_single_signed_url(
     Returns:
         Signed URL for the requested key
     """
-    if not await get_s3_enabled():
+    if not get_s3_enabled():
         raise HTTPException(
             status_code=503,
             detail="File storage is not enabled. Please configure S3 settings.",
@@ -605,7 +587,7 @@ async def get_signed_url_simple(
     Returns:
         Signed URL and expiration time
     """
-    if not await get_s3_enabled():
+    if not get_s3_enabled():
         raise HTTPException(
             status_code=503,
             detail="File storage is not enabled. Please configure S3 settings.",
@@ -650,7 +632,7 @@ async def get_file_proxy(
     Returns:
         302 redirect to presigned URL
     """
-    if not await get_s3_enabled():
+    if not get_s3_enabled():
         raise HTTPException(
             status_code=503,
             detail="File storage is not enabled.",

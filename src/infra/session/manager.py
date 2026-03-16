@@ -44,6 +44,10 @@ class SessionManager:
         # 兼容旧的 ObjectId 查询
         return await self.storage.get_by_id(session_id)
 
+    async def get_sessions(self, session_ids: list[str]) -> dict[str, Session]:
+        """批量获取会话，返回 {session_id: Session} 映射"""
+        return await self.storage.get_by_session_ids(session_ids)
+
     async def get_session_events(
         self,
         session_id: str,

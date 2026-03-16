@@ -26,16 +26,16 @@ Reveal File 工具
 
 import asyncio
 import json
-import logging
 import mimetypes
 from typing import Annotated, Any, Literal, Optional
 
 from langchain.tools import ToolRuntime, tool
 from langchain_core.tools import BaseTool
 
+from src.infra.logging import get_logger
 from src.infra.tool.backend_utils import get_backend_from_runtime
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 文件类型分类
 FileCategory = Literal["image", "video", "audio", "document"]

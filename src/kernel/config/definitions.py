@@ -437,6 +437,39 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "depends_on": "S3_ENABLED",
     },
     # ============================================
+    # File Upload Limits
+    # ============================================
+    "FILE_UPLOAD_MAX_SIZE_IMAGE": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.S3,
+        "description": "Maximum image file size in MB",
+        "default": 10,
+    },
+    "FILE_UPLOAD_MAX_SIZE_VIDEO": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.S3,
+        "description": "Maximum video file size in MB",
+        "default": 100,
+    },
+    "FILE_UPLOAD_MAX_SIZE_AUDIO": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.S3,
+        "description": "Maximum audio file size in MB",
+        "default": 50,
+    },
+    "FILE_UPLOAD_MAX_SIZE_DOCUMENT": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.S3,
+        "description": "Maximum document file size in MB",
+        "default": 50,
+    },
+    "FILE_UPLOAD_MAX_FILES": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.S3,
+        "description": "Maximum number of files per upload",
+        "default": 10,
+    },
+    # ============================================
     # Long-term Storage Settings (PostgreSQL)
     # ============================================
     "ENABLE_LONG_TERM_STORAGE": {

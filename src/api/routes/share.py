@@ -4,12 +4,12 @@
 允许用户分享会话，支持公开链接或需要登录访问。
 """
 
-import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.api.deps import get_current_user_optional, get_current_user_required
+from src.infra.logging import get_logger
 from src.infra.session.dual_writer import get_dual_writer
 from src.infra.session.manager import SessionManager
 from src.infra.share.storage import ShareStorage
@@ -28,7 +28,7 @@ from src.kernel.schemas.user import TokenPayload
 from src.kernel.types import Permission
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _check_permission(user: TokenPayload, permission: str) -> bool:
@@ -106,24 +106,19 @@ async def list_shares(
     storage = ShareStorage()
     shares, total = await storage.list_by_owner(user.sub, skip=skip, limit=limit)
 
-    # 获取会话名称
-    session_manager = SessionManager()
+    # 获取会话名称（批量查询）
+    session_ids = list({share.session_id for share in shares})
+    session_map = await SessionManager().get_sessions(session_ids) if session_ids else {}
+
     result_shares = []
     for share in shares:
-        session_name = None
-        try:
-            session = await session_manager.get_session(share.session_id)
-            if session:
-                session_name = session.name
-        except Exception:
-            pass
-
+        session = session_map.get(share.session_id)
         result_shares.append(
             SharedSessionListItem(
                 id=share.id,
                 share_id=share.share_id,
                 session_id=share.session_id,
-                session_name=session_name,
+                session_name=session.name if session else None,
                 share_type=share.share_type,
                 visibility=share.visibility,
                 run_ids=share.run_ids,
@@ -250,17 +245,11 @@ async def get_shared_content(
 
     # 如果是部分分享，只获取指定 run 的事件
     if share.share_type == ShareType.PARTIAL and share.run_ids:
-        # 获取所有指定 run 的事件
-        all_events = []
-        for run_id in share.run_ids:
-            events = await dual_writer.read_session_events(
-                share.session_id,
-                run_id=run_id,
-                completed_only=True,
-            )
-            all_events.extend(events)
-        # 按时间排序
-        events = sorted(all_events, key=lambda e: e.get("timestamp", ""))
+        events = await dual_writer.read_session_events(
+            share.session_id,
+            completed_only=True,
+            run_ids=share.run_ids,
+        )
     else:
         # 全部分享，获取所有事件
         events = await dual_writer.read_session_events(

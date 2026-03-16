@@ -6,13 +6,14 @@ DeepAgent Backend 工厂模块
 Skills 路径现在使用 SkillsStoreBackend，支持 LLM 直接读写 skills 到 MongoDB。
 """
 
-import logging
 from typing import Any, Callable, Optional
 
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from deepagents.backends.protocol import BackendProtocol
 
-logger = logging.getLogger(__name__)
+from src.infra.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def create_memory_backend_factory(

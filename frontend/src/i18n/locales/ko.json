@@ -201,6 +201,17 @@
       "ready": "환경 준비 완료"
     },
     "send": "메시지 보내기",
+    "queueFull": "대기열이 가득 찼습니다. 잠시 후 다시 시도해 주세요",
+    "queued": "대기 중 ({{position}}번째)...",
+    "queueStart": "작업 처리를 시작했습니다",
+    "rateLimited": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요",
+    "requestFailed": "세션 로드에 실패했습니다",
+    "unknownAgent": "알 수 없는 에이전트",
+    "unknownError": "알 수 없는 오류",
+    "errorPrefix": "오류: {{error}}",
+    "sandboxInitFailed": "샌드박스 초기화에 실패했습니다",
+    "skillUpdated": "스킬 {{action}}",
+    "cancelled": "취소됨",
     "shiftEnterNewLine": "로 줄바꿈",
     "stop": "생성 중지",
     "title": "채팅",
@@ -399,7 +410,7 @@
   },
   "fileUpload": {
     "categories": {
-      "${category}": "fileUpload.categories.${category}",
+      "${category}": "{{category}}",
       "audio": "오디오",
       "document": "문서",
       "image": "이미지",
@@ -413,7 +424,9 @@
     "tooManyFiles": "한 번에 최대 {{count}}개의 파일을 업로드할 수 있습니다",
     "uploadFailed": "업로드 실패",
     "uploadSuccess": "업로드 성공",
-    "uploading": "업로드 중..."
+    "uploading": "업로드 중...",
+    "effectiveLimits": "제한: 이미지 {{image}}MB / 비디오 {{video}}MB / 오디오 {{audio}}MB / 문서 {{document}}MB / 최대 {{maxFiles}} 파일",
+    "maxFilesSummary": "업로드당 최대 {{maxFiles}}개 파일"
   },
   "imageViewer": {
     "hint": "스크롤/핀치로 확대 · 드래그/스와이프로 이동 · ESC로 닫기",
@@ -606,6 +619,17 @@
     "maxChannels": "최대 채널 수",
     "maxChannelsPlaceholder": "무제한",
     "maxChannelsHint": "이 역할의 사용자가 생성할 수 있는 채널의 최대 수 (비어 있음 = 무제한)",
+    "concurrentChatsTitle": "동시 실행 제한",
+    "maxConcurrentChats": "최대 동시 채팅 수",
+    "maxQueuedChats": "최대 대기 수",
+    "concurrentChatsHint": "사용자당 최대 동시 채팅 작업 수 (비어 있음 = 무제한, 기본값 5). 초과분은 대기열에 들어갑니다",
+    "uploadLimitsTitle": "업로드 제한",
+    "uploadLimitsHint": "비워두면 시스템 기본값 사용",
+    "maxUploadSizeImage": "이미지 최대 크기 (MB)",
+    "maxUploadSizeVideo": "비디오 최대 크기 (MB)",
+    "maxUploadSizeAudio": "오디오 최대 크기 (MB)",
+    "maxUploadSizeDocument": "문서 최대 크기 (MB)",
+    "maxFiles": "최대 업로드 파일 수",
     "validation": {
       "enterName": "역할 이름을 입력해주세요",
       "selectPermission": "최소 하나의 권한을 선택해주세요"
@@ -718,7 +742,7 @@
     "selected": "{{total}}개 중 {{enabled}}개 선택됨",
     "skillsEnabled": "개 스킬 활성화됨",
     "sources": {
-      "${cat}": "skillSelector.sources.${cat}",
+      "${cat}": "{{cat}}",
       "builtin": "기본 제공",
       "github": "GitHub",
       "manual": "수동 생성"
@@ -808,7 +832,7 @@
   "tools": {
     "add": "추가",
     "categories": {
-      "${cat}": "tools.categories.${cat}",
+      "${cat}": "{{cat}}",
       "builtin": "기본 제공",
       "human": "수동",
       "mcp": "MCP",

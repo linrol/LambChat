@@ -258,6 +258,28 @@ class RoleStorage:
 
         return roles
 
+    async def get_by_names(self, names: list[str]) -> list[Role]:
+        """
+        通过名称列表批量获取角色
+
+        Args:
+            names: 角色名称列表
+
+        Returns:
+            角色列表
+        """
+        if not names:
+            return []
+        cursor = self.collection.find({"name": {"$in": names}})
+        roles = []
+
+        async for role_dict in cursor:
+            role_dict["id"] = str(role_dict.pop("_id"))
+            role_dict["permissions"] = self._parse_permissions(role_dict.get("permissions", []))
+            roles.append(Role(**role_dict))
+
+        return roles
+
     async def init_default_roles(self) -> None:
         """
         初始化默认角色

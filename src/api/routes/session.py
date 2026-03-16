@@ -6,12 +6,12 @@
 """
 
 import asyncio
-import logging
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.api.deps import get_current_user_required
+from src.infra.logging import get_logger
 from src.infra.session.manager import SessionManager
 from src.infra.session.storage import SessionStorage
 from src.kernel.config import settings
@@ -19,7 +19,7 @@ from src.kernel.schemas.session import Session, SessionCreate, SessionUpdate
 from src.kernel.schemas.user import TokenPayload
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 管理员角色
 ADMIN_ROLES = {"admin", "administrator"}

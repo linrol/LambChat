@@ -201,6 +201,17 @@
       "ready": "準備完了"
     },
     "send": "メッセージを送信",
+    "queueFull": "待ち行列が満杯です。しばらくしてからお試しください",
+    "queued": "順番待ち中 ({{position}}番目)...",
+    "queueStart": "タスクの処理を開始しました",
+    "rateLimited": "リクエストが多すぎます。しばらくしてからお試しください",
+    "requestFailed": "セッションの読み込みに失敗しました",
+    "unknownAgent": "不明なエージェント",
+    "unknownError": "不明なエラー",
+    "errorPrefix": "エラー：{{error}}",
+    "sandboxInitFailed": "サンドボックスの初期化に失敗しました",
+    "skillUpdated": "スキル {{action}}",
+    "cancelled": "キャンセル済み",
     "shiftEnterNewLine": "で改行",
     "stop": "生成を停止",
     "title": "チャット",
@@ -399,7 +410,7 @@
   },
   "fileUpload": {
     "categories": {
-      "${category}": "fileUpload.categories.${category}",
+      "${category}": "{{category}}",
       "audio": "音声",
       "document": "ドキュメント",
       "image": "画像",
@@ -413,7 +424,9 @@
     "tooManyFiles": "一度にアップロードできるファイルは{{count}}個までです",
     "uploadFailed": "アップロードに失敗しました",
     "uploadSuccess": "アップロードに成功しました",
-    "uploading": "アップロード中..."
+    "uploading": "アップロード中...",
+    "effectiveLimits": "制限：画像 {{image}}MB / 動画 {{video}}MB / 音声 {{audio}}MB / ドキュメント {{document}}MB / 最大 {{maxFiles}} ファイル",
+    "maxFilesSummary": "1回のアップロード最大 {{maxFiles}} ファイル"
   },
   "imageViewer": {
     "hint": "スクロール/ピンチでズーム · ドラッグ/スワイプで移動 · ESCで閉じる",
@@ -606,6 +619,17 @@
     "maxChannels": "最大チャンネル数",
     "maxChannelsPlaceholder": "制限なし",
     "maxChannelsHint": "このロールのユーザーが作成できるチャンネルの最大数（空欄 = 無制限）",
+    "concurrentChatsTitle": "同時実行制限",
+    "maxConcurrentChats": "最大同時チャット数",
+    "maxQueuedChats": "最大順番待ち数",
+    "concurrentChatsHint": "ユーザーごとの最大同時チャットタスク数（空欄 = 無制限、デフォルト 5）。超過分は順番待ちになります",
+    "uploadLimitsTitle": "アップロード制限",
+    "uploadLimitsHint": "空欄 = システムデフォルトを使用",
+    "maxUploadSizeImage": "画像サイズ上限 (MB)",
+    "maxUploadSizeVideo": "動画サイズ上限 (MB)",
+    "maxUploadSizeAudio": "音声サイズ上限 (MB)",
+    "maxUploadSizeDocument": "ドキュメントサイズ上限 (MB)",
+    "maxFiles": "最大アップロードファイル数",
     "validation": {
       "enterName": "ロール名を入力してください",
       "selectPermission": "少なくとも1つの権限を選択してください"
@@ -717,7 +741,7 @@
     "selected": "{{total}}件中{{enabled}}件選択",
     "skillsEnabled": "件のスキルが有効",
     "sources": {
-      "${cat}": "skillSelector.sources.${cat}",
+      "${cat}": "{{cat}}",
       "builtin": "組み込み",
       "github": "GitHub",
       "manual": "手動作成"
@@ -807,7 +831,7 @@
   "tools": {
     "add": "追加",
     "categories": {
-      "${cat}": "tools.categories.${cat}",
+      "${cat}": "{{cat}}",
       "builtin": "組み込み",
       "human": "手動",
       "mcp": "MCP",

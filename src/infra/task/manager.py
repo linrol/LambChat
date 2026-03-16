@@ -7,11 +7,12 @@ Background Task Manager - 后台任务管理器
 """
 
 import asyncio
-import logging
+import json
 import uuid
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from src.infra.logging import get_logger
 from src.infra.session.storage import SessionStorage
 from src.infra.session.trace_storage import get_trace_storage
 
@@ -30,7 +31,7 @@ __all__ = [
     "TaskCancellation",
 ]
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _generate_run_id() -> str:
@@ -53,7 +54,10 @@ class BackgroundTaskManager:
     def __init__(self):
         # 使用 run_id 作为 key 管理状态
         self._tasks: Dict[str, asyncio.Task] = {}  # run_id -> Task
-        self._run_info: Dict[str, Dict[str, str]] = {}  # run_id -> {session_id, trace_id, agent_id}
+        self._run_info: Dict[
+            str, Dict[str, str]
+        ] = {}  # run_id -> {session_id, trace_id, agent_id, user_id}
+        self._pending_tasks: Dict[str, Dict[str, Any]] = {}  # run_id -> task context (queued tasks)
         self._lock = asyncio.Lock()
         self._storage = None
         self._heartbeat = TaskHeartbeat()
@@ -78,6 +82,7 @@ class BackgroundTaskManager:
         disabled_tools: Optional[List[str]] = None,
         agent_options: Optional[Dict[str, Any]] = None,
         attachments: Optional[List[Dict[str, Any]]] = None,
+        run_id: Optional[str] = None,
     ) -> Tuple[str, str]:
         """
         提交后台任务
@@ -100,7 +105,7 @@ class BackgroundTaskManager:
             self._executor = TaskExecutor(self.storage, self._run_info, self._heartbeat)
 
         # 生成 run_id
-        run_id = _generate_run_id()
+        run_id = run_id or _generate_run_id()
 
         async with self._lock:
             # 确保 session 记录存在
@@ -139,6 +144,28 @@ class BackgroundTaskManager:
         # 清理任务引用
         if run_id in self._tasks:
             del self._tasks[run_id]
+        # 清理运行信息，防止内存泄漏
+        run_info = self._run_info.pop(run_id, None)
+        # 释放并发槽位
+        user_id = run_info.get("user_id") if run_info else None
+        if user_id:
+            asyncio.get_event_loop().call_soon(
+                lambda: asyncio.ensure_future(self._release_concurrency(user_id, run_id))
+            )
+
+    def pop_pending_task(self, run_id: str) -> Optional[Dict[str, Any]]:
+        """Pop and return a pending task context (used by concurrency limiter to dispatch queued tasks)."""
+        return self._pending_tasks.pop(run_id, None)
+
+    async def _release_concurrency(self, user_id: str, run_id: str) -> None:
+        """Release a concurrency slot for the user."""
+        try:
+            from .concurrency import get_concurrency_limiter
+
+            limiter = get_concurrency_limiter()
+            await limiter.release(user_id, run_id)
+        except Exception as e:
+            logger.warning(f"Failed to release concurrency slot: {e}")
 
     async def get_status(self, session_id: str) -> TaskStatus:
         """获取 session 当前 run 的任务状态（向后兼容）
@@ -442,8 +469,44 @@ class BackgroundTaskManager:
 
             if cleaned_count > 0:
                 logger.info(f"Cleaned up {cleaned_count} stale tasks without heartbeat")
+
+            # 清理过期的排队条目
+            await self._cleanup_stale_queues()
         except Exception as e:
             logger.error(f"Failed to cleanup stale tasks: {e}")
+
+    async def _cleanup_stale_queues(self) -> None:
+        """清理过期的排队条目（超过 QUEUE_TIMEOUT 的）"""
+        try:
+            from .concurrency import QUEUE_TIMEOUT, get_concurrency_limiter
+
+            limiter = get_concurrency_limiter()
+            redis = limiter.redis
+
+            import time
+
+            cursor = 0
+            while True:
+                cursor, keys = await redis.scan(cursor=cursor, match="chat:queue:*", count=100)
+                for key in keys:
+                    entries = await redis.lrange(key, 0, -1)
+                    valid = []
+                    expired = 0
+                    for entry in entries:
+                        data = json.loads(entry)
+                        if time.time() - data.get("queued_at", 0) > QUEUE_TIMEOUT:
+                            expired += 1
+                        else:
+                            valid.append(entry)
+                    if expired:
+                        await redis.delete(key)
+                        if valid:
+                            await redis.rpush(key, *valid)
+                        logger.info(f"Cleaned {expired} expired queue entries from {key}")
+                if cursor == 0:
+                    break
+        except Exception as e:
+            logger.warning(f"Failed to cleanup stale queues: {e}")
 
     async def shutdown(self) -> None:
         """

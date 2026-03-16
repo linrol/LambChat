@@ -3,9 +3,9 @@ Skill cache mixin for Redis caching operations
 """
 
 import json
-import logging
 from typing import Any, Optional
 
+from src.infra.logging import get_logger
 from src.infra.skill.constants import (
     MCP_TOOLS_METADATA_CACHE_TTL,
     MCP_TOOLS_METADATA_KEY_PREFIX,
@@ -13,7 +13,7 @@ from src.infra.skill.constants import (
 )
 from src.infra.storage.redis import get_redis_client
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SkillCacheMixin:

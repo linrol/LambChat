@@ -17,6 +17,7 @@ import { uploadApi, getFullUrl } from "../../services/api";
 import DocumentPreview from "../documents/DocumentPreview";
 import { AttachmentCard } from "../common/AttachmentCard";
 import { ImageViewer } from "../common";
+import { useFileUpload, getFileCategory } from "../../hooks/useFileUpload";
 import type {
   ToolState,
   ToolCategory,
@@ -24,17 +25,7 @@ import type {
   SkillSource,
   AgentOption,
   MessageAttachment,
-  FileCategory,
 } from "../../types";
-
-// Helper to get file category from MIME type
-function getFileCategory(file: File): FileCategory {
-  const type = file.type.toLowerCase();
-  if (type.startsWith("image/")) return "image";
-  if (type.startsWith("video/")) return "video";
-  if (type.startsWith("audio/")) return "audio";
-  return "document";
-}
 
 // Icon mapping for dynamic icon rendering
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -245,6 +236,11 @@ export const ChatInput = memo(function ChatInput({
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const { uploadFiles, validateSize, validateCount } = useFileUpload({
+    attachments,
+    onAttachmentsChange: setAttachments,
+  });
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -255,10 +251,24 @@ export const ChatInput = memo(function ChatInput({
     }
   }, [input]);
 
-  // Handle paste to convert rich text to plain text
+  // Handle paste to convert rich text to plain text or upload pasted files
   const handlePaste = (e: React.ClipboardEvent) => {
     const clipboardData = e.clipboardData;
     if (!clipboardData) return;
+
+    // Check for pasted files first (screenshots, copied files)
+    if (clipboardData.files && clipboardData.files.length > 0) {
+      e.preventDefault();
+      if (!validateCount(clipboardData.files.length)) return;
+
+      for (const file of Array.from(clipboardData.files)) {
+        const category = getFileCategory(file);
+        if (!validateSize(file, category)) continue;
+      }
+
+      uploadFiles(clipboardData.files);
+      return;
+    }
 
     // Get rich text (HTML)
     const htmlText = clipboardData.getData("text/html");
@@ -363,7 +373,8 @@ export const ChatInput = memo(function ChatInput({
   const hasContent = input.trim() && !disabled;
   // Check if any attachment is still uploading
   const hasUploadingAttachment = attachments.some((a) => a.isUploading);
-  const canSubmit = hasContent && canSend && !isLoading && !hasUploadingAttachment;
+  const canSubmit =
+    hasContent && canSend && !isLoading && !hasUploadingAttachment;
 
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -378,7 +389,7 @@ export const ChatInput = memo(function ChatInput({
     setIsDraggingOver(false);
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
@@ -386,58 +397,13 @@ export const ChatInput = memo(function ChatInput({
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
 
-    // Upload files directly with progress tracking
+    if (!validateCount(files.length)) return;
+
     for (const file of Array.from(files)) {
-      const uploadId = crypto.randomUUID();
-      const tempId = `temp-${uploadId}`;
-
-      // Add temporary attachment to show progress immediately
-      const tempAttachment: MessageAttachment = {
-        id: tempId,
-        key: "",
-        name: file.name,
-        type: getFileCategory(file),
-        mimeType: file.type,
-        size: file.size,
-        url: "",
-      };
-
-      setAttachments((prev) => [...prev, tempAttachment]);
-
-      try {
-        const result = await uploadApi.uploadFile(file, {
-          onProgress: (progress) => {
-            // Update attachment with progress
-            setAttachments((prev) =>
-              prev.map((a) =>
-                a.id === tempId
-                  ? { ...a, uploadProgress: progress, isUploading: true }
-                  : a,
-              ),
-            );
-          },
-        });
-
-        const finalAttachment: MessageAttachment = {
-          id: crypto.randomUUID(),
-          key: result.key,
-          name: result.name || file.name,
-          type: result.type as FileCategory,
-          mimeType: result.mimeType,
-          size: result.size,
-          url: result.url,
-        };
-
-        // Replace temp with final attachment
-        setAttachments((prev) =>
-          prev.map((a) => (a.id === tempId ? finalAttachment : a)),
-        );
-      } catch (error) {
-        console.error("Upload failed:", error);
-        // Remove temp attachment on error
-        setAttachments((prev) => prev.filter((a) => a.id !== tempId));
-      }
+      if (!validateSize(file, getFileCategory(file))) return;
     }
+
+    uploadFiles(files);
   };
 
   return (

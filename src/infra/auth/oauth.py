@@ -6,7 +6,6 @@ OAuth 认证服务
 
 import base64
 import json
-import logging
 import time
 from typing import Any, Dict, Optional
 
@@ -15,11 +14,12 @@ from authlib.integrations.httpx_client import AsyncOAuth2Client
 from authlib.jose import JsonWebKey, jwt
 from pydantic import BaseModel
 
+from src.infra.logging import get_logger
 from src.infra.user.storage import UserStorage
 from src.kernel.config import settings
 from src.kernel.schemas.user import OAuthProvider, Token, User, UserCreate
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # HTTP 请求超时设置（秒）
 HTTP_TIMEOUT = 10.0

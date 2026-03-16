@@ -25,16 +25,16 @@ Reveal Project 工具
 
 import asyncio
 import json
-import logging
 import os
 from typing import Annotated, Any, Literal, Optional
 
 from langchain.tools import ToolRuntime, tool
 from langchain_core.tools import BaseTool
 
+from src.infra.logging import get_logger
 from src.infra.tool.backend_utils import get_backend_from_runtime
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 支持的项目模板类型
 ProjectTemplate = Literal["react", "vue", "vanilla", "static"]

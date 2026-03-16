@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from src.infra.auth.password import hash_password, verify_password
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 from src.kernel.exceptions import NotFoundError, ValidationError
 from src.kernel.schemas.user import User, UserCreate, UserInDB, UserUpdate
@@ -93,9 +94,7 @@ class UserStorage:
             await self._migrate_legacy_users()
         except Exception as e:
             # 索引创建失败不应阻止应用启动
-            import logging
-
-            logging.getLogger(__name__).warning(f"Failed to create indexes: {e}")
+            get_logger(__name__).warning(f"Failed to create indexes: {e}")
 
     async def _migrate_legacy_users(self):
         """迁移旧用户数据：将 email_verified 和 is_active 从 None 改为 True"""
@@ -106,9 +105,7 @@ class UserStorage:
                 {"$set": {"email_verified": True}},
             )
             if result1.modified_count > 0:
-                import logging
-
-                logging.getLogger(__name__).info(
+                get_logger(__name__).info(
                     f"[Migration] Updated email_verified for {result1.modified_count} users"
                 )
 
@@ -118,15 +115,11 @@ class UserStorage:
                 {"$set": {"is_active": True}},
             )
             if result2.modified_count > 0:
-                import logging
-
-                logging.getLogger(__name__).info(
+                get_logger(__name__).info(
                     f"[Migration] Updated is_active for {result2.modified_count} users"
                 )
         except Exception as e:
-            import logging
-
-            logging.getLogger(__name__).warning(f"[Migration] Failed to migrate legacy users: {e}")
+            get_logger(__name__).warning(f"[Migration] Failed to migrate legacy users: {e}")
 
     async def create(self, user_data: UserCreate) -> UserInDB:
         """

@@ -228,6 +228,17 @@
       "ready": "环境已就绪"
     },
     "send": "发送消息",
+    "queueFull": "排队已满，请稍后再试",
+    "queued": "排队中 (第 {{position}} 位)...",
+    "queueStart": "任务开始处理",
+    "rateLimited": "请求过于频繁，请稍后再试",
+    "requestFailed": "加载会话失败",
+    "unknownAgent": "未知助手",
+    "unknownError": "未知错误",
+    "errorPrefix": "错误：{{error}}",
+    "sandboxInitFailed": "沙箱初始化失败",
+    "skillUpdated": "技能 {{action}}",
+    "cancelled": "已取消",
     "shiftEnterNewLine": "换行",
     "stop": "停止生成",
     "title": "对话",
@@ -434,7 +445,7 @@
   },
   "fileUpload": {
     "categories": {
-      "${category}": "fileUpload.categories.${category}",
+      "${category}": "{{category}}",
       "audio": "音频",
       "document": "文档",
       "image": "图片",
@@ -454,7 +465,9 @@
     "uploadError": "上传失败",
     "uploadFailed": "上传失败",
     "uploadSuccess": "上传成功",
-    "uploading": "上传中..."
+    "uploading": "上传中...",
+    "effectiveLimits": "上传限制：图片 {{image}}MB / 视频 {{video}}MB / 音频 {{audio}}MB / 文档 {{document}}MB / 最多 {{maxFiles}} 个文件",
+    "maxFilesSummary": "单次最多上传 {{maxFiles}} 个文件"
   },
   "imageViewer": {
     "hint": "滚轮/双指缩放 · 拖拽/滑动移动 · ESC 关闭",
@@ -650,6 +663,17 @@
     "maxChannels": "最大渠道数",
     "maxChannelsPlaceholder": "无限制",
     "maxChannelsHint": "该角色用户可创建的最大渠道数量（留空 = 无限制）",
+    "concurrentChatsTitle": "并发限制",
+    "maxConcurrentChats": "最大并发数",
+    "maxQueuedChats": "最大排队数",
+    "concurrentChatsHint": "每用户最大同时进行的聊天任务数（留空 = 无限制，默认 5），超出部分进入排队",
+    "uploadLimitsTitle": "上传限制",
+    "uploadLimitsHint": "留空 = 使用系统默认值",
+    "maxUploadSizeImage": "图片大小上限 (MB)",
+    "maxUploadSizeVideo": "视频大小上限 (MB)",
+    "maxUploadSizeAudio": "音频大小上限 (MB)",
+    "maxUploadSizeDocument": "文档大小上限 (MB)",
+    "maxFiles": "最大上传文件数",
     "validation": {
       "enterName": "请输入角色名称",
       "selectPermission": "请至少选择一个权限"
@@ -765,7 +789,7 @@
     "selected": "已选择 {{enabled}}/{{total}}",
     "skillsEnabled": "个技能已启用",
     "sources": {
-      "${cat}": "skillSelector.sources.${cat}",
+      "${cat}": "{{cat}}",
       "builtin": "内置",
       "github": "GitHub",
       "manual": "手动创建"
@@ -855,7 +879,7 @@
   "tools": {
     "add": "添加",
     "categories": {
-      "${cat}": "tools.categories.${cat}",
+      "${cat}": "{{cat}}",
       "builtin": "内置",
       "human": "人工",
       "mcp": "MCP",

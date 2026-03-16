@@ -127,7 +127,13 @@ select:-webkit-autofill:active {
 }
 
 .animate-slide-up-sheet {
-  animation: slide-up-sheet 0.3s ease-out;
+  animation: slide-up-sheet 0.2s ease-out;
+}
+
+@media (min-width: 640px) {
+  .animate-slide-up-sheet {
+    animation: none;
+  }
 }
 
 /* Bottom sheet drag handle */
@@ -236,7 +242,7 @@ select:-webkit-autofill:active {
     background-color: white;
     box-shadow: 0 -10px 40px rgb(0 0 0 / 0.15);
     overflow-y: auto;
-    animation: slide-up-sheet 0.3s ease-out;
+    animation: slide-up-sheet 0.2s ease-out;
     z-index: 50;
   }
 

@@ -4,15 +4,14 @@ WebSocket 路由
 提供 WebSocket 连接用于实时任务通知。
 """
 
-import logging
-
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from src.api.deps import get_current_user_from_websocket
+from src.infra.logging import get_logger
 from src.infra.websocket import get_connection_manager
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @router.websocket("/ws")

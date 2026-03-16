@@ -2,9 +2,9 @@
 Skill import/export mixin for import and export operations
 """
 
-import logging
 from typing import Any
 
+from src.infra.logging import get_logger
 from src.infra.skill.converters import doc_to_export_dict
 from src.kernel.schemas.skill import (
     GitHubInstallRequest,
@@ -16,7 +16,7 @@ from src.kernel.schemas.skill import (
     SkillUpdate,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SkillImportExportMixin:

@@ -8,7 +8,6 @@
 """
 
 import asyncio
-import logging
 import os
 
 import daytona
@@ -20,9 +19,10 @@ from deepagents.backends.protocol import (
 )
 from deepagents.backends.sandbox import BaseSandbox
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 默认超时 30 分钟（秒）
 _DEFAULT_TIMEOUT = 30 * 60

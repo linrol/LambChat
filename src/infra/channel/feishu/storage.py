@@ -4,10 +4,10 @@ Feishu/Lark configuration storage using MongoDB
 Stores user-level Feishu bot configurations with encrypted sensitive fields.
 """
 
-import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from src.infra.logging import get_logger
 from src.infra.mcp.encryption import decrypt_value, encrypt_value
 from src.infra.storage.mongodb import get_mongo_client
 from src.kernel.config import settings
@@ -20,7 +20,7 @@ from src.kernel.schemas.feishu import (
     FeishuGroupPolicy,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FeishuStorage:

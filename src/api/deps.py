@@ -130,9 +130,9 @@ async def get_current_user_from_websocket(
 
     用于 WebSocket 连接的认证。
     """
-    import logging
+    from src.infra.logging import get_logger
 
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     if not token:
         logger.warning("[WebSocket] No token provided")

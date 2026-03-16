@@ -7,10 +7,10 @@ error handling, and status updates.
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
+from src.infra.logging import get_logger
 from src.infra.session.dual_writer import get_dual_writer
 from src.infra.session.storage import SessionStorage
 from src.kernel.schemas.session import SessionCreate, SessionUpdate
@@ -19,7 +19,7 @@ from .exceptions import TaskInterruptedError
 from .heartbeat import TaskHeartbeat
 from .status import TaskStatus
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaskExecutor:
@@ -68,8 +68,8 @@ class TaskExecutor:
         try:
             await self._update_session_status(session_id, TaskStatus.RUNNING, run_id=run_id)
 
-            # 启动心跳
-            await self._heartbeat.start(run_id)
+            # 启动心跳（传入 user_id 以刷新并发限制条目）
+            await self._heartbeat.start(run_id, user_id=user_id)
 
             # 创建 Presenter 并传递给 agent
             presenter = Presenter(
@@ -105,6 +105,7 @@ class TaskExecutor:
                 "session_id": session_id,
                 "trace_id": presenter.trace_id,
                 "agent_id": agent_id,
+                "user_id": user_id,
             }
 
             dual_writer = get_dual_writer()

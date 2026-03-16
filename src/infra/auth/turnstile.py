@@ -2,14 +2,14 @@
 Cloudflare Turnstile verification service
 """
 
-import logging
 from typing import Optional
 
 import httpx
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 

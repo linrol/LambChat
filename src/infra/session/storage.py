@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from bson import ObjectId
 
@@ -77,6 +77,21 @@ class SessionStorage:
         if "session_id" in session_dict and session_dict["id"] == session_dict["session_id"]:
             session_dict.pop("_id", None)
         return Session(**session_dict)
+
+    async def get_by_session_ids(self, session_ids: list[str]) -> Dict[str, Session]:
+        """通过 session_id 列表批量获取会话，返回 {session_id: Session} 映射"""
+        if not session_ids:
+            return {}
+        unique_ids = list(set(session_ids))
+        cursor = self.collection.find({"session_id": {"$in": unique_ids}})
+        result: Dict[str, Session] = {}
+        async for doc in cursor:
+            doc["id"] = doc.get("session_id") or str(doc.pop("_id"))
+            if "session_id" in doc and doc["id"] == doc["session_id"]:
+                doc.pop("_id", None)
+            session = Session(**doc)
+            result[session.id] = session
+        return result
 
     async def update_user_id(self, session_id: str, user_id: str) -> bool:
         """通过自定义 session_id 更新 user_id"""

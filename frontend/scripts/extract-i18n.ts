@@ -2,8 +2,18 @@ import fs from "fs";
 import path from "path";
 import { glob } from "glob";
 
-// Regex to match t('key') and t("key") patterns
+// Regex to match t('key'), t("key"), and t(`key`) patterns (including template literals with ${...})
 const TRANSLATION_KEY_REGEX = /\bt\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
+
+// Regex to detect dynamic key patterns containing ${...}
+const DYNAMIC_KEY_REGEX = /\$\{[^}]+\}/;
+
+// Known dynamic fallback keys used by i18next (key name is a template, value is the fallback)
+const KNOWN_DYNAMIC_FALLBACK_PREFIXES = [
+  "fileUpload.categories.${category}",
+  "skillSelector.sources.${cat}",
+  "tools.categories.${cat}",
+];
 
 // Recursively get all nested keys from an object
 function getAllKeys(obj: Record<string, unknown>, prefix = ""): Set<string> {
@@ -38,23 +48,80 @@ function setNestedValue(
   current[parts[parts.length - 1]] = value;
 }
 
+// Check translation files for problematic entries
+function checkTranslations(
+  translations: Record<string, Record<string, unknown>>,
+): {
+  dynamicKeys: Record<string, string[]>;
+  placeholderValues: Record<string, string[]>;
+} {
+  const dynamicKeys: Record<string, string[]> = {};
+  const placeholderValues: Record<string, string[]> = {};
+
+  for (const [lang, obj] of Object.entries(translations)) {
+    const dynamic: string[] = [];
+    const placeholders: string[] = [];
+
+    function walk(current: Record<string, unknown>, prefix: string) {
+      for (const key of Object.keys(current)) {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        const value = current[key];
+
+        // Detect keys containing ${...} (skip known fallback patterns)
+        if (
+          DYNAMIC_KEY_REGEX.test(key) &&
+          !KNOWN_DYNAMIC_FALLBACK_PREFIXES.includes(fullKey)
+        ) {
+          dynamic.push(fullKey);
+        }
+
+        if (typeof value === "string") {
+          // Detect values that are just the key path (untranslated placeholder)
+          if (value === fullKey) {
+            placeholders.push(fullKey);
+          }
+        } else if (typeof value === "object" && value !== null) {
+          walk(value as Record<string, unknown>, fullKey);
+        }
+      }
+    }
+
+    walk(obj, "");
+
+    if (dynamic.length > 0) dynamicKeys[lang] = dynamic;
+    if (placeholders.length > 0) placeholderValues[lang] = placeholders;
+  }
+
+  return { dynamicKeys, placeholderValues };
+}
+
 async function extractI18nKeys() {
   console.log("🔍 Scanning for translation keys...\n");
 
   // Find all TSX files
   const files = await glob("src/**/*.tsx", { cwd: process.cwd() });
   const extractedKeys = new Set<string>();
+  const dynamicKeyPrefixes = new Set<string>();
 
   // Extract keys from each file
   for (const file of files) {
     const content = fs.readFileSync(file, "utf-8");
     let match;
     while ((match = TRANSLATION_KEY_REGEX.exec(content)) !== null) {
-      extractedKeys.add(match[1]);
+      const key = match[1];
+      if (DYNAMIC_KEY_REGEX.test(key)) {
+        // Extract the static prefix before ${...}, e.g. "tools.categories" from "tools.categories.${cat}"
+        const prefix = key.replace(/\$\{[^}]+\}.*/, "").replace(/\.$/, "");
+        if (prefix) dynamicKeyPrefixes.add(prefix);
+      } else {
+        extractedKeys.add(key);
+      }
     }
   }
 
-  console.log(`📝 Found ${extractedKeys.size} unique translation keys\n`);
+  console.log(
+    `📝 Found ${extractedKeys.size} static keys and ${dynamicKeyPrefixes.size} dynamic key patterns\n`,
+  );
 
   // Load existing translations
   const localesDir = "src/i18n/locales";
@@ -99,13 +166,60 @@ async function extractI18nKeys() {
     }
   }
 
+  // Check for problematic entries in translation files
+  const { dynamicKeys, placeholderValues } = checkTranslations(translations);
+  let hasIssues = false;
+
+  if (Object.keys(dynamicKeys).length > 0) {
+    hasIssues = true;
+    console.log(
+      "⚠️  Dynamic keys found (contain ${...}, not viable as static translations):",
+    );
+    for (const [lang, keys] of Object.entries(dynamicKeys)) {
+      console.log(`   ${lang}.json:`);
+      for (const key of keys) {
+        console.log(`     - ${key}`);
+      }
+    }
+    console.log();
+  }
+
+  if (Object.keys(placeholderValues).length > 0) {
+    hasIssues = true;
+    console.log(
+      "⚠️  Untranslated placeholder values found (value equals key path):",
+    );
+    for (const [lang, keys] of Object.entries(placeholderValues)) {
+      console.log(`   ${lang}.json:`);
+      for (const key of keys) {
+        console.log(`     - ${key}`);
+      }
+    }
+    console.log();
+  }
+
+  if (hasIssues) {
+    console.log("ℹ️  Please fix the above issues in the translation files.\n");
+  }
+
   // Find new keys and missing keys for each language
-  const newEnKeys = [...extractedKeys].filter((k) => !existingKeys.en.has(k));
+  // A key is "covered" if it exists in the locale OR if a dynamic prefix pattern matches it
+  const isKeyCovered = (key: string, langKeys: Set<string>): boolean => {
+    if (langKeys.has(key)) return true;
+    for (const prefix of dynamicKeyPrefixes) {
+      if (key === prefix || key.startsWith(`${prefix}.`)) return true;
+    }
+    return false;
+  };
+
+  const newEnKeys = [...extractedKeys].filter(
+    (k) => !isKeyCovered(k, existingKeys.en),
+  );
   const missingKeysByLang: Record<string, string[]> = {};
   for (const lang of Object.keys(localeFiles)) {
     if (lang !== "en") {
       missingKeysByLang[lang] = [...extractedKeys].filter(
-        (k) => !existingKeys[lang].has(k),
+        (k) => !isKeyCovered(k, existingKeys[lang]),
       );
     }
   }

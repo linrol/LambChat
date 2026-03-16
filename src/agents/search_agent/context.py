@@ -2,10 +2,10 @@
 Search Agent 上下文管理 - 支持工具和 Skills
 """
 
-import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from src.infra.logging import get_logger
 from src.infra.skill import load_skill_files
 from src.infra.tool.human_tool import get_human_tool
 from src.infra.tool.mcp_global import get_global_mcp_tools
@@ -16,7 +16,7 @@ from src.kernel.config import settings
 if TYPE_CHECKING:
     from src.infra.tool.mcp_client import MCPClientManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SearchAgentContext:

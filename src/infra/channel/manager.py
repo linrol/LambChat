@@ -6,14 +6,14 @@ and their user-specific instances.
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Callable, Optional
 
 from src.infra.channel.base import UserChannelManager
 from src.infra.channel.registry import get_registry
+from src.infra.logging import get_logger
 from src.kernel.schemas.channel import ChannelType
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ChannelCoordinator:

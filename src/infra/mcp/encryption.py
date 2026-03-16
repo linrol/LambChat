@@ -7,14 +7,14 @@ MCP敏感字段加密模块
 import base64
 import hashlib
 import json
-import logging
 from typing import Any, Optional
 
 from cryptography.fernet import Fernet
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 加密字段标识（用于区分加密和未加密的数据）
 ENCRYPTED_MARKER = "__encrypted__"

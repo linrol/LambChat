@@ -8,7 +8,6 @@ from typing import Optional
 
 from src.infra.auth.jwt import create_access_token, create_refresh_token
 from src.infra.role.storage import RoleStorage
-from src.infra.settings.service import SettingsService
 from src.infra.user.storage import UserStorage
 from src.kernel.config import settings
 from src.kernel.schemas.user import Token, User, UserCreate, UserListResponse, UserUpdate
@@ -24,7 +23,6 @@ class UserManager:
     def __init__(self):
         self.storage = UserStorage()
         self.role_storage = RoleStorage()
-        self.settings_service = SettingsService()
 
     async def register(self, user_data: UserCreate) -> User:
         """
@@ -46,7 +44,7 @@ class UserManager:
                 user_data.skip_verification = True  # 第一个管理员自动激活
             else:
                 # 从设置中读取默认角色
-                default_role = await self.settings_service.get("DEFAULT_USER_ROLE")
+                default_role = settings.DEFAULT_USER_ROLE
                 user_data.roles = [default_role or "user"]
 
         user = await self.storage.create(user_data)

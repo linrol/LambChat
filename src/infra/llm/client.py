@@ -4,12 +4,10 @@ LLM 客户端
 提供 LangChain 兼容的 LLM 客户端。
 """
 
-import logging
+import asyncio
 import os
 from functools import lru_cache
 from typing import Any, Optional
-
-import asyncio
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -17,9 +15,10 @@ from langchain_openai import ChatOpenAI
 from langsmith import traceable
 from pydantic import SecretStr
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Cache for raw settings from database (loaded once)

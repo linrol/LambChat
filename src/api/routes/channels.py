@@ -4,14 +4,13 @@ Provides endpoints for managing per-user channel configurations.
 Supports multiple channel types and multiple instances per channel type.
 """
 
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.deps import get_current_user_required, require_permissions
 from src.infra.agent.config_storage import get_agent_config_storage
 from src.infra.channel.channel_storage import ChannelStorage
 from src.infra.channel.registry import get_registry
+from src.infra.logging import get_logger
 from src.infra.role.storage import RoleStorage
 from src.kernel.schemas.channel import (
     ChannelConfigCreate,
@@ -25,7 +24,7 @@ from src.kernel.schemas.channel import (
 from src.kernel.schemas.user import TokenPayload
 from src.kernel.types import Permission
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -52,9 +51,8 @@ async def _validate_agent_id(agent_id: str | None, user: TokenPayload) -> None:
     if user.roles:
         role_storage = RoleStorage()
         allowed = set()
-        for role_name in user.roles:
-            role = await role_storage.get_by_name(role_name)
-            if role and role.allowed_agents:
+        for role in await role_storage.get_by_names(user.roles):
+            if role.allowed_agents:
                 allowed.update(role.allowed_agents)
         if allowed and agent_id not in allowed:
             raise HTTPException(
@@ -225,9 +223,8 @@ async def create_channel_instance(
     max_channels = None  # Default: no limit
     if user.roles:
         role_storage = RoleStorage()
-        for role_name in user.roles:
-            role = await role_storage.get_by_name(role_name)
-            if role and role.limits and role.limits.max_channels is not None:
+        for role in await role_storage.get_by_names(user.roles):
+            if role.limits and role.limits.max_channels is not None:
                 # Get the minimum limit among all roles (most restrictive)
                 if max_channels is None or role.limits.max_channels < max_channels:
                     max_channels = role.limits.max_channels

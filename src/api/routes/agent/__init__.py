@@ -6,7 +6,6 @@ Agent 路由
 """
 
 import json
-import logging
 import uuid
 from typing import Optional
 
@@ -15,6 +14,7 @@ from fastapi.responses import StreamingResponse
 
 from src.agents.core.base import AgentFactory
 from src.api.deps import get_current_user_optional, get_current_user_required
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 from src.kernel.schemas.agent import (
     AgentRequest,
@@ -25,7 +25,7 @@ from src.kernel.schemas.agent import (
 from src.kernel.schemas.user import TokenPayload
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 内置工具定义（带参数）
 BUILTIN_TOOLS = [

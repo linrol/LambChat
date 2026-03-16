@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import toast from "react-hot-toast";
 import i18n from "../i18n";
 import type {
   Message,
@@ -18,6 +19,8 @@ import {
   type BackendSession,
 } from "../services/api";
 import { feedbackApi } from "../services/api/feedback";
+import { useAuth } from "../hooks/useAuth";
+import { Permission } from "../types/auth";
 import {
   API_BASE,
   type UseAgentOptions,
@@ -39,6 +42,12 @@ import {
 } from "./useAgent/sseConnection";
 
 export function useAgent(options?: UseAgentOptions): UseAgentReturn {
+  const { hasAnyPermission } = useAuth();
+  const canReadFeedback = hasAnyPermission([
+    Permission.FEEDBACK_READ,
+    Permission.FEEDBACK_WRITE,
+  ]);
+
   // State
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -301,41 +310,43 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
               { options, activeSubagentStack: activeSubagentStackRef.current },
             );
 
-            // Load feedback for this session
-            try {
-              const feedbackList = await feedbackApi.list(
-                0,
-                100,
-                undefined,
-                undefined,
-                targetSessionId,
-              );
-              if (feedbackList && feedbackList.items.length > 0) {
-                const feedbackMap = new Map(
-                  feedbackList.items.map((f) => [
-                    f.run_id,
-                    { feedback: f.rating, feedbackId: f.id },
-                  ]),
+            // Load feedback for this session (only if user has permission)
+            if (canReadFeedback) {
+              try {
+                const feedbackList = await feedbackApi.list(
+                  0,
+                  100,
+                  undefined,
+                  undefined,
+                  targetSessionId,
                 );
-                reconstructedMessages = reconstructedMessages.map((msg) => {
-                  if (msg.runId) {
-                    const feedbackInfo = feedbackMap.get(msg.runId);
-                    if (feedbackInfo) {
-                      return {
-                        ...msg,
-                        feedback: feedbackInfo.feedback,
-                        feedbackId: feedbackInfo.feedbackId,
-                      };
+                if (feedbackList && feedbackList.items.length > 0) {
+                  const feedbackMap = new Map(
+                    feedbackList.items.map((f) => [
+                      f.run_id,
+                      { feedback: f.rating, feedbackId: f.id },
+                    ]),
+                  );
+                  reconstructedMessages = reconstructedMessages.map((msg) => {
+                    if (msg.runId) {
+                      const feedbackInfo = feedbackMap.get(msg.runId);
+                      if (feedbackInfo) {
+                        return {
+                          ...msg,
+                          feedback: feedbackInfo.feedback,
+                          feedbackId: feedbackInfo.feedbackId,
+                        };
+                      }
                     }
-                  }
-                  return msg;
-                });
+                    return msg;
+                  });
+                }
+              } catch (feedbackErr) {
+                console.warn(
+                  "[loadHistory] Failed to load feedback:",
+                  feedbackErr,
+                );
               }
-            } catch (feedbackErr) {
-              console.warn(
-                "[loadHistory] Failed to load feedback:",
-                feedbackErr,
-              );
             }
 
             const lastTimestamp = getLastEventTimestamp(
@@ -399,13 +410,13 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         }
       } catch (err) {
         console.error("Failed to load session:", err);
-        setError("Failed to load session");
+        setError(i18n.t("chat.requestFailed"));
       } finally {
         setIsLoading(false);
         isLoadingHistoryRef.current = false;
       }
     },
-    [options, createSSEContext],
+    [options, createSSEContext, canReadFeedback],
   );
 
   // Send message
@@ -491,12 +502,36 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         );
 
         if (!submitResponse.ok) {
+          if (submitResponse.status === 429) {
+            let detail = i18n.t("chat.rateLimited");
+            try {
+              const errBody = await submitResponse.json();
+              detail = errBody.detail?.message || errBody.detail || detail;
+            } catch {
+              // ignore JSON parse errors - fallback detail already set
+              console.warn("[sendMessage] Failed to parse error response");
+            }
+            toast.error(detail, { duration: 5000 });
+            setMessages((prev) =>
+              prev.filter((m) => m.id !== assistantMessage.id),
+            );
+            setIsLoading(false);
+            return;
+          }
           throw new Error(`Submit failed: ${submitResponse.status}`);
         }
 
         const submitData = await submitResponse.json();
         const newSessionId = submitData.session_id;
         const newRunId = submitData.run_id;
+
+        // Handle queued status — show toast and wait via SSE
+        if (submitData.status === "queued") {
+          toast.loading(
+            i18n.t("chat.queued", { position: submitData.queue_position }),
+            { id: "chat-queue", duration: Infinity },
+          );
+        }
 
         if (!sessionId && newSessionId) {
           setSessionId(newSessionId);
@@ -557,14 +592,14 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
           return;
         }
         const errorMessage =
-          err instanceof Error ? err.message : "Unknown error";
+          err instanceof Error ? err.message : i18n.t("chat.unknownError");
         setError(errorMessage);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `Error: ${errorMessage}`,
+                  content: i18n.t("chat.errorPrefix", { error: errorMessage }),
                   isStreaming: false,
                   parts: clearAllLoadingStates(m.parts || []),
                 }

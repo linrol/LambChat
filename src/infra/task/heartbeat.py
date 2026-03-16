@@ -6,14 +6,14 @@ Manages task heartbeat for detecting stale/failed tasks in distributed scenarios
 """
 
 import asyncio
-import logging
 from datetime import datetime
 
+from src.infra.logging import get_logger
 from src.infra.storage.redis import get_redis_client
 
 from .constants import HEARTBEAT_INTERVAL, HEARTBEAT_PREFIX, HEARTBEAT_TIMEOUT
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaskHeartbeat:
@@ -26,7 +26,7 @@ class TaskHeartbeat:
     def __init__(self) -> None:
         self._heartbeat_tasks: dict[str, asyncio.Task] = {}  # run_id -> heartbeat Task
 
-    async def start(self, run_id: str) -> None:
+    async def start(self, run_id: str, user_id: str | None = None) -> None:
         """启动任务心跳"""
         if run_id in self._heartbeat_tasks:
             logger.warning(f"Heartbeat already exists for run_id={run_id}")
@@ -42,6 +42,15 @@ class TaskHeartbeat:
                         datetime.now().isoformat(),
                         ex=HEARTBEAT_TIMEOUT * 2,
                     )
+                    # 刷新并发限制的 Sorted Set 分数（保持条目活跃）
+                    if user_id:
+                        try:
+                            from src.infra.task.concurrency import get_concurrency_limiter
+
+                            limiter = get_concurrency_limiter()
+                            await limiter.refresh(user_id, run_id)
+                        except Exception:
+                            pass
                     await asyncio.sleep(HEARTBEAT_INTERVAL)
             except asyncio.CancelledError:
                 pass

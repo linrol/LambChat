@@ -33,7 +33,6 @@ export interface UploadState {
 export interface UploadConfig {
   enabled: boolean;
   provider?: string;
-  max_file_size?: number;
   uploadLimits: {
     image: number;
     video: number;

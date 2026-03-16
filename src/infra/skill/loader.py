@@ -4,12 +4,12 @@ Skills 加载模块
 从数据库加载用户技能文件，供 DeepAgent 使用。
 """
 
-import logging
 from typing import Any, Dict, List, Optional, TypedDict
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SkillLoadResult(TypedDict):

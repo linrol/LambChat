@@ -2,14 +2,13 @@
 Core authentication routes (register, login, refresh, me, permissions)
 """
 
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.deps import get_current_user_required
 from src.infra.auth.jwt import create_access_token, decode_token
 from src.infra.auth.turnstile import get_turnstile_service
+from src.infra.logging import get_logger
 from src.infra.user.manager import UserManager
 from src.kernel.config import settings
 from src.kernel.exceptions import ValidationError
@@ -27,7 +26,7 @@ from .utils import _get_client_ip, _get_frontend_url
 
 router = APIRouter()
 security = HTTPBearer()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @router.post("/register", response_model=User)

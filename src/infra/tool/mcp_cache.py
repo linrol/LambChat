@@ -12,7 +12,6 @@ MCP 工具缓存模块（混合缓存实现）
 import asyncio
 import hashlib
 import json
-import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -20,9 +19,10 @@ from typing import Any, Optional
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
+from src.infra.logging import get_logger
 from src.infra.storage.redis import get_redis_client
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 缓存过期时间（秒），默认 30 分钟
 CACHE_TTL = 1800

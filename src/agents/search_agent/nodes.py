@@ -6,7 +6,6 @@ LangGraph 节点函数，使用 deep agent 执行任务。
 """
 
 import asyncio
-import logging
 import time
 import uuid
 from typing import Any, Dict
@@ -30,6 +29,7 @@ from src.infra.backend import (
 )
 from src.infra.backend.deepagent import create_memory_backend_factory
 from src.infra.llm.client import LLMClient
+from src.infra.logging import get_logger
 from src.infra.sandbox import SessionSandboxManager
 from src.infra.skill.loader import build_skills_prompt
 from src.infra.storage.checkpoint import get_async_checkpointer
@@ -37,7 +37,7 @@ from src.infra.storage.postgres import create_postgres_store
 from src.infra.writer.present import Presenter
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ============================================================================

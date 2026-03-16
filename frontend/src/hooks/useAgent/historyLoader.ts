@@ -9,6 +9,7 @@ import type {
   MessageAttachment,
   MessagePart,
 } from "../../types";
+import i18n from "../../i18n";
 import type {
   SubagentStackItem,
   HistoryEvent,
@@ -149,7 +150,7 @@ function processHistoryEvent(
     case "agent:call": {
       const subagentPart = createSubagentPart(
         agentId || "unknown",
-        eventData.agent_name || agentId || "Unknown Agent",
+        eventData.agent_name || agentId || i18n.t("chat.unknownAgent"),
         eventData.input || "",
         depth,
       );
@@ -494,7 +495,9 @@ function processHistoryEvent(
         }
         msg.cancelled = true;
       } else {
-        msg.content = `Error: ${errorData.error || "Unknown error"}`;
+        msg.content = i18n.t("chat.errorPrefix", {
+          error: errorData.error || i18n.t("chat.unknownError"),
+        });
       }
       break;
     }
@@ -556,7 +559,7 @@ export function reconstructMessagesFromEvents(
               return {
                 ...part,
                 isPending: false,
-                result: part.result || "Cancelled",
+                result: part.result || i18n.t("chat.cancelled"),
                 success: false,
               };
             }

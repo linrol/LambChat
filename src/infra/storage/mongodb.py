@@ -3,20 +3,20 @@ MongoDB 存储实现
 """
 
 import asyncio
-import logging
 from datetime import datetime, timedelta
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, List, Optional
 
 from pydantic import BaseModel
 
+from src.infra.logging import get_logger
 from src.infra.storage.base import StorageBase
 from src.kernel.config import settings
 
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @lru_cache

@@ -7,17 +7,18 @@ Feishu 消息处理器模块
 
 import asyncio
 import json
-import logging
 import sys
 import time
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Optional, cast
+
+from src.infra.logging import get_logger
 
 if TYPE_CHECKING:
     from src.infra.channel.feishu.manager import FeishuChannelManager
 
 from src.infra.channel.feishu.markdown import FeishuMarkdownAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Redis key prefix for Feishu chat session mapping
 FEISHU_SESSION_KEY_PREFIX = "feishu:session:"

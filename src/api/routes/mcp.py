@@ -4,11 +4,10 @@ MCP (Model Context Protocol) API router
 Provides endpoints for managing MCP server configurations.
 """
 
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.deps import require_permissions
+from src.infra.logging import get_logger
 from src.infra.mcp.storage import MCPStorage
 from src.kernel.schemas.mcp import (
     MCPExportResponse,
@@ -24,7 +23,7 @@ from src.kernel.schemas.mcp import (
 )
 from src.kernel.schemas.user import TokenPayload
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter()
 admin_router = APIRouter()

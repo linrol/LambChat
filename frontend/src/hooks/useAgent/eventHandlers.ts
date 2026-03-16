@@ -13,6 +13,7 @@ import type {
   TokenUsagePart,
   MessageAttachment,
 } from "../../types";
+import i18n from "../../i18n";
 import type {
   StreamEvent,
   EventData,
@@ -185,6 +186,16 @@ export function handleStreamEvent(
       break;
     }
 
+    case "queue_update": {
+      if (data.status === "processing") {
+        import("react-hot-toast").then(({ default: toast }) => {
+          toast.dismiss("chat-queue");
+          toast.success(i18n.t("chat.queueStart"), { duration: 2000 });
+        });
+      }
+      break;
+    }
+
     case "error": {
       handleError(data, messageId, ctx);
       break;
@@ -284,7 +295,7 @@ function handleAgentCall(
   const agentId = data.agent_id || "unknown";
   const subagentPart = createSubagentPart(
     agentId,
-    data.agent_name || data.agent_id || "Unknown Agent",
+    data.agent_name || data.agent_id || i18n.t("chat.unknownAgent"),
     data.input || "",
     depth,
     data.timestamp,
@@ -668,7 +679,7 @@ function handleError(
   ctx: EventHandlerContext,
   forceCancelled?: boolean,
 ): void {
-  const errorMsg = data.error || "Unknown error";
+  const errorMsg = data.error || i18n.t("chat.unknownError");
   const isCancelled = forceCancelled || data.type === "CancelledError";
 
   ctx.setMessages((prev) =>
@@ -686,7 +697,7 @@ function handleError(
       // Regular error: show error message
       return {
         ...m,
-        content: `Error: ${errorMsg}`,
+        content: i18n.t("chat.errorPrefix", { error: errorMsg }),
         isStreaming: false,
         parts: clearAllLoadingStates(m.parts || []),
       };
@@ -797,7 +808,7 @@ function handleSandboxError(
   ctx: EventHandlerContext,
 ): void {
   ctx.setIsInitializingSandbox(false);
-  ctx.setSandboxError(data.error || "沙箱初始化失败");
+  ctx.setSandboxError(data.error || i18n.t("chat.sandboxInitFailed"));
   const errorPart: SandboxPart = {
     type: "sandbox",
     status: "error",
@@ -847,7 +858,7 @@ function handleSkillsChanged(data: EventData, ctx: EventHandlerContext): void {
   if (ctx.options?.onSkillAdded) {
     ctx.options.onSkillAdded(
       (data.skill_name as string) || "",
-      `Skill ${data.action || "updated"}`,
+      i18n.t("chat.skillUpdated", { action: data.action || "updated" }),
       (data.files_count as number) || 0,
     );
   }

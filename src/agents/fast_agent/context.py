@@ -4,10 +4,10 @@ Fast Agent 上下文管理 - 无沙箱，支持工具和 Skills
 不使用沙箱，但保留工具和技能支持。
 """
 
-import logging
 import uuid
 from typing import TYPE_CHECKING, Any, List, Optional
 
+from src.infra.logging import get_logger
 from src.infra.skill.storage import SkillStorage
 from src.infra.tool.human_tool import get_human_tool
 from src.infra.tool.mcp_global import get_global_mcp_tools
@@ -18,7 +18,7 @@ from src.kernel.config import settings
 if TYPE_CHECKING:
     from src.infra.tool.mcp_client import MCPClientManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FastAgentContext:

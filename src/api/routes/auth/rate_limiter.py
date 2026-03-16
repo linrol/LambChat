@@ -2,22 +2,16 @@
 Rate limiting helper for auth routes
 """
 
-import logging
 import re
-from typing import Optional
 
-from redis import asyncio as aioredis
+from src.infra.logging import get_logger
+from src.infra.storage.redis import get_redis_client
 
-from src.kernel.config import settings
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RateLimiter:
     """Simple Redis-based rate limiter for email endpoints."""
-
-    def __init__(self) -> None:
-        self._redis: Optional[aioredis.Redis] = None
 
     @staticmethod
     def _safe_key_part(value: str) -> str:
@@ -46,14 +40,6 @@ class RateLimiter:
         safe_id = RateLimiter._safe_key_part(identifier)
         return f"{prefix}:{safe_id}"
 
-    def _get_redis(self) -> aioredis.Redis:
-        """Lazy load Redis client."""
-        if self._redis is None:
-            self._redis = aioredis.from_url(
-                settings.REDIS_URL, password=settings.REDIS_PASSWORD or None, decode_responses=True
-            )
-        return self._redis
-
     async def check_rate_limit(
         self,
         key: str,
@@ -71,7 +57,7 @@ class RateLimiter:
             Tuple of (is_allowed, remaining_requests)
         """
         try:
-            redis = self._get_redis()
+            redis = get_redis_client()
             current = await redis.get(key)
 
             if current is None:
@@ -93,13 +79,11 @@ class RateLimiter:
             return True, max_requests
 
     async def close(self) -> None:
-        """Close Redis connection."""
-        if self._redis is not None:
-            await self._redis.close()
-            self._redis = None
+        """No-op: Redis client is managed by get_redis_client() singleton."""
+        pass
 
 
-_rate_limiter: Optional[RateLimiter] = None
+_rate_limiter: RateLimiter | None = None
 
 
 def get_rate_limiter() -> RateLimiter:

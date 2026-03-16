@@ -14,6 +14,30 @@ class RoleLimits(BaseModel):
     max_channels: Optional[int] = Field(
         default=None, description="Maximum number of channels allowed (null = unlimited)"
     )
+    max_concurrent_chats: Optional[int] = Field(
+        default=5, description="Per-user max concurrent chat tasks (null = unlimited, default: 5)"
+    )
+    max_queued_chats: Optional[int] = Field(
+        default=10, description="Per-user max queued chat tasks (null = unlimited, default: 10)"
+    )
+    max_file_size_image: Optional[int] = Field(
+        default=None,
+        description="Max file upload size for images in MB (null = use global default)",
+    )
+    max_file_size_video: Optional[int] = Field(
+        default=None,
+        description="Max file upload size for videos in MB (null = use global default)",
+    )
+    max_file_size_audio: Optional[int] = Field(
+        default=None, description="Max file upload size for audio in MB (null = use global default)"
+    )
+    max_file_size_document: Optional[int] = Field(
+        default=None,
+        description="Max file upload size for documents in MB (null = use global default)",
+    )
+    max_files: Optional[int] = Field(
+        default=None, description="Max number of files per upload (null = use global default)"
+    )
 
     model_config = ConfigDict(extra="allow")  # Allow future extensions
 

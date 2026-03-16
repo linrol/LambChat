@@ -12,7 +12,6 @@ from typing import Dict
 
 from src.infra.logging.filter import TraceFilter
 from src.infra.logging.formatter import ColoredFormatter
-from src.kernel.config import settings
 
 
 def parse_log_levels(levels_str: str) -> Dict[str, str]:
@@ -58,6 +57,8 @@ def setup_logging() -> None:
 
     # 清除现有处理器（避免重复）
     root_logger.handlers.clear()
+
+    from src.kernel.config import settings
 
     # 创建控制台处理器
     console_handler = logging.StreamHandler(sys.stdout)

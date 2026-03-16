@@ -7,16 +7,16 @@ Handles Redis pub/sub for distributed task cancellation signals.
 
 import asyncio
 import json
-import logging
 from typing import Any, Callable, Dict, Optional
 
 from redis.asyncio.client import PubSub
 
+from src.infra.logging import get_logger
 from src.infra.storage.redis import get_redis_client
 
 from .constants import CANCEL_CHANNEL
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaskPubSub:

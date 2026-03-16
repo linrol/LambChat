@@ -33,6 +33,7 @@ export type EventType =
   | "sandbox:error"
   | "token:usage"
   | "skills:changed"
+  | "queue_update"
   | "done"
   | "error";
 
@@ -92,6 +93,9 @@ export interface EventData {
   action?: string;
   skill_name?: string;
   files_count?: number;
+  // queue_update event fields
+  status?: string;
+  queue_position?: number;
 }
 
 export interface UseAgentOptions {

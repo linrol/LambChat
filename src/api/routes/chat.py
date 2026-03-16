@@ -7,7 +7,6 @@
 
 import asyncio
 import json
-import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,13 +15,16 @@ from fastapi.responses import StreamingResponse
 from src.agents.core.base import AgentFactory
 from src.api.deps import get_current_user_required, require_permissions
 from src.api.routes.session import verify_session_ownership
+from src.infra.logging import get_logger
 from src.infra.session.manager import SessionManager
+from src.infra.task.concurrency import register_executor
 from src.infra.task.manager import get_task_manager
+from src.infra.task.status import TaskStatus
 from src.kernel.schemas.agent import AgentRequest
 from src.kernel.schemas.user import TokenPayload
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def _execute_agent_stream(
@@ -59,6 +61,10 @@ async def _execute_agent_stream(
         raise
 
 
+# Register the default agent-stream executor so any worker can dispatch queued tasks
+register_executor("agent_stream", _execute_agent_stream)
+
+
 @router.post("/stream")
 async def chat_stream(
     request: AgentRequest,
@@ -69,6 +75,7 @@ async def chat_stream(
     提交聊天任务，立即返回 session_id 和 run_id
 
     任务在后台执行，前端可通过 SSE 或轮询获取结果。
+    支持基于角色的并发限制：达到上限时排队等待，队列满时返回 429。
 
     Args:
         request: 包含 message 和 session_id
@@ -78,10 +85,13 @@ async def chat_stream(
         session_id: 会话 ID
         run_id: 当前对话轮次的运行 ID
         trace_id: 追踪 ID
-        status: 任务状态
+        status: 任务状态 (pending / queued)
+        queue_position: 排队位置（仅排队时返回）
     """
+    from src.infra.task.concurrency import ConcurrencyResult, get_concurrency_limiter
+    from src.infra.task.manager import _generate_run_id
+
     session_id = request.session_id or str(uuid.uuid4())
-    logger.info(f"[chat_stream] Received disabled_tools request: {request.disabled_tools}")
 
     # 如果用户传入了 session_id，验证所有权
     if request.session_id:
@@ -90,28 +100,87 @@ async def chat_stream(
         if existing_session:
             verify_session_ownership(existing_session, user)
 
-    # 提交后台任务，获取 run_id
     task_manager = get_task_manager()
-    run_id, _ = await task_manager.submit(
+
+    # 生成 run_id（不管是否排队都需要唯一 ID）
+    run_id = _generate_run_id()
+
+    # Prepare attachments (needed for both queued and direct paths)
+    attachments_data = (
+        [a.model_dump() for a in request.attachments] if request.attachments else None
+    )
+
+    # Build task context for queued dispatch (stored in Redis, multi-worker safe)
+    task_context = {
+        "executor_key": "agent_stream",
+        "agent_id": agent_id,
+        "message": request.message,
+        "disabled_tools": request.disabled_tools,
+        "agent_options": request.agent_options,
+        "attachments": attachments_data,
+    }
+
+    # 检查并发限制
+    limiter = get_concurrency_limiter()
+    concurrency_result = await limiter.acquire(
+        user_id=user.sub,
+        roles=user.roles,
+        run_id=run_id,
+        session_id=session_id,
+        task_context=task_context,
+    )
+
+    if concurrency_result.result == ConcurrencyResult.REJECTED_QUEUE:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "too_many_requests",
+                "message": f"排队已满，当前活跃 {concurrency_result.active_count}/{concurrency_result.max_concurrent}，排队 {concurrency_result.queue_length}",
+                "active": concurrency_result.active_count,
+                "max_concurrent": concurrency_result.max_concurrent,
+                "queue_length": concurrency_result.queue_length,
+            },
+        )
+
+    if concurrency_result.result == ConcurrencyResult.QUEUED:
+        # Task context already stored in Redis queue entry by acquire().
+        # Ensure executor is initialized and create session immediately.
+        if task_manager._executor is None:
+            from src.infra.task.executor import TaskExecutor
+
+            task_manager._executor = TaskExecutor(
+                task_manager.storage, task_manager._run_info, task_manager._heartbeat
+            )
+        # Create session record immediately (don't wait for dequeue)
+        await task_manager._executor.ensure_session(session_id, agent_id, user.sub)
+        await task_manager._executor._update_session_status(
+            session_id, TaskStatus.PENDING, run_id=run_id
+        )
+
+        return {
+            "session_id": session_id,
+            "run_id": run_id,
+            "status": "queued",
+            "queue_position": concurrency_result.queue_position,
+            "max_concurrent": concurrency_result.max_concurrent,
+        }
+
+    # STARTED — 正常提交后台任务
+    _, _ = await task_manager.submit(
         session_id=session_id,
         agent_id=agent_id,
         message=request.message,
         user_id=user.sub,
         executor=_execute_agent_stream,
-        disabled_tools=request.disabled_tools,  # 传递用户禁用的工具
-        agent_options=request.agent_options,  # 传递 agent 选项
-        attachments=[a.model_dump() for a in request.attachments]
-        if request.attachments
-        else None,  # 传递附件
+        disabled_tools=request.disabled_tools,
+        agent_options=request.agent_options,
+        attachments=attachments_data,
+        run_id=run_id,
     )
-
-    # 获取 trace_id（任务启动后会有）
-    trace_id = task_manager.get_trace_id(run_id)
 
     return {
         "session_id": session_id,
         "run_id": run_id,
-        "trace_id": trace_id,
         "status": "pending",
     }
 
@@ -129,11 +198,10 @@ async def session_stream(
     run_id: 对话轮次 ID，用于隔离多轮对话。
     流会在收到 complete 或 error 事件后自动结束。
     """
-    import logging
-
+    from src.infra.logging import get_logger
     from src.infra.session.dual_writer import get_dual_writer
 
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     # 验证用户对该 session 的所有权
     session_manager = SessionManager()
@@ -155,8 +223,13 @@ async def session_stream(
                 session_id,
                 run_id=run_id,
             ):
+                # 心跳事件：发送 SSE 注释（: 开头的行被 EventSource 忽略）
+                # 这样能检测到客户端断开，同时不干扰前端逻辑
+                if event["event_type"] == "heartbeat":
+                    yield ": heartbeat\n\n"
+                    continue
+
                 event_count += 1
-                # logger.info(f"[SSE] Yielding event #{event_count}: {event['event_type']}")
                 # Include timestamp in the data payload for deduplication
                 event_data = event["data"]
                 if isinstance(event_data, dict) and event.get("timestamp"):
@@ -224,7 +297,7 @@ async def cancel_session(
     user: TokenPayload = Depends(get_current_user_required),
 ):
     """
-    取消正在运行的任务
+    取消正在运行的任务（包括排队中的任务）
 
     Args:
         session_id: 会话 ID
@@ -244,5 +317,17 @@ async def cancel_session(
 
     task_manager = get_task_manager()
     result = await task_manager.cancel(session_id, user_id=user.sub)
+
+    # 如果本地没有取消到，尝试从排队队列中移除
+    if not result.get("cancelled_locally"):
+        try:
+            from src.infra.task.concurrency import get_concurrency_limiter
+
+            limiter = get_concurrency_limiter()
+            removed = await limiter.remove_from_queue(user.sub, session_id)
+            if removed:
+                result["message"] = f"已从排队中移除 ({removed} 个任务)"
+        except Exception as e:
+            logger.warning(f"Failed to remove from queue: {e}")
 
     return result

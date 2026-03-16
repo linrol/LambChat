@@ -3,11 +3,11 @@ Email verification and password reset routes
 """
 
 import hashlib
-import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request, status
 
+from src.infra.logging import get_logger
 from src.infra.user.manager import UserManager
 from src.kernel.config import settings
 from src.kernel.schemas.user import (
@@ -22,7 +22,7 @@ from .rate_limiter import get_rate_limiter
 from .utils import _get_client_ip, _get_frontend_url
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @router.post("/forgot-password")

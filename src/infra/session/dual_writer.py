@@ -13,18 +13,18 @@ Dual Event Writer - 双写事件到 Redis Stream + MongoDB
 
 import asyncio
 import json
-import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from pymongo import UpdateOne
 
+from src.infra.logging import get_logger
 from src.infra.session.trace_storage import TraceStorage, get_trace_storage
 from src.infra.storage.redis import RedisStorage
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # MongoDB 批量写入配置
@@ -285,23 +285,29 @@ class DualEventWriter:
         self,
         session_id: str,
         run_id: Optional[str] = None,
-        overall_timeout: float = 600.0,
+        overall_timeout: float = 1800.0,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         从 Redis Stream 读取事件（阻塞读取，直到流结束）
 
+        通过定期发送 SSE 心跳注释检测客户端断开，避免僵尸连接占用资源。
+        SSE 注释（以 : 开头的行）会被 EventSource 客户端自动忽略。
+
         Args:
             session_id: 会话 ID
             run_id: 运行 ID（用于隔离多轮对话）
-            overall_timeout: 整体超时（秒），默认 10 分钟，防止无限等待
+            overall_timeout: 整体超时（秒），默认 30 分钟，防止无限等待
 
         Yields:
             事件字典，包含 id, event_type, data
+            心跳事件: event_type="heartbeat"（用于检测死连接）
         """
         stream_key = self._stream_key(session_id, run_id)
         last_id = "0"
         block = 500  # 500ms 阻塞超时
+        heartbeat_interval = 15  # 每 15 秒发送一次心跳
         start_time = asyncio.get_event_loop().time()
+        last_heartbeat = start_time
         logger.info(f"[Redis] Reading from stream: {stream_key}")
 
         def parse_data(data_str):
@@ -333,8 +339,10 @@ class DualEventWriter:
 
             logger.info(f"[Redis] Entering blocking xread loop for {stream_key}")
             while True:
+                now = asyncio.get_event_loop().time()
+
                 # 整体超时检查，防止 producer 崩溃导致无限等待
-                elapsed = asyncio.get_event_loop().time() - start_time
+                elapsed = now - start_time
                 if elapsed >= overall_timeout:
                     logger.warning(
                         f"[Redis] SSE read timed out after {overall_timeout}s for {stream_key}"
@@ -346,6 +354,18 @@ class DualEventWriter:
                         "timestamp": _utc_now().isoformat(),
                     }
                     return
+
+                # 心跳检测：定期 yield，如果客户端已断开，FastAPI 会在写入时
+                # 抛出 CancelledError，从而提前释放资源
+                if now - last_heartbeat >= heartbeat_interval:
+                    last_heartbeat = now
+                    yield {
+                        "id": "heartbeat",
+                        "event_type": "heartbeat",
+                        "data": {},
+                        "timestamp": _utc_now().isoformat(),
+                    }
+
                 try:
                     results = await self.redis.xread(
                         {stream_key: last_id},
@@ -416,6 +436,7 @@ class DualEventWriter:
         run_id: Optional[str] = None,
         exclude_run_id: Optional[str] = None,
         completed_only: bool = True,
+        run_ids: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         从 MongoDB 读取会话的所有事件（跨 traces 聚合）
@@ -426,6 +447,7 @@ class DualEventWriter:
             run_id: 可选的运行 ID 过滤（用于隔离多轮对话）
             exclude_run_id: 可选的运行 ID 排除（用于排除正在运行的 run）
             completed_only: 是否只返回完成的 trace 中的事件（默认 True）
+            run_ids: 可选的运行 ID 列表过滤
 
         Returns:
             事件列表
@@ -436,6 +458,7 @@ class DualEventWriter:
             run_id=run_id,
             exclude_run_id=exclude_run_id,
             completed_only=completed_only,
+            run_ids=run_ids,
         )
 
     async def get_stream_length(self, session_id: str, run_id: Optional[str] = None) -> int:

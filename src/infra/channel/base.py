@@ -6,13 +6,13 @@ Provides abstract base class for implementing various chat platform channels
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Optional
 
+from src.infra.logging import get_logger
 from src.kernel.schemas.channel import ChannelCapability, ChannelType
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseChannel(ABC):

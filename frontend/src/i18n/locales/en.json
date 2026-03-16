@@ -228,6 +228,17 @@
       "ready": "ready"
     },
     "send": "Send message",
+    "queueFull": "Queue is full, please try again later",
+    "queued": "Queued (position {{position}})...",
+    "queueStart": "Task started processing",
+    "rateLimited": "Too many requests, please try again later",
+    "requestFailed": "Failed to load session",
+    "unknownAgent": "Unknown Agent",
+    "unknownError": "Unknown error",
+    "errorPrefix": "Error: {{error}}",
+    "sandboxInitFailed": "Sandbox initialization failed",
+    "skillUpdated": "Skill {{action}}",
+    "cancelled": "Cancelled",
     "shiftEnterNewLine": "for new line",
     "stop": "Stop generating",
     "title": "Chat",
@@ -243,7 +254,7 @@
     "create": "Create",
     "default": "Default",
     "delete": "Delete",
-    "edit": "common.edit",
+    "edit": "Edit",
     "export": "Export",
     "import": "Import",
     "importing": "Importing...",
@@ -259,7 +270,7 @@
     "resetAll": "Reset All",
     "save": "Save",
     "saved": "Saved",
-    "saving": "common.saving",
+    "saving": "Saving...",
     "search": "Search",
     "showing": "Showing {{start}}-{{end}}",
     "skip": "Skip"
@@ -345,7 +356,7 @@
     "allRatings": "All Ratings",
     "alreadySubmitted": "You've already submitted feedback for this conversation",
     "buttonLabel": "Feedback",
-    "comment": "feedback.comment",
+    "comment": "Comment",
     "commentLabel": "Comment (optional)",
     "commentPlaceholder": "What could be improved?",
     "commentSubmitted": "Comment submitted",
@@ -354,7 +365,7 @@
     "deleteConfirmTitle": "Delete Feedback",
     "deleteFailed": "Failed to delete feedback",
     "deleteSuccess": "Feedback deleted successfully",
-    "detailTitle": "feedback.detailTitle",
+    "detailTitle": "Feedback Details",
     "filterByRating": "Filter by Rating",
     "negative": "Negative",
     "noFeedback": "No feedback yet",
@@ -362,7 +373,7 @@
     "paginationInfo": "Showing {{start}}-{{end}} of {{total}}",
     "positive": "Positive",
     "positiveRate": "Positive Rate",
-    "pressEnter": "feedback.pressEnter",
+    "pressEnter": "Press Enter to submit",
     "skipAndSubmit": "Skip & Submit",
     "submit": "Submit",
     "submitFailed": "Failed to submit feedback",
@@ -435,7 +446,7 @@
   },
   "fileUpload": {
     "categories": {
-      "${category}": "fileUpload.categories.${category}",
+      "${category}": "{{category}}",
       "audio": "audio",
       "document": "document",
       "image": "image",
@@ -455,7 +466,9 @@
     "uploadError": "Upload failed",
     "uploadFailed": "Upload failed",
     "uploadSuccess": "Upload successful",
-    "uploading": "Uploading..."
+    "uploading": "Uploading...",
+    "effectiveLimits": "Limits: Image {{image}}MB / Video {{video}}MB / Audio {{audio}}MB / Document {{document}}MB / Max {{maxFiles}} files",
+    "maxFilesSummary": "Up to {{maxFiles}} files per upload"
   },
   "imageViewer": {
     "hint": "Scroll/Pinch to zoom · Drag/Swipe to move · ESC to close",
@@ -651,6 +664,17 @@
     "maxChannels": "Max Channels",
     "maxChannelsPlaceholder": "No limit",
     "maxChannelsHint": "Maximum number of channels allowed for users with this role (empty = unlimited)",
+    "concurrentChatsTitle": "Concurrency Limits",
+    "maxConcurrentChats": "Max Concurrent Chats",
+    "maxQueuedChats": "Max Queued Chats",
+    "concurrentChatsHint": "Max concurrent chat tasks per user (empty = unlimited, default 5). Excess tasks enter queue",
+    "uploadLimitsTitle": "Upload Limits",
+    "uploadLimitsHint": "Leave empty to use system defaults",
+    "maxUploadSizeImage": "Max Image Size (MB)",
+    "maxUploadSizeVideo": "Max Video Size (MB)",
+    "maxUploadSizeAudio": "Max Audio Size (MB)",
+    "maxUploadSizeDocument": "Max Document Size (MB)",
+    "maxFiles": "Max Files Per Upload",
     "validation": {
       "enterName": "Please enter role name",
       "selectPermission": "Please select at least one permission"
@@ -766,7 +790,7 @@
     "selected": "{{enabled}} of {{total}} selected",
     "skillsEnabled": "skills enabled",
     "sources": {
-      "${cat}": "skillSelector.sources.${cat}",
+      "${cat}": "{{cat}}",
       "builtin": "Built-in",
       "github": "GitHub",
       "manual": "Manual"
@@ -856,7 +880,7 @@
   "tools": {
     "add": "Add",
     "categories": {
-      "${cat}": "tools.categories.${cat}",
+      "${cat}": "{{cat}}",
       "builtin": "Built-in",
       "human": "Human",
       "mcp": "MCP",

@@ -5,12 +5,13 @@ Backend 工具函数
 用于支持分布式环境下的安全 backend 访问。
 """
 
-import logging
 from typing import Any, Optional
 
 from deepagents.backends.protocol import BackendProtocol
 
-logger = logging.getLogger(__name__)
+from src.infra.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def get_backend_from_runtime(runtime: Any) -> Optional[BackendProtocol]:

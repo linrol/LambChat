@@ -4,12 +4,12 @@ Stores user-level channel configurations with encrypted sensitive fields.
 Supports multiple channel types (Feishu, WeChat, DingTalk, etc.)
 """
 
-import logging
 import types
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from src.infra.logging import get_logger
 from src.infra.mcp.encryption import decrypt_value, encrypt_value
 from src.infra.storage.mongodb import get_mongo_client
 from src.kernel.config import settings
@@ -19,7 +19,7 @@ from src.kernel.schemas.channel import (
     ChannelType,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Fields that should be encrypted
 SENSITIVE_FIELDS = frozenset(

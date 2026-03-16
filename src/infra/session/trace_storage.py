@@ -29,14 +29,14 @@ Trace Storage - 按 trace 聚合事件存储
 """
 
 import asyncio
-import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from src.infra.logging import get_logger
 from src.infra.storage.mongodb import get_mongo_client
 from src.kernel.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _utc_now() -> datetime:
@@ -333,6 +333,7 @@ class TraceStorage:
         run_id: Optional[str] = None,
         exclude_run_id: Optional[str] = None,
         completed_only: bool = True,
+        run_ids: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         获取会话的所有事件（跨 traces 聚合）
@@ -345,6 +346,7 @@ class TraceStorage:
             run_id: 可选的运行 ID 过滤（用于隔离多轮对话）
             exclude_run_id: 可选的运行 ID 排除（用于排除正在运行的 run）
             completed_only: 是否只返回成功完成的 trace 中的事件（默认 True）
+            run_ids: 可选的运行 ID 列表过滤（用于部分分享等场景）
 
         Returns:
             事件列表，按 run 顺序合并
@@ -352,7 +354,9 @@ class TraceStorage:
         try:
             # 构建查询条件
             match_query: Dict[str, Any] = {"session_id": session_id}
-            if run_id:
+            if run_ids:
+                match_query["run_id"] = {"$in": run_ids}
+            elif run_id:
                 match_query["run_id"] = run_id
             if exclude_run_id:
                 match_query["run_id"] = {"$ne": exclude_run_id}

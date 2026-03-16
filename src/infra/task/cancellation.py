@@ -7,17 +7,17 @@ Redis-based distributed cancellation, and agent cleanup.
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from src.infra.logging import get_logger
 from src.infra.session.trace_storage import get_trace_storage
 from src.infra.storage.redis import get_redis_client
 
 from .constants import CANCEL_CHANNEL, INTERRUPT_PREFIX
 from .exceptions import TaskInterruptedError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 内存中的中断标志集合（用于快速检查）
 _interrupted_runs: set = set()

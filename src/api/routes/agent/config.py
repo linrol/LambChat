@@ -7,13 +7,12 @@ Agent 配置路由
 - 用户默认 Agent 设置
 """
 
-import logging
-
 from fastapi import APIRouter, Depends
 
 from src.agents.core.base import AgentFactory
 from src.api.deps import get_current_user_required
 from src.infra.agent.config_storage import get_agent_config_storage
+from src.infra.logging import get_logger
 from src.infra.role.manager import get_role_manager
 from src.kernel.schemas.agent import (
     AgentConfig,
@@ -28,7 +27,7 @@ from src.kernel.schemas.user import TokenPayload
 from src.kernel.types import Permission
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ============================================

@@ -6,7 +6,6 @@
 """
 
 import asyncio
-import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -14,12 +13,13 @@ from typing import TYPE_CHECKING, Any, Optional, Set
 
 from langchain_core.tools import BaseTool
 
+from src.infra.logging import get_logger
 from src.infra.storage.redis import get_redis_client
 
 if TYPE_CHECKING:
     from src.infra.tool.mcp_client import MCPClientManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 全局单例：user_id -> GlobalMCPEntry
 _global_entries: dict[str, "GlobalMCPEntry"] = {}

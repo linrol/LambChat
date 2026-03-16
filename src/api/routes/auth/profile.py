@@ -2,14 +2,13 @@
 User profile routes (password change, avatar, profile, username)
 """
 
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from src.api.deps import get_current_user_required
 from src.infra.auth.password import verify_password
 from src.infra.auth.turnstile import get_turnstile_service
+from src.infra.logging import get_logger
 from src.infra.user.manager import UserManager
 from src.kernel.exceptions import ValidationError
 from src.kernel.schemas.user import TokenPayload, User, UserUpdate
@@ -17,7 +16,7 @@ from src.kernel.schemas.user import TokenPayload, User, UserUpdate
 from .utils import _get_client_ip
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PasswordChangeRequest(BaseModel):

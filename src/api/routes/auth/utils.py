@@ -2,14 +2,15 @@
 Utility functions for auth routes
 """
 
-import logging
 from urllib.parse import urlparse
 
 from fastapi import Request
 
-from .rate_limiter import RateLimiter, get_rate_limiter
+from src.infra.logging import get_logger
 
-logger = logging.getLogger(__name__)
+from .rate_limiter import RateLimiter
+
+logger = get_logger(__name__)
 
 
 def _get_client_ip(request: Request) -> str:
@@ -77,8 +78,9 @@ async def _store_oauth_state(provider: str, state: str, client_ip: str) -> None:
         state: State token to store
         client_ip: Client IP address for binding
     """
-    limiter = get_rate_limiter()
-    redis = limiter._get_redis()
+    from src.infra.storage.redis import get_redis_client
+
+    redis = get_redis_client()
     key = f"oauth:state:{provider}:{RateLimiter._safe_key_part(client_ip)}"
     # Store state with 10 minute expiry
     await redis.setex(key, 600, state)
@@ -95,8 +97,9 @@ async def _verify_oauth_state(provider: str, state: str, client_ip: str) -> bool
     Returns:
         True if state is valid, False otherwise
     """
-    limiter = get_rate_limiter()
-    redis = limiter._get_redis()
+    from src.infra.storage.redis import get_redis_client
+
+    redis = get_redis_client()
     key = f"oauth:state:{provider}:{RateLimiter._safe_key_part(client_ip)}"
 
     try:

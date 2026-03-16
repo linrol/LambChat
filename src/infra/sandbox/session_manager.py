@@ -9,7 +9,6 @@ Session-Sandbox 绑定管理器
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Optional
 
@@ -18,11 +17,12 @@ from deepagents.backends import CompositeBackend
 
 from src.infra.backend.daytona import DaytonaBackend
 from src.infra.backend.skills_store import create_skills_backend
+from src.infra.logging import get_logger
 from src.infra.session.manager import SessionManager
 from src.kernel.config import settings
 from src.kernel.schemas.session import SessionUpdate
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Daytona API 操作的默认超时（秒）
 DEFAULT_DAYTONA_TIMEOUT = 120

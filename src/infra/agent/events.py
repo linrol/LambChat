@@ -5,16 +5,16 @@ DeepAgent 事件处理模块
 """
 
 import json
-import logging
 import uuid
 from io import StringIO
 from typing import Any
 
 from langchain_core.runnables.schema import CustomStreamEvent, StandardStreamEvent
 
+from src.infra.logging import get_logger
 from src.infra.writer.present import Presenter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Type alias for astream_events event types
 StreamEvent = StandardStreamEvent | CustomStreamEvent

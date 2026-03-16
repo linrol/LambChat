@@ -181,7 +181,9 @@ export const MarkdownContent = memo(function MarkdownContent({
           ),
           // Lists with better styling
           ul: ({ children }) => (
-            <ul className="list-none space-y-1.5 mb-3 pl-5">{children}</ul>
+            <ul className="list-disc space-y-1.5 mb-3 pl-5 marker:text-amber-500 dark:marker:text-amber-400 marker:text-[0.6em]">
+              {children}
+            </ul>
           ),
           ol: ({ children }) => (
             <ol className="list-decimal space-y-1.5 mb-3 pl-5 marker:text-stone-500 dark:marker-stone-400 marker:font-semibold">
@@ -189,8 +191,7 @@ export const MarkdownContent = memo(function MarkdownContent({
             </ol>
           ),
           li: ({ children }) => (
-            <li className="text-stone-700 dark:text-stone-300 leading-relaxed relative">
-              <span className="absolute -left-3 top-2" />
+            <li className="text-stone-700 dark:text-stone-300 leading-relaxed">
               {children}
             </li>
           ),

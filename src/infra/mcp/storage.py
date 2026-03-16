@@ -5,10 +5,10 @@ Supports both system-level and user-level MCP server configurations.
 """
 
 import copy
-import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
+from src.infra.logging import get_logger
 from src.infra.mcp.encryption import (
     decrypt_server_secrets,
     encrypt_server_secrets,
@@ -26,7 +26,7 @@ from src.kernel.schemas.mcp import (
     UserMCPServer,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
@@ -443,9 +443,7 @@ class MCPStorage:
         Merges system and user configurations, with user preferences taking precedence.
         Only includes servers that are enabled (after applying user preferences).
         """
-        import logging
-
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
 
         # Get user preferences for system servers
         user_preferences = await self._get_user_preferences(user_id)

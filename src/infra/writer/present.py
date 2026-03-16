@@ -20,16 +20,17 @@ Writer 模块 - 统一流式输出 + 事件存储
 """
 
 import json
-import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
 
+from src.infra.logging import get_logger
+
 if TYPE_CHECKING:
     from src.infra.session.dual_writer import DualEventWriter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _get_timestamp() -> str:
