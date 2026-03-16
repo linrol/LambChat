@@ -476,6 +476,10 @@ class AgentEventProcessor:
             )
         )
 
+    # MCP media block 类型集合，用于快速判断
+    _MCP_MEDIA_TYPES = frozenset(("image", "file"))
+    _MCP_SKIP_KEYS = frozenset(("id",))
+
     @staticmethod
     def _extract_tool_output(out: Any) -> Any:
         """从 LangGraph 工具节点输出中提取可显示内容。
@@ -496,57 +500,47 @@ class AgentEventProcessor:
         if isinstance(out, str):
             return out
 
-        # 1. Command 对象 (langgraph.types.Command)
-        if hasattr(out, "update") and not isinstance(out, dict):
+        # 1. Command 对象 (langgraph.types.Command) — 非 dict 但有 .update
+        if not isinstance(out, (dict, list, str)):
             update = getattr(out, "update", None)
             if isinstance(update, dict):
                 messages = update.get("messages")
-                if isinstance(messages, list) and messages:
-                    return AgentEventProcessor._merge_message_contents(messages)
+                if messages:
+                    return AgentEventProcessor._process_messages(messages)
                 return update
 
         # 2. BaseMessage 对象 (ToolMessage, AIMessage 等)
-        if hasattr(out, "content") and hasattr(out, "type"):
-            content = getattr(out, "content", None)
+        if not isinstance(out, (dict, list, str)):
             artifact = getattr(out, "artifact", None)
             if artifact is not None:
                 return artifact
-            if content is not None:
-                return AgentEventProcessor._normalize_content(content)
-            return ""
+            content = getattr(out, "content", None)
+            return AgentEventProcessor._normalize_content(content) if content is not None else ""
 
         # 3. list — [BaseMessage] 或 MCP content blocks [dict]
         if isinstance(out, list):
-            if out and hasattr(out[0], "content"):
-                return AgentEventProcessor._merge_message_contents(out)
+            if out and not isinstance(out[0], (dict, str)):
+                return AgentEventProcessor._process_messages(out)
             return AgentEventProcessor._normalize_content(out)
 
         # 4. dict
-        if isinstance(out, dict):
-            # 4a. Command dict {"goto":[], "update":{"messages":[...]}}
-            if "update" in out and isinstance(out["update"], dict):
-                messages = out["update"].get("messages")
-                if isinstance(messages, list) and messages:
-                    return AgentEventProcessor._merge_message_contents(messages)
-                return out["update"]
+        update = out.get("update")
+        if isinstance(update, dict):
+            messages = update.get("messages")
+            if messages:
+                return AgentEventProcessor._process_messages(messages)
+            return update
 
-            # 4b. 直接 content key
-            if "content" in out:
-                return AgentEventProcessor._normalize_content(out["content"])
+        if "content" in out:
+            return AgentEventProcessor._normalize_content(out["content"])
 
-            # 4c. 嵌套 output.content
-            if "output" in out:
-                nested = out["output"]
-                if isinstance(nested, dict) and "content" in nested:
-                    return AgentEventProcessor._normalize_content(nested["content"])
-                if isinstance(nested, str):
-                    return nested
+        nested = out.get("output")
+        if nested is not None:
+            if isinstance(nested, dict):
+                return AgentEventProcessor._normalize_content(nested.get("content", nested))
+            return nested
 
-            # 4d. 其他 dict — 保留结构化数据
-            return out
-
-        # 5. 其他对象
-        return str(out)
+        return out
 
     @staticmethod
     def _normalize_content(content: Any) -> Any:
@@ -570,97 +564,117 @@ class AgentEventProcessor:
         if not isinstance(content, list):
             return str(content)
 
-        # 分离 text 和 media blocks
         text_parts: list[str] = []
         media_blocks: list[dict] = []
+        _skip = AgentEventProcessor._MCP_SKIP_KEYS
+        _media = AgentEventProcessor._MCP_MEDIA_TYPES
 
         for block in content:
-            if isinstance(block, dict):
-                btype = block.get("type", "")
-                if btype == "text" and "text" in block:
-                    text_parts.append(str(block["text"]))
-                elif btype in ("image", "file"):
-                    # 保留给前端的 media block，去掉内部 id
-                    media_block = {k: v for k, v in block.items() if k != "id"}
-                    media_blocks.append(media_block)
-                elif "text" in block:
-                    text_parts.append(str(block["text"]))
+            if not isinstance(block, dict):
+                text_parts.append(str(block) if block is not None else "")
+                continue
+
+            btype = block.get("type", "")
+            if btype == "text":
+                text = block.get("text")
+                text_parts.append(str(text) if text is not None else "")
+            elif btype in _media:
+                # 仅在需要时创建副本（去掉 id）
+                if "id" in block:
+                    media_blocks.append({k: v for k, v in block.items() if k not in _skip})
                 else:
-                    # 其他未知 block，保留结构
-                    media_block = {k: v for k, v in block.items() if k != "id"}
-                    media_blocks.append(media_block)
-            elif isinstance(block, str):
-                text_parts.append(block)
+                    media_blocks.append(block)
+            elif "text" in block:
+                text_parts.append(str(block["text"]))
             else:
-                text_parts.append(str(block))
+                if "id" in block:
+                    media_blocks.append({k: v for k, v in block.items() if k not in _skip})
+                else:
+                    media_blocks.append(block)
+
+        if media_blocks:
+            return {"text": "".join(text_parts), "blocks": media_blocks}
 
         text_result = "".join(text_parts)
-
-        # 有 media blocks → 返回结构化对象给前端
-        if media_blocks:
-            return {"text": text_result, "blocks": media_blocks}
-
-        # 纯文本
         return text_result if text_result else content
 
     @staticmethod
-    def _merge_message_contents(messages: list) -> Any:
+    def _process_messages(messages: list) -> Any:
         """从消息列表中提取并合并所有 content。
 
         支持 BaseMessage 对象和 dict 格式的消息。
         保留 MCP 多模态 block 结构（image/file）。
         """
-        all_text_parts: list[str] = []
-        all_media_blocks: list[dict] = []
+        text_parts: list[str] = []
+        media_blocks: list[dict] = []
         has_media = False
+        _skip = AgentEventProcessor._MCP_SKIP_KEYS
+        _media = AgentEventProcessor._MCP_MEDIA_TYPES
 
         for msg in messages:
+            # 提取 content 和 artifact
             if isinstance(msg, dict):
                 content = msg.get("content", "")
                 artifact = msg.get("artifact")
-            elif hasattr(msg, "content"):
+            else:
                 content = getattr(msg, "content", "")
                 artifact = getattr(msg, "artifact", None)
-            else:
-                content = str(msg)
-                artifact = None
 
-            # artifact 优先（结构化数据）
+            # artifact 优先（结构化数据）— 仅在最终需要时序列化
             if artifact is not None:
-                all_text_parts.append(json.dumps(artifact, ensure_ascii=False))
+                # 延迟 json.dumps：如果有 media blocks 会整体包装，避免无谓序列化
+                text_parts.append(None)  # 占位，下面统一处理
+                # 把 artifact 存到 media_blocks 用特殊标记
+                media_blocks.append(artifact)
+                has_media = True
                 continue
 
             if isinstance(content, str):
-                all_text_parts.append(content)
+                text_parts.append(content)
             elif isinstance(content, list):
-                # MCP content blocks
                 for block in content:
-                    if isinstance(block, dict):
-                        btype = block.get("type", "")
-                        if btype == "text" and "text" in block:
-                            all_text_parts.append(str(block["text"]))
-                        elif btype in ("image", "file"):
-                            media_block = {k: v for k, v in block.items() if k != "id"}
-                            all_media_blocks.append(media_block)
-                            has_media = True
-                        elif "text" in block:
-                            all_text_parts.append(str(block["text"]))
-                        else:
-                            media_block = {k: v for k, v in block.items() if k != "id"}
-                            all_media_blocks.append(media_block)
-                            has_media = True
-                    elif isinstance(block, str):
-                        all_text_parts.append(block)
-                    else:
-                        all_text_parts.append(str(block))
-            elif isinstance(content, dict):
-                all_text_parts.append(json.dumps(content, ensure_ascii=False))
-            else:
-                all_text_parts.append(str(content))
+                    if not isinstance(block, dict):
+                        text_parts.append(str(block) if block is not None else "")
+                        continue
 
-        text_result = "\n".join(all_text_parts)
+                    btype = block.get("type", "")
+                    if btype == "text":
+                        text = block.get("text")
+                        text_parts.append(str(text) if text is not None else "")
+                    elif btype in _media:
+                        if "id" in block:
+                            media_blocks.append({k: v for k, v in block.items() if k not in _skip})
+                        else:
+                            media_blocks.append(block)
+                        has_media = True
+                    elif "text" in block:
+                        text_parts.append(str(block["text"]))
+                    else:
+                        if "id" in block:
+                            media_blocks.append({k: v for k, v in block.items() if k not in _skip})
+                        else:
+                            media_blocks.append(block)
+                        has_media = True
+            elif isinstance(content, dict):
+                text_parts.append(None)
+                media_blocks.append(content)
+                has_media = True
+            else:
+                text_parts.append(str(content))
+
+        text_result = "\n".join(
+            json.dumps(p, ensure_ascii=False) if p is None else p for p in text_parts
+        )
 
         if has_media:
-            return {"text": text_result, "blocks": all_media_blocks}
+            # 分离真正的 media blocks 和 artifact 占位
+            real_blocks: list[dict] = []
+            for b in media_blocks:
+                if isinstance(b, dict) and b.get("type") in _media:
+                    real_blocks.append(b)
+                else:
+                    # artifact 或其他 dict，序列化到 text
+                    pass
+            return {"text": text_result, "blocks": real_blocks} if real_blocks else text_result
 
         return text_result
