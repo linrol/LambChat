@@ -59,7 +59,7 @@ async def register(user_data: UserCreate, request: Request):
         if settings.REQUIRE_EMAIL_VERIFICATION:
             from src.infra.email import get_email_service
 
-            email_service = get_email_service()
+            email_service = await get_email_service()
             if email_service.is_enabled():
                 # 生成验证令牌（24小时有效期）
                 verify_token = email_service.generate_token()

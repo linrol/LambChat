@@ -65,21 +65,17 @@ class UserStorage:
             client = get_mongo_client()
             db = client[settings.MONGODB_DB]
             self._collection = db["users"]
-            # 确保在第一次访问时创建索引
+            # 索引创建在首次异步操作时触发，避免在 property getter 中调用 create_task
+        return self._collection
+
+    async def ensure_indexes_if_needed(self):
+        """确保索引存在（由首次使用时调用）"""
+        if not hasattr(self, "_indexes_ensured"):
+            self._indexes_ensured = True
             import asyncio
 
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # 如果事件循环正在运行，调度索引创建
-                    asyncio.create_task(self._ensure_indexes())
-                else:
-                    # 否则同步运行
-                    loop.run_until_complete(self._ensure_indexes())
-            except RuntimeError:
-                # 如果没有事件循环，忽略（会在第一次异步操作时创建）
-                pass
-        return self._collection
+            task = asyncio.create_task(self._ensure_indexes())
+            task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
 
     async def _ensure_indexes(self):
         """确保必要的索引存在（包括唯一索引）并迁移旧用户数据"""

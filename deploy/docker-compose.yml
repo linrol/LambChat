@@ -4,6 +4,12 @@ services:
     image: ghcr.io/yanyutin753/lambagent:latest
     restart: always
     network_mode: host
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     env_file:
       - /home/yangyang/LambAgent/deploy/.env.example
     environment:

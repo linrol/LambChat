@@ -3,6 +3,7 @@ MongoDB 存储实现
 """
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, List, Optional
@@ -14,6 +15,8 @@ from src.kernel.config import settings
 
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache
@@ -49,10 +52,27 @@ def get_mongo_client() -> "AsyncIOMotorClient":
         else:
             connection_string = base_url
 
-        client: AsyncIOMotorClient = AsyncIOMotorClient(connection_string)
+        client: AsyncIOMotorClient = AsyncIOMotorClient(
+            connection_string,
+            maxPoolSize=50,
+            minPoolSize=2,
+            connectTimeoutMS=5000,
+            serverSelectionTimeoutMS=10000,
+        )
         return client
     except ImportError:
         raise ImportError("请安装 motor: pip install motor")
+
+
+async def close_mongo_client() -> None:
+    """关闭 MongoDB 连接池"""
+    try:
+        client = get_mongo_client()
+        client.close()
+        get_mongo_client.cache_clear()
+        logger.info("MongoDB client closed")
+    except Exception as e:
+        logger.warning(f"Error closing MongoDB client: {e}")
 
 
 class MongoDBStorage(StorageBase):

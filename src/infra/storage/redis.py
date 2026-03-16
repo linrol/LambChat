@@ -3,6 +3,7 @@ Redis 存储实现
 """
 
 import json
+import logging
 from functools import lru_cache
 from typing import Any, Optional
 
@@ -12,16 +13,33 @@ from redis.asyncio import Redis
 from src.infra.storage.base import StorageBase
 from src.kernel.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 @lru_cache
 def get_redis_client() -> Redis:
-    """获取 Redis 客户端（单例）"""
+    """获取 Redis 客户端（单例），配置连接池和超时"""
     return redis.from_url(
         settings.REDIS_URL,
         password=settings.REDIS_PASSWORD,
         encoding="utf-8",
         decode_responses=True,
+        max_connections=50,
+        socket_timeout=10,
+        socket_connect_timeout=5,
+        retry_on_timeout=True,
     )
+
+
+async def close_redis_client() -> None:
+    """关闭 Redis 连接池"""
+    try:
+        client = get_redis_client()
+        await client.aclose()
+        get_redis_client.cache_clear()
+        logger.info("Redis client closed")
+    except Exception as e:
+        logger.warning(f"Error closing Redis client: {e}")
 
 
 class RedisStorage(StorageBase):

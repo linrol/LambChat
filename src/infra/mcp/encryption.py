@@ -8,7 +8,7 @@ import base64
 import hashlib
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from cryptography.fernet import Fernet
 
@@ -43,10 +43,21 @@ def _get_fernet_legacy() -> Fernet:
 
     使用单次 SHA256 哈希派生密钥（PR #52 之前的方式）
     仅用于解密旧数据，不用于新加密。
+    结果会被缓存。
     """
+    global _fernet_legacy_cache
+    if _fernet_legacy_cache is not None:
+        return _fernet_legacy_cache
+
     key = hashlib.sha256(settings.JWT_SECRET_KEY.encode()).digest()
     fernet_key = base64.urlsafe_b64encode(key)
-    return Fernet(fernet_key)
+    _fernet_legacy_cache = Fernet(fernet_key)
+    return _fernet_legacy_cache
+
+
+# 缓存 Fernet 实例，避免每次加解密都执行 PBKDF2（100K 迭次约 100ms CPU）
+_fernet_cache: Optional[Fernet] = None
+_fernet_legacy_cache: Optional[Fernet] = None
 
 
 def _get_fernet() -> Fernet:
@@ -54,7 +65,12 @@ def _get_fernet() -> Fernet:
     获取Fernet加密实例，使用PBKDF2从JWT_SECRET_KEY派生密钥
 
     使用 PBKDF2-HMAC-SHA256 进行密钥派生，比单次 SHA256 更安全。
+    结果会被缓存，避免重复执行昂贵的 KDF 计算。
     """
+    global _fernet_cache
+    if _fernet_cache is not None:
+        return _fernet_cache
+
     # 使用 PBKDF2 派生 32 字节密钥
     key = hashlib.pbkdf2_hmac(
         "sha256",
@@ -64,7 +80,8 @@ def _get_fernet() -> Fernet:
         dklen=32,
     )
     fernet_key = base64.urlsafe_b64encode(key)
-    return Fernet(fernet_key)
+    _fernet_cache = Fernet(fernet_key)
+    return _fernet_cache
 
 
 def encrypt_value(value: Any) -> Any:

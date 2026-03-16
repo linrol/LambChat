@@ -63,7 +63,7 @@ async def forgot_password(
             detail="该邮箱请求过于频繁，请稍后再试",
         )
 
-    email_service = get_email_service()
+    email_service = await get_email_service()
     if not email_service.is_enabled():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -248,7 +248,7 @@ async def resend_verification(
             detail="该邮箱请求过于频繁，请稍后再试",
         )
 
-    email_service = get_email_service()
+    email_service = await get_email_service()
     if not email_service.is_enabled():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

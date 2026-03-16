@@ -58,4 +58,4 @@ USER app
 
 EXPOSE 8080
 
-CMD ["uv", "run", "--no-cache", "python", "main.py"]
+CMD ["uv", "run", "python", "main.py"]

@@ -9,6 +9,8 @@ import os
 from functools import lru_cache
 from typing import Any, Optional
 
+import asyncio
+
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
@@ -25,19 +27,16 @@ _setting_cache: dict[str, Any] = {}
 
 
 def _load_raw_settings():
-    """Load raw sensitive settings from database (sync, for startup use)"""
+    """Load raw sensitive settings from database (sync, for startup use only)"""
     global _setting_cache
     if _setting_cache:
         return _setting_cache
 
     try:
-        # Import here to avoid circular imports
         from src.infra.settings.service import get_settings_service
 
-        # Try to get settings from database
         service = get_settings_service()
         if service:
-            # Define sensitive keys to load
             sensitive_keys = [
                 "LLM_API_KEY",
                 "OPENAI_API_KEY",
@@ -51,9 +50,16 @@ def _load_raw_settings():
             ]
             for key in sensitive_keys:
                 try:
-                    import asyncio
+                    # 使用 asyncio.run() 在没有运行中事件循环时安全执行
+                    # 如果已有事件循环在运行，跳过数据库加载（使用 env/settings 兜底）
+                    try:
+                        asyncio.get_running_loop()
+                        # 已有事件循环，不能使用 run_until_complete，跳过
+                        continue
+                    except RuntimeError:
+                        pass
 
-                    value = asyncio.get_event_loop().run_until_complete(service.get_raw(key))
+                    value = asyncio.run(service.get_raw(key))
                     if value:
                         _setting_cache[key] = value
                 except Exception:

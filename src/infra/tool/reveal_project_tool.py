@@ -23,6 +23,7 @@ Reveal Project 工具
 }
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -176,7 +177,7 @@ async def _read_file_from_backend(backend: Any, file_path: str) -> Optional[byte
 
     if hasattr(backend, "download_files"):
         try:
-            download_responses = backend.download_files([file_path])
+            download_responses = await asyncio.to_thread(backend.download_files, [file_path])
             if download_responses and download_responses[0].content:
                 return download_responses[0].content
         except Exception as e:
@@ -185,7 +186,7 @@ async def _read_file_from_backend(backend: Any, file_path: str) -> Optional[byte
     # 方式2: 非沙箱模式
     if hasattr(backend, "read"):
         try:
-            content = backend.read(file_path)
+            content = await asyncio.to_thread(backend.read, file_path)
             if content is not None:
                 if isinstance(content, str):
                     return content.encode("utf-8")
@@ -224,7 +225,7 @@ async def _run_command(backend: Any, command: str) -> Optional[str]:
 
     if hasattr(backend, "run"):
         try:
-            result = backend.run(command)
+            result = await asyncio.to_thread(backend.run, command)
             if isinstance(result, str):
                 return result
             elif hasattr(result, "stdout"):
@@ -248,7 +249,7 @@ async def _run_command(backend: Any, command: str) -> Optional[str]:
 
     if hasattr(backend, "execute"):
         try:
-            result = backend.execute(command)
+            result = await asyncio.to_thread(backend.execute, command)
             # ExecuteResponse 对象（有 output 属性）
             if hasattr(result, "output"):
                 return result.output
@@ -297,7 +298,7 @@ async def _list_files_recursive(backend: Any, dir_path: str) -> list[str]:
             logger.warning(f"als_info failed: {e}")
     elif hasattr(backend, "ls_info"):
         try:
-            result = backend.ls_info(dir_path)
+            result = await asyncio.to_thread(backend.ls_info, dir_path)
             logger.info(f"backend.ls_info result type: {type(result)}, value: {result}")
             if result and isinstance(result, list):
                 for item in result:
@@ -328,7 +329,7 @@ async def _list_files_recursive(backend: Any, dir_path: str) -> list[str]:
             logger.warning(f"aglob_info failed: {e}")
     elif hasattr(backend, "glob_info"):
         try:
-            result = backend.glob_info(f"{dir_path}/*")
+            result = await asyncio.to_thread(backend.glob_info, f"{dir_path}/*")
             logger.info(f"backend.glob_info result type: {type(result)}, value: {result}")
             if result and isinstance(result, list):
                 files = [f for f in result if isinstance(f, str)]
@@ -338,33 +339,7 @@ async def _list_files_recursive(backend: Any, dir_path: str) -> list[str]:
         except Exception as e:
             logger.warning(f"glob_info failed: {e}")
 
-    # 方式1.5: 尝试 backend.list（有时它也能工作）
-    if hasattr(backend, "list"):
-        try:
-            result = backend.list(dir_path)
-            logger.info(f"backend.list result type: {type(result)}, value: {result}")
-            # 处理字符串格式的列表
-            if isinstance(result, str) and result.startswith("["):
-                import ast
-
-                try:
-                    parsed = ast.literal_eval(result)
-                    if isinstance(parsed, list):
-                        files = [f for f in parsed if isinstance(f, str)]
-                        if files:
-                            logger.info(f"Found {len(files)} files via backend.list")
-                            return files
-                except Exception:
-                    pass
-            if result and isinstance(result, list):
-                files = [f for f in result if isinstance(f, str)]
-                if files:
-                    logger.info(f"Found {len(files)} files via backend.list")
-                    return files
-        except Exception as e:
-            logger.warning(f"list failed: {e}")
-
-    # 方式2: 使用 find 命令（最快最可靠）
+    # 方式3: 使用 find 命令（最快最可靠）
     find_cmd = f'find "{dir_path}" -type f 2>/dev/null | head -200'
     output = await _run_command(backend, find_cmd)
 
@@ -377,7 +352,7 @@ async def _list_files_recursive(backend: Any, dir_path: str) -> list[str]:
             logger.info(f"Found {len(files)} files via find command")
             return files
 
-    # 方式3: 使用 ls -R 命令
+    # 方式4: 使用 ls -R 命令
     ls_cmd = f'ls -R "{dir_path}" 2>/dev/null'
     output = await _run_command(backend, ls_cmd)
 

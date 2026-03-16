@@ -10,6 +10,8 @@ def run() -> None:
         port=settings.PORT,
         reload=settings.DEBUG,
         log_level="info",
+        timeout_graceful_shutdown=30,
+        # 即使 reload=True 在生产环境也不影响，DEBUG 控制
     )
 
 

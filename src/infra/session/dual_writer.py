@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # MongoDB 批量写入配置
 _MONGO_FLUSH_INTERVAL = 1.0  # 每 1000ms 刷新一次
 _MONGO_BATCH_SIZE = 200  # 每 200 条立即刷新
+_MONGO_BUFFER_MAX = 100000  # buffer 上限，防止 MongoDB 慢/宕机时 OOM
 
 
 def _utc_now() -> datetime:
@@ -126,6 +127,12 @@ class DualEventWriter:
         if trace_id:
             should_flush_now = False
             async with self._mongo_lock:
+                # 防止 buffer 无限增长（MongoDB 慢/宕机时丢弃最旧的事件）
+                if len(self._mongo_buffer) >= _MONGO_BUFFER_MAX:
+                    self._mongo_buffer = self._mongo_buffer[-(_MONGO_BUFFER_MAX // 2) :]
+                    logger.warning(
+                        f"MongoDB buffer exceeded {_MONGO_BUFFER_MAX}, dropped oldest entries"
+                    )
                 self._mongo_buffer.append(
                     (trace_id, event_type, data, session_id, run_id, timestamp)
                 )
@@ -135,7 +142,8 @@ class DualEventWriter:
                 # 使用 Event 触发延迟刷新
                 elif self._flush_event.is_set():
                     self._flush_event.clear()
-                    asyncio.create_task(self._schedule_flush())
+                    task = asyncio.create_task(self._schedule_flush())
+                    task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
 
             if should_flush_now:
                 await self._do_flush()
@@ -277,6 +285,7 @@ class DualEventWriter:
         self,
         session_id: str,
         run_id: Optional[str] = None,
+        overall_timeout: float = 600.0,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         从 Redis Stream 读取事件（阻塞读取，直到流结束）
@@ -284,6 +293,7 @@ class DualEventWriter:
         Args:
             session_id: 会话 ID
             run_id: 运行 ID（用于隔离多轮对话）
+            overall_timeout: 整体超时（秒），默认 10 分钟，防止无限等待
 
         Yields:
             事件字典，包含 id, event_type, data
@@ -291,6 +301,7 @@ class DualEventWriter:
         stream_key = self._stream_key(session_id, run_id)
         last_id = "0"
         block = 500  # 500ms 阻塞超时
+        start_time = asyncio.get_event_loop().time()
         logger.info(f"[Redis] Reading from stream: {stream_key}")
 
         def parse_data(data_str):
@@ -322,6 +333,19 @@ class DualEventWriter:
 
             logger.info(f"[Redis] Entering blocking xread loop for {stream_key}")
             while True:
+                # 整体超时检查，防止 producer 崩溃导致无限等待
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed >= overall_timeout:
+                    logger.warning(
+                        f"[Redis] SSE read timed out after {overall_timeout}s for {stream_key}"
+                    )
+                    yield {
+                        "id": "timeout",
+                        "event_type": "error",
+                        "data": {"error": "Stream read timed out"},
+                        "timestamp": _utc_now().isoformat(),
+                    }
+                    return
                 try:
                     results = await self.redis.xread(
                         {stream_key: last_id},

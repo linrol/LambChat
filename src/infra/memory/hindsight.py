@@ -13,7 +13,6 @@ import asyncio
 import json
 import logging
 import os
-import threading
 from datetime import datetime
 from typing import Annotated, Any, Callable, Literal, Optional
 
@@ -39,7 +38,7 @@ def _get_max_concurrent() -> int:
 
 # Event loop local storage for concurrency primitives
 _loop_locals: dict[int, dict[str, Any]] = {}
-_loop_locals_lock = threading.Lock()
+_loop_locals_lock = asyncio.Lock()
 
 
 def _get_loop_id() -> int:
@@ -50,10 +49,10 @@ def _get_loop_id() -> int:
         return 0
 
 
-def _get_loop_local(name: str, factory: Callable[[], Any]) -> Any:
-    """Get or create a loop-local resource."""
+async def _get_loop_local(name: str, factory: Callable[[], Any]) -> Any:
+    """Get or create a loop-local resource (async-safe)."""
     loop_id = _get_loop_id()
-    with _loop_locals_lock:
+    async with _loop_locals_lock:
         if loop_id not in _loop_locals:
             _loop_locals[loop_id] = {}
         if name not in _loop_locals[loop_id]:
@@ -61,14 +60,14 @@ def _get_loop_local(name: str, factory: Callable[[], Any]) -> Any:
         return _loop_locals[loop_id][name]
 
 
-def _get_request_semaphore() -> asyncio.Semaphore:
+async def _get_request_semaphore() -> asyncio.Semaphore:
     """Get or create the request semaphore for current event loop."""
-    return _get_loop_local("semaphore", lambda: asyncio.Semaphore(_get_max_concurrent()))
+    return await _get_loop_local("semaphore", lambda: asyncio.Semaphore(_get_max_concurrent()))
 
 
-def _get_client_lock() -> asyncio.Lock:
+async def _get_client_lock() -> asyncio.Lock:
     """Get or create the client lock for current event loop."""
-    return _get_loop_local("client_lock", lambda: asyncio.Lock())
+    return await _get_loop_local("client_lock", lambda: asyncio.Lock())
 
 
 # ============================================================================
@@ -264,7 +263,7 @@ async def get_hindsight_client() -> Optional[AsyncHindsight]:
         logger.warning("[Hindsight] HINDSIGHT_BASE_URL not configured")
         return None
 
-    async with _get_client_lock():
+    async with await _get_client_lock():
         if _shared_client is not None:
             return _shared_client
 
@@ -345,7 +344,7 @@ async def _with_retry(
     last_error: BaseException | None = None
     for attempt in range(max_retries):
         try:
-            async with _get_request_semaphore():
+            async with await _get_request_semaphore():
                 return await func()
         except Exception as e:
             last_error = e
@@ -847,8 +846,7 @@ async def close_hindsight_client() -> None:
             logger.warning(f"[Hindsight] Error closing client: {e}")
 
     # Clear loop-local storage
-    with _loop_locals_lock:
-        _loop_locals.clear()
+    _loop_locals.clear()
     logger.info("[Hindsight] Cleared loop-local resources")
 
 
@@ -863,10 +861,9 @@ def get_concurrency_stats() -> dict[str, Any]:
     max_concurrent = _get_max_concurrent()
     sem_value = max_concurrent
 
-    with _loop_locals_lock:
-        if loop_id in _loop_locals and "semaphore" in _loop_locals[loop_id]:
-            sem = _loop_locals[loop_id]["semaphore"]
-            sem_value = sem._value  # type: ignore[attr-defined]
+    if loop_id in _loop_locals and "semaphore" in _loop_locals[loop_id]:
+        sem = _loop_locals[loop_id]["semaphore"]
+        sem_value = sem._value  # type: ignore[attr-defined]
 
     return {
         "max_concurrent_requests": max_concurrent,

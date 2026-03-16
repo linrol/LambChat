@@ -28,6 +28,7 @@ Trace Storage - 按 trace 聚合事件存储
 - 每个事件写入时获取全局序号，用于断点续读
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -60,11 +61,16 @@ class TraceStorage:
             client = get_mongo_client()
             db = client[settings.MONGODB_DB]
             self._collection = db[settings.MONGODB_TRACES_COLLECTION]
-            # 创建索引（异步执行，不阻塞）
-            import asyncio
-
-            asyncio.create_task(self._ensure_indexes())
+            # 索引创建在首次异步操作时触发，避免在 property getter 中调用 create_task
         return self._collection
+
+    async def ensure_indexes_if_needed(self):
+        """确保索引存在（由首次使用时调用）"""
+        if not hasattr(self, "_indexes_ensured"):
+            self._indexes_ensured = True
+            asyncio.create_task(self._ensure_indexes())
+            task = asyncio.create_task(self._ensure_indexes())
+            task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
 
     async def _ensure_indexes(self):
         """确保必要的索引存在"""

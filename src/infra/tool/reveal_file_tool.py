@@ -24,6 +24,7 @@ Reveal File 工具
 - 使用 asyncio.Lock 防止并发初始化
 """
 
+import asyncio
 import json
 import logging
 import mimetypes
@@ -128,7 +129,7 @@ async def _read_file_from_backend(backend: Any, file_path: str) -> Optional[byte
 
     if hasattr(backend, "download_files"):
         try:
-            download_responses = backend.download_files([file_path])
+            download_responses = await asyncio.to_thread(backend.download_files, [file_path])
             if download_responses and len(download_responses) > 0 and download_responses[0].content:
                 logger.info(f"Read file {file_path} via download_files")
                 return download_responses[0].content
@@ -139,7 +140,7 @@ async def _read_file_from_backend(backend: Any, file_path: str) -> Optional[byte
     if hasattr(backend, "read"):
         try:
             # read 方法返回文件内容（字符串或对象）
-            content = backend.read(file_path)
+            content = await asyncio.to_thread(backend.read, file_path)
             if content is not None:
                 # 如果是字符串，转换为字节
                 if isinstance(content, str):

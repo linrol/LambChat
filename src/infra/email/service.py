@@ -7,7 +7,6 @@ import html
 import json
 import logging
 import secrets
-import threading
 import time
 from datetime import datetime, timedelta, timezone
 from email.utils import formataddr
@@ -145,7 +144,7 @@ class EmailService:
     """
 
     _instance: Optional[EmailService] = None
-    _lock = threading.Lock()
+    _lock = asyncio.Lock()
     _http_client_lock = asyncio.Lock()
 
     def __init__(self) -> None:
@@ -202,11 +201,11 @@ class EmailService:
 
         return accounts
 
-    def _get_accounts(self) -> list[dict[str, str]]:
+    async def _get_accounts(self) -> list[dict[str, str]]:
         """Get accounts with hot-reload support.
 
         Reloads accounts from settings if config may have changed.
-        Thread-safe with double-checked locking.
+        Async-safe with double-checked locking.
 
         Returns:
             List of account dicts.
@@ -217,7 +216,7 @@ class EmailService:
             if time.time() - self._config_loaded_at < 60:
                 return self._accounts_cache
 
-        with self._lock:
+        async with self._lock:
             # Double-check after acquiring lock
             if self._accounts_cache is not None and time.time() - self._config_loaded_at < 60:
                 return self._accounts_cache
@@ -249,38 +248,38 @@ class EmailService:
             return "***"
         return key[:4] + "..." + key[-4:]
 
-    def _get_next_account(self) -> Optional[dict[str, str]]:
+    async def _get_next_account(self) -> Optional[dict[str, str]]:
         """Get next account using round-robin rotation.
 
-        Thread-safe rotation through available accounts.
+        Async-safe rotation through available accounts.
 
         Returns:
             Account dict or None if no accounts configured.
         """
-        accounts = self._get_accounts()
+        accounts = await self._get_accounts()
         if not accounts:
             return None
 
-        with self._lock:
+        async with self._lock:
             account = accounts[self._current_index]
             self._current_index = (self._current_index + 1) % len(accounts)
             return account.copy()
 
     @classmethod
-    def get_instance(cls) -> EmailService:
+    async def get_instance(cls) -> EmailService:
         """Get singleton instance of EmailService.
 
-        Thread-safe with double-checked locking.
+        Async-safe with double-checked locking.
         """
         if cls._instance is None:
-            with cls._lock:
+            async with cls._lock:
                 if cls._instance is None:
                     cls._instance = cls()
         return cls._instance
 
     def is_enabled(self) -> bool:
         """Check if email service is enabled and configured."""
-        return self._enabled and bool(self._get_accounts())
+        return self._enabled and bool(self._accounts_cache)
 
     def _get_from_address(self, account: dict[str, str]) -> str:
         """Get formatted sender address from account.
@@ -470,7 +469,7 @@ class EmailService:
             logger.warning("[EmailService] Cannot send email: service not enabled")
             return False
 
-        account = self._get_next_account()
+        account = await self._get_next_account()
         if not account:
             logger.warning("[EmailService] No accounts available")
             return False
@@ -522,7 +521,7 @@ class EmailService:
             logger.warning("[EmailService] Cannot send email: service not enabled")
             return False
 
-        account = self._get_next_account()
+        account = await self._get_next_account()
         if not account:
             logger.warning("[EmailService] No accounts available")
             return False
@@ -569,7 +568,7 @@ class EmailService:
             logger.warning("[EmailService] Cannot send email: service not enabled")
             return False
 
-        account = self._get_next_account()
+        account = await self._get_next_account()
         if not account:
             logger.warning("[EmailService] No accounts available")
             return False
@@ -606,6 +605,6 @@ class EmailService:
             logger.info("[EmailService] HTTP client closed")
 
 
-def get_email_service() -> EmailService:
+async def get_email_service() -> EmailService:
     """Get the singleton EmailService instance."""
-    return EmailService.get_instance()
+    return await EmailService.get_instance()

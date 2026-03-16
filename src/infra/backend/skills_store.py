@@ -15,7 +15,6 @@ Skills Store Backend
 import asyncio
 import logging
 import re
-import threading
 from typing import TYPE_CHECKING, Any, Optional
 
 from deepagents.backends.protocol import (
@@ -45,22 +44,12 @@ SKILLS_DIR_PATTERN = re.compile(r"^/skills/([^/]+)/?$")
 # 注意：SkillStorage 本身是无状态的，数据都在 MongoDB
 # 这个缓存只是为了复用 MongoDB 连接，减少连接数
 _storage_cache: dict[str, SkillStorage] = {}
-_storage_lock = threading.Lock()
+_storage_lock = asyncio.Lock()
 
 
-def _get_cached_storage(user_id: str) -> SkillStorage:
-    """
-    获取缓存的 SkillStorage 实例（线程安全）
-
-    注意：这个缓存是进程内的，在分布式环境下每个进程有自己的缓存。
-    但这不是问题，因为：
-    1. SkillStorage 是无状态的，数据都在 MongoDB
-    2. Skills 缓存（get_effective_skills 的结果）存储在 Redis，是分布式的
-    3. 写入操作会通过 Redis 失效缓存，所有进程都会重新从 MongoDB 读取
-
-    这个缓存的主要目的是复用 MongoDB 连接，避免每个请求都创建新连接。
-    """
-    with _storage_lock:
+async def _get_cached_storage(user_id: str) -> SkillStorage:
+    """获取缓存的 SkillStorage 实例（async-safe）"""
+    async with _storage_lock:
         if user_id not in _storage_cache:
             _storage_cache[user_id] = SkillStorage()
         return _storage_cache[user_id]
@@ -80,16 +69,17 @@ def _run_async(coro):
 
     实现策略：
     1. 如果没有运行中的事件循环 → 使用 asyncio.run()
-    2. 如果已有运行中的事件循环 → 使用 run_coroutine_threadsafe 调度到当前循环
-       （Motor 客户端绑定到特定事件循环，必须在该循环上执行）
+    2. 如果已有运行中的事件循环 → 使用 nest_asyncio 或 run_in_executor
+       避免使用 future.result()，因为它会阻塞事件循环线程导致死锁
     """
     try:
-        loop = asyncio.get_running_loop()
-        # 已在异步上下文中
-        # Motor 客户端绑定到当前事件循环，必须在该循环上执行
-        # 使用 run_coroutine_threadsafe 将协程调度到当前循环
-        future = asyncio.run_coroutine_threadsafe(coro, loop)
-        return future.result()  # 阻塞等待结果
+        asyncio.get_running_loop()
+        # 已在异步上下文中 — 不能用 future.result()，会死锁
+        # 创建新线程来运行 asyncio.run()，避免阻塞事件循环
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
 
     except RuntimeError:
         # 没有运行中的事件循环，直接运行
@@ -122,10 +112,10 @@ class SkillsStoreBackend(BackendProtocol):
         # 使用缓存的 SkillStorage 实例
         self._storage: Optional[SkillStorage] = None
 
-    def _get_storage(self) -> SkillStorage:
+    async def _get_storage(self) -> SkillStorage:
         """获取 SkillStorage 实例（使用全局缓存）"""
         if self._storage is None:
-            self._storage = _get_cached_storage(self._user_id)
+            self._storage = await _get_cached_storage(self._user_id)
         return self._storage
 
     def _normalize_path(self, path: str) -> str:
@@ -259,7 +249,7 @@ class SkillsStoreBackend(BackendProtocol):
             return f"Error: Invalid skills path: {file_path}. Expected /skills/{{skill_name}}/{{file_path}}"
 
         skill_name, file_name = parsed
-        storage = self._get_storage()
+        storage = await self._get_storage()
 
         try:
             # 先尝试用户 skill
@@ -310,7 +300,7 @@ class SkillsStoreBackend(BackendProtocol):
             )
 
         skill_name, file_name = parsed
-        storage = self._get_storage()
+        storage = await self._get_storage()
 
         try:
             # 检查 skill 是否存在（用户 skill 或系统 skill）
@@ -441,7 +431,7 @@ class SkillsStoreBackend(BackendProtocol):
             return EditResult(error=f"Invalid skills path: {file_path}")
 
         skill_name, file_name = parsed
-        storage = self._get_storage()
+        storage = await self._get_storage()
 
         try:
             # 只能编辑用户 skill
@@ -527,7 +517,7 @@ class SkillsStoreBackend(BackendProtocol):
         """
         # 标准化路径，确保有 /skills/ 前缀
         path = self._normalize_path(path)
-        storage = self._get_storage()
+        storage = await self._get_storage()
 
         try:
             # 列出所有 skills
@@ -601,7 +591,7 @@ class SkillsStoreBackend(BackendProtocol):
                 continue
 
             skill_name, file_name = parsed
-            storage = self._get_storage()
+            storage = await self._get_storage()
 
             try:
                 # 先尝试用户 skill

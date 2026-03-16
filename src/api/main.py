@@ -150,7 +150,7 @@ async def lifespan(app: FastAPI):
     # 关闭 EmailService HTTP 客户端
     from src.infra.email import get_email_service
 
-    email_service = get_email_service()
+    email_service = await get_email_service()
     await email_service.close()
 
     # 关闭 RateLimiter Redis 连接
@@ -158,6 +158,16 @@ async def lifespan(app: FastAPI):
 
     rate_limiter = get_rate_limiter()
     await rate_limiter.close()
+
+    # 关闭主 Redis 连接池
+    from src.infra.storage.redis import close_redis_client
+
+    await close_redis_client()
+
+    # 关闭 MongoDB 连接池
+    from src.infra.storage.mongodb import close_mongo_client
+
+    await close_mongo_client()
 
     # 关闭 Feishu 渠道
     try:

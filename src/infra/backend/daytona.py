@@ -3,8 +3,11 @@
 自定义实现，替代 langchain_daytona.DaytonaSandbox。
 使用 Daytona 原生 FS API 进行文件操作，避免通过 execute() 跑 python3 脚本。
 支持客户端侧强制超时，通过 DAYTONA_TIMEOUT 配置（settings > 环境变量 > 默认值）。
+
+注意：Daytona SDK 是同步的，所有方法都在线程中执行以避免阻塞事件循环。
 """
 
+import asyncio
 import logging
 import os
 
@@ -29,6 +32,7 @@ class DaytonaBackend(BaseSandbox):
     """Daytona 沙箱后端
 
     仅 execute() 走 shell 命令，使用 Daytona 服务端超时。
+    所有同步 SDK 调用通过 asyncio.to_thread 在线程池中执行，避免阻塞事件循环。
     """
 
     def __init__(
@@ -50,7 +54,7 @@ class DaytonaBackend(BaseSandbox):
 
     @property
     def work_dir(self) -> str:
-        """获取沙箱工作目录"""
+        """获取沙箱工作目录（同步，仅在初始化时调用一次）"""
         if not hasattr(self, "_work_dir"):
             self._work_dir = self._sandbox.get_work_dir()
         return self._work_dir
@@ -81,6 +85,10 @@ class DaytonaBackend(BaseSandbox):
                 exit_code=-1,
                 truncated=False,
             )
+
+    async def aexecute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
+        """异步执行命令（通过线程池，避免阻塞事件循环）"""
+        return await asyncio.to_thread(self.execute, command, timeout=timeout)
 
     def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
         """Download files from the sandbox."""
@@ -134,6 +142,10 @@ class DaytonaBackend(BaseSandbox):
 
         return responses
 
+    async def adownload_files(self, paths: list[str]) -> list[FileDownloadResponse]:
+        """异步下载文件（通过线程池，避免阻塞事件循环）"""
+        return await asyncio.to_thread(self.download_files, paths)
+
     def upload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
         """Upload files into the sandbox."""
         upload_requests: list[FileUpload] = []
@@ -150,3 +162,7 @@ class DaytonaBackend(BaseSandbox):
             self._sandbox.fs.upload_files(upload_requests)
 
         return responses
+
+    async def aupload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
+        """异步上传文件（通过线程池，避免阻塞事件循环）"""
+        return await asyncio.to_thread(self.upload_files, files)
