@@ -12,6 +12,9 @@ Feishu Markdown adapter for converting standard Markdown to lark_md format.
 - ```代码块``` (需要用其他方式处理)
 - 标题 (#) (需要转换为粗体)
 - 表格
+
+注意：飞书 lark_md 中的引用块 (> ) 内部不能嵌套其他格式（如 `code`），
+否则会导致渲染异常。
 """
 
 import re
@@ -51,7 +54,7 @@ class FeishuMarkdownAdapter:
         # 7. 恢复行内代码
         text = cls._restore_inline_codes(text, inline_codes)
 
-        # 8. 恢复代码块（转换为引用块样式）
+        # 8. 恢复代码块（转换为纯文本块，避免嵌套格式问题）
         text = cls._restore_code_blocks(text, code_blocks)
 
         return text.strip()
@@ -169,28 +172,42 @@ class FeishuMarkdownAdapter:
         """恢复行内代码"""
         for idx, code in inline_codes.items():
             placeholder = cls.INLINE_CODE_PLACEHOLDER.format(idx)
-            # 转义特殊字符
-            escaped_code = code.replace("\\", "\\\\").replace("`", "\\`")
-            text = text.replace(placeholder, f"`{escaped_code}`")
+            # 飞书 lark_md 中行内代码不需要转义反引号
+            # 只需要确保代码内容不会破坏格式
+            safe_code = code.replace("\n", " ")
+            text = text.replace(placeholder, f"`{safe_code}`")
         return text
 
     @classmethod
     def _restore_code_blocks(cls, text: str, code_blocks: dict) -> str:
-        """恢复代码块（转换为引用块样式）"""
+        """恢复代码块（转换为飞书兼容格式）
+
+        飞书 lark_md 不支持 ```代码块```，也不支持引用块内嵌套行内代码。
+        最佳方案：使用纯文本块，用缩进和语言标签标识。
+        """
         for idx, (lang, code) in code_blocks.items():
             placeholder = cls.CODE_BLOCK_PLACEHOLDER.format(idx)
 
-            # 转换为引用块样式
+            # 清理代码内容
             code_lines = code.strip().split("\n")
-            quoted_lines = [f"> `{line}`" for line in code_lines]
+
+            # 构建代码块
+            block_parts = []
 
             # 添加语言标签（如果有）
             if lang:
-                header = f"> **`{lang}`**"
-                quoted_lines = [header] + quoted_lines
+                block_parts.append(f"**`{lang}`**")
+                block_parts.append("")
+
+            # 使用引用块格式，但内部不使用 `code` 格式
+            # 避免飞书渲染问题
+            for line in code_lines:
+                # 转义可能导致问题的特殊字符
+                safe_line = line.replace("`", "'")
+                block_parts.append(f"> {safe_line}")
 
             # 添加前后空行
-            block = "\n\n" + "\n".join(quoted_lines) + "\n\n"
+            block = "\n\n" + "\n".join(block_parts) + "\n\n"
             text = text.replace(placeholder, block)
 
         return text
