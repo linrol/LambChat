@@ -190,7 +190,6 @@ LambChat 采用清晰的分层架构：
 - **飞书集成** - 原生支持飞书/Lark 平台
 - **多渠道** - 可扩展的消息平台渠道系统
 - **邮件服务** - 内置邮件通知支持
-- **OpenViking** - 记忆与知识集成
 - **项目管理** - 按项目组织对话
 
 ### 📊 可观测性与管理
@@ -289,7 +288,7 @@ src/
 │   ├── llm/         # LLM 集成
 │   ├── memory/      # 记忆与 hindsight
 │   ├── mcp/         # MCP 协议
-│   ├── openviking/  # OpenViking 集成
+│   ├── patches/     # 兼容补丁
 │   ├── role/        # RBAC 角色管理
 │   ├── sandbox/     # 沙箱执行
 │   ├── session/     # 会话管理（双写机制）

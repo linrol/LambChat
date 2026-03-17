@@ -190,7 +190,6 @@ LambChat follows a clean layered architecture:
 - **Feishu (Lark)** - Native integration with Lark/Feishu platform
 - **Multi-Channel** - Extensible channel system for messaging platforms
 - **Email Service** - Built-in email notification support
-- **OpenViking** - Memory and knowledge integration
 - **Project Management** - Organize chats by projects
 
 ### 📊 Observability & Admin
@@ -289,7 +288,7 @@ src/
 │   ├── llm/         # LLM integration
 │   ├── memory/      # Memory & hindsight
 │   ├── mcp/         # MCP protocol
-│   ├── openviking/  # OpenViking integration
+│   ├── patches/     # Monkey patches and compat fixes
 │   ├── role/        # RBAC role management
 │   ├── sandbox/     # Sandbox execution
 │   ├── session/     # Session management (dual-write)
