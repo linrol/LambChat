@@ -105,7 +105,7 @@ async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[
     返回原始字节，不包含行号等格式化内容。
     """
     logger.info(f"[reveal_file] Attempting to download: {file_path}")
-    
+
     if hasattr(backend, "adownload_files"):
         try:
             responses = await backend.adownload_files([file_path])
