@@ -115,10 +115,8 @@ class FeishuResponseCollector:
         # ===== 主要内容区域 =====
         if self.text_parts:
             raw_content = "".join(self.text_parts)
-            # 使用 markdown 适配器处理内容
-            adapted_content = FeishuMarkdownAdapter.adapt(raw_content)
-            # 使用 markdown 标签（支持代码块、表格等标准 markdown 语法）
-            elements.append({"tag": "markdown", "content": adapted_content})
+            # 使用 markdown 适配器构建 elements（自动处理表格、标题等）
+            elements.extend(FeishuMarkdownAdapter.build_elements(raw_content))
 
         # ===== 元数据区域（工具 + 文件）=====
         metadata_parts = []
