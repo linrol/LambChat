@@ -19,7 +19,7 @@ Reveal Project 工具
         "/App.js": "内容...",
         "/styles.css": "内容...",
     },
-    "entry": "/index.html"  // 入口文件
+    "entry": "/index.html"
 }
 """
 
@@ -36,10 +36,8 @@ from src.infra.tool.backend_utils import get_backend_from_runtime
 
 logger = get_logger(__name__)
 
-# 支持的项目模板类型
 ProjectTemplate = Literal["react", "vue", "vanilla", "static"]
 
-# 常见的前端文件扩展名（用于判断是否读取）
 FRONTEND_EXTENSIONS = {
     ".html",
     ".css",
@@ -52,13 +50,26 @@ FRONTEND_EXTENSIONS = {
     ".svg",
 }
 
-# 用于文档展示的扩展名（读取但不作为预览文件）
-DOC_EXTENSIONS = {
-    ".md",
-    ".txt",
+BINARY_EXTENSIONS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".mp3",
+    ".mp4",
+    ".webm",
+    ".zip",
+    ".mpg",
+    ".mpeg",
+    ".mov",
+    ".avi",
 }
 
-# 需要忽略的目录和文件
 IGNORE_DIRS = {
     "node_modules",
     ".git",
@@ -82,307 +93,149 @@ IGNORE_FILES = {
     ".env.production",
 }
 
-# 二进制文件扩展名（不读取内容）
-BINARY_EXTENSIONS = {
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".ico",
-    ".woff",
-    ".woff2",
-    ".ttf",
-    ".eot",
-    ".mp3",
-    ".mp4",
-    ".webm",
-    ".zip",
-    ".mpg",
-    ".mpeg",
-    ".mov",
-    ".avi",
-}
+# 入口文件候选顺序
+ENTRY_CANDIDATES = [
+    "/index.html",
+    "/src/index.html",
+    "/public/index.html",
+    "/src/index.tsx",
+    "/src/index.jsx",
+    "/src/main.tsx",
+    "/src/main.jsx",
+    "/index.tsx",
+    "/index.jsx",
+    "/App.tsx",
+    "/App.jsx",
+]
 
 
 def detect_template(files: dict[str, str]) -> ProjectTemplate:
-    """根据文件内容检测项目模板类型"""
-    has_package_json = "/package.json" in files
-    has_index_html = "/index.html" in files
-
-    if has_package_json:
-        package_content = files.get("/package.json", "{}")
+    """根据 package.json 依赖检测项目模板类型"""
+    if "/package.json" in files:
         try:
-            package = json.loads(package_content)
-            deps = package.get("dependencies", {})
-            dev_deps = package.get("devDependencies", {})
-
-            # 检查是否有 React
-            if "react" in deps or "react" in dev_deps:
+            package = json.loads(files["/package.json"])
+            deps = {
+                **package.get("dependencies", {}),
+                **package.get("devDependencies", {}),
+            }
+            if "react" in deps:
                 return "react"
-            # 检查是否有 Vue
-            if "vue" in deps or "vue" in dev_deps:
+            if "vue" in deps:
                 return "vue"
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, AttributeError):
             pass
 
-    # 纯 HTML/CSS/JS 项目
-    if has_index_html:
+    if "/index.html" in files:
         return "vanilla"
 
     return "static"
 
 
-def should_ignore_dir(name: str) -> bool:
-    """检查是否应该忽略该目录"""
-    if name.startswith("."):
+def _should_skip(rel_path: str) -> bool:
+    """检查文件是否应该跳过（忽略目录/文件/二进制/非前端）"""
+    parts = rel_path.strip("/").split("/")
+    filename = parts[-1] if parts else ""
+
+    if any(
+        p in IGNORE_DIRS or (p.startswith(".") and p not in IGNORE_DIRS)
+        for p in parts[:-1]
+    ):
         return True
-    return name in IGNORE_DIRS
-
-
-def should_ignore_file(name: str) -> bool:
-    """检查是否应该忽略该文件"""
-    if name.startswith("."):
+    if filename.startswith(".") and filename not in IGNORE_FILES:
         return True
-    return name in IGNORE_FILES
+    if filename in IGNORE_FILES:
+        return True
 
-
-def is_text_file(filename: str) -> bool:
-    """检查是否是文本文件（包括前端文件和文档）"""
     ext = os.path.splitext(filename)[1].lower()
-    return ext in FRONTEND_EXTENSIONS or ext in DOC_EXTENSIONS
+    if ext in BINARY_EXTENSIONS:
+        return True
+    if ext not in FRONTEND_EXTENSIONS:
+        return True
+
+    return False
 
 
-def is_preview_file(filename: str) -> bool:
-    """检查是否是 Sandpack 可预览的文件"""
-    ext = os.path.splitext(filename)[1].lower()
-    return ext in FRONTEND_EXTENSIONS
-
-
-def is_binary_file(filename: str) -> bool:
-    """检查是否是二进制文件"""
-    ext = os.path.splitext(filename)[1].lower()
-    return ext in BINARY_EXTENSIONS
-
-
-async def _read_file_from_backend(backend: Any, file_path: str) -> Optional[bytes]:
-    """从 backend 读取文件内容"""
-    # 方式1: 沙箱模式 - 使用 download_files
+async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[bytes]:
+    """通过 download_files 获取原始文件内容（沙箱/非沙箱均适用，无行号）"""
     if hasattr(backend, "adownload_files"):
         try:
-            download_responses = await backend.adownload_files([file_path])
-            if download_responses and download_responses[0].content:
-                return download_responses[0].content
+            responses = await backend.adownload_files([file_path])
+            if responses and responses[0].content:
+                return responses[0].content
         except Exception as e:
             logger.debug(f"adownload_files failed for {file_path}: {e}")
 
     if hasattr(backend, "download_files"):
         try:
-            download_responses = await asyncio.to_thread(backend.download_files, [file_path])
-            if download_responses and download_responses[0].content:
-                return download_responses[0].content
+            responses = await asyncio.to_thread(backend.download_files, [file_path])
+            if responses and responses[0].content:
+                return responses[0].content
         except Exception as e:
             logger.debug(f"download_files failed for {file_path}: {e}")
-
-    # 方式2: 非沙箱模式
-    if hasattr(backend, "read"):
-        try:
-            content = await asyncio.to_thread(backend.read, file_path)
-            if content is not None:
-                if isinstance(content, str):
-                    return content.encode("utf-8")
-                elif isinstance(content, bytes):
-                    return content
-        except Exception as e:
-            logger.debug(f"read failed for {file_path}: {e}")
-
-    # 方式3: 异步读取
-    if hasattr(backend, "aread"):
-        try:
-            content = await backend.aread(file_path)
-            if content is not None:
-                if isinstance(content, str):
-                    return content.encode("utf-8")
-                elif isinstance(content, bytes):
-                    return content
-        except Exception as e:
-            logger.debug(f"aread failed for {file_path}: {e}")
 
     return None
 
 
-async def _run_command(backend: Any, command: str) -> Optional[str]:
-    """在 backend 中执行命令并返回输出"""
-    # 尝试不同的执行方法
-    if hasattr(backend, "arun"):
-        try:
-            result = await backend.arun(command)
-            if isinstance(result, str):
-                return result
-            elif hasattr(result, "stdout"):
-                return result.stdout
-        except Exception as e:
-            logger.debug(f"arun failed for '{command}': {e}")
-
-    if hasattr(backend, "run"):
-        try:
-            result = await asyncio.to_thread(backend.run, command)
-            if isinstance(result, str):
-                return result
-            elif hasattr(result, "stdout"):
-                return result.stdout
-        except Exception as e:
-            logger.debug(f"run failed for '{command}': {e}")
-
-    # Daytona 风格的 execute
+async def _execute_command(backend: Any, command: str) -> Optional[str]:
+    """在 backend 中执行 shell 命令并返回 stdout"""
     if hasattr(backend, "aexecute"):
         try:
             result = await backend.aexecute(command)
-            # ExecuteResponse 对象（有 output 属性）
             if hasattr(result, "output"):
                 return result.output
-            if isinstance(result, dict):
-                return result.get("output", result.get("stdout", ""))
-            elif isinstance(result, str):
+            if isinstance(result, str):
                 return result
         except Exception as e:
-            logger.debug(f"aexecute failed for '{command}': {e}")
+            logger.debug(f"aexecute failed: {e}")
 
     if hasattr(backend, "execute"):
         try:
             result = await asyncio.to_thread(backend.execute, command)
-            # ExecuteResponse 对象（有 output 属性）
             if hasattr(result, "output"):
                 return result.output
-            if isinstance(result, dict):
-                return result.get("output", result.get("stdout", ""))
-            elif isinstance(result, str):
+            if isinstance(result, str):
                 return result
         except Exception as e:
-            logger.debug(f"execute failed for '{command}': {e}")
+            logger.debug(f"execute failed: {e}")
 
     return None
 
 
-async def _list_files_recursive(backend: Any, dir_path: str) -> list[str]:
-    """
-    递归列出目录下的所有文件
+async def _list_project_files(backend: Any, project_path: str) -> list[str]:
+    """递归列出项目目录下的所有文件（使用 find 命令）"""
+    output = await _execute_command(
+        backend,
+        f'find "{project_path}" -type f 2>/dev/null | head -200',
+    )
+    if not output:
+        return []
 
-    优先使用 glob（通过 backend），fallback 到 shell 命令
-    """
     files = []
-
-    # 调试：打印 backend 可用方法
-    if backend:
-        methods = [m for m in dir(backend) if not m.startswith("_")]
-        logger.info(f"Backend available methods: {methods}")
-
-    # 方式1: 使用 ls_info（通过 backend.ls_info 或 backend.als_info）
-    # ls_info 返回目录内容信息，包括文件路径
-    if hasattr(backend, "als_info"):
-        try:
-            result = await backend.als_info(dir_path)
-            logger.info(f"backend.als_info result type: {type(result)}, value: {result}")
-            if result and isinstance(result, list):
-                for item in result:
-                    if isinstance(item, dict):
-                        path = item.get("path", "")
-                        is_dir = item.get("is_dir", False) or item.get("type") == "directory"
-                        if path and not is_dir:
-                            files.append(path)
-                    elif isinstance(item, str):
-                        files.append(item)
-                if files:
-                    logger.info(f"Found {len(files)} files via backend.als_info")
-                    return files
-        except Exception as e:
-            logger.warning(f"als_info failed: {e}")
-    elif hasattr(backend, "ls_info"):
-        try:
-            result = await asyncio.to_thread(backend.ls_info, dir_path)
-            logger.info(f"backend.ls_info result type: {type(result)}, value: {result}")
-            if result and isinstance(result, list):
-                for item in result:
-                    if isinstance(item, dict):
-                        path = item.get("path", "")
-                        is_dir = item.get("is_dir", False) or item.get("type") == "directory"
-                        if path and not is_dir:
-                            files.append(path)
-                    elif isinstance(item, str):
-                        files.append(item)
-                if files:
-                    logger.info(f"Found {len(files)} files via backend.ls_info")
-                    return files
-        except Exception as e:
-            logger.warning(f"ls_info failed: {e}")
-
-    # 方式2: 使用 glob_info（通过 backend.glob_info 或 backend.aglob_info）
-    if hasattr(backend, "aglob_info"):
-        try:
-            result = await backend.aglob_info(f"{dir_path}/*")
-            logger.info(f"backend.aglob_info result type: {type(result)}, value: {result}")
-            if result and isinstance(result, list):
-                files = [f for f in result if isinstance(f, str)]
-                if files:
-                    logger.info(f"Found {len(files)} files via backend.aglob_info")
-                    return files
-        except Exception as e:
-            logger.warning(f"aglob_info failed: {e}")
-    elif hasattr(backend, "glob_info"):
-        try:
-            result = await asyncio.to_thread(backend.glob_info, f"{dir_path}/*")
-            logger.info(f"backend.glob_info result type: {type(result)}, value: {result}")
-            if result and isinstance(result, list):
-                files = [f for f in result if isinstance(f, str)]
-                if files:
-                    logger.info(f"Found {len(files)} files via backend.glob_info")
-                    return files
-        except Exception as e:
-            logger.warning(f"glob_info failed: {e}")
-
-    # 方式3: 使用 find 命令（最快最可靠）
-    find_cmd = f'find "{dir_path}" -type f 2>/dev/null | head -200'
-    output = await _run_command(backend, find_cmd)
-
-    if output:
-        for line in output.strip().split("\n"):
-            line = line.strip()
-            if line and not line.startswith("find:"):
-                files.append(line)
-        if files:
-            logger.info(f"Found {len(files)} files via find command")
-            return files
-
-    # 方式4: 使用 ls -R 命令
-    ls_cmd = f'ls -R "{dir_path}" 2>/dev/null'
-    output = await _run_command(backend, ls_cmd)
-
-    if output:
-        current_dir = dir_path
-        for line in output.strip().split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            # 检测目录行 (以 : 结尾)
-            if line.endswith(":"):
-                current_dir = line[:-1]
-            # 文件行
-            elif not line.startswith("total ") and "/" not in line:
-                files.append(f"{current_dir}/{line}")
-        if files:
-            logger.info(f"Found {len(files)} files via ls -R command")
-            return files
-
-    logger.warning(f"Could not list files in {dir_path}")
+    for line in output.strip().split("\n"):
+        line = line.strip()
+        if line and not line.startswith("find:"):
+            files.append(line)
     return files
+
+
+def _find_entry(project_files: dict[str, str]) -> Optional[str]:
+    """查找项目入口文件"""
+    for candidate in ENTRY_CANDIDATES:
+        if candidate in project_files:
+            return candidate
+    return None
 
 
 @tool
 async def reveal_project(
-    project_path: Annotated[str, "项目目录路径，包含 index.html 或 package.json 的目录"],
+    project_path: Annotated[
+        str, "项目目录路径，包含 index.html 或 package.json 的目录"
+    ],
     name: Annotated[Optional[str], "项目名称（可选，默认使用目录名）"] = None,
     description: Annotated[Optional[str], "项目描述（可选）"] = None,
     template: Annotated[
-        Optional[ProjectTemplate], "项目模板类型（可选，自动检测：react/vue/vanilla/static）"
+        Optional[ProjectTemplate],
+        "项目模板类型（可选，自动检测：react/vue/vanilla/static）",
     ] = None,
     runtime: ToolRuntime = None,  # type: ignore[assignment]
 ) -> str:
@@ -405,7 +258,6 @@ async def reveal_project(
     backend = get_backend_from_runtime(runtime)
 
     if backend is None:
-        logger.warning("Backend not available from runtime")
         return json.dumps(
             {
                 "type": "project_reveal",
@@ -415,13 +267,11 @@ async def reveal_project(
             ensure_ascii=False,
         )
 
-    # 规范化路径
     project_path = project_path.rstrip("/")
     project_name = name or os.path.basename(project_path)
 
     try:
-        # 递归扫描目录获取所有文件
-        all_files = await _list_files_recursive(backend, project_path)
+        all_files = await _list_project_files(backend, project_path)
 
         if not all_files:
             return json.dumps(
@@ -435,97 +285,49 @@ async def reveal_project(
 
         logger.info(f"Found {len(all_files)} files in {project_path}")
 
-        # 收集项目文件
+        # 收集前端文件
         project_files: dict[str, str] = {}
 
         for file_path in all_files:
-            # 计算相对路径
-            rel_path = file_path
-            if rel_path.startswith(project_path):
-                rel_path = rel_path[len(project_path) :]
+            rel_path = (
+                file_path[len(project_path) :]
+                if file_path.startswith(project_path)
+                else file_path
+            )
             if not rel_path.startswith("/"):
                 rel_path = "/" + rel_path
 
-            # 检查是否应该忽略目录
-            parts = rel_path.split("/")
-            if any(should_ignore_dir(part) for part in parts):
+            if _should_skip(rel_path):
                 continue
 
-            # 检查是否应该忽略文件
-            filename = os.path.basename(file_path)
-            if should_ignore_file(filename):
+            content_bytes = await _download_file_from_backend(backend, file_path)
+            if not content_bytes:
+                logger.debug(f"Failed to read: {rel_path}")
                 continue
 
-            # 跳过二进制文件
-            if is_binary_file(filename):
-                logger.debug(f"Skipping binary file: {rel_path}")
-                continue
-
-            # 跳过非文本文件（既不是前端文件也不是文档）
-            if not is_text_file(filename):
-                logger.debug(f"Skipping non-text file: {rel_path}")
-                continue
-
-            # 读取文件内容
-            content_bytes = await _read_file_from_backend(backend, file_path)
-            if content_bytes:
-                try:
-                    content = content_bytes.decode("utf-8")
-
-                    # 只将可预览的前端文件添加到 project_files（排除 README.md 等文档）
-                    if is_preview_file(filename):
-                        project_files[rel_path] = content
-                        logger.debug(f"Read preview file: {rel_path} ({len(content)} chars)")
-                    else:
-                        # 文档文件只记录日志，不添加到预览
-                        logger.debug(f"Skipping doc file for preview: {rel_path}")
-                except UnicodeDecodeError:
-                    logger.debug(f"Failed to decode file as UTF-8: {rel_path}")
-                    continue
-            else:
-                logger.debug(f"Failed to read file: {rel_path}")
+            try:
+                project_files[rel_path] = content_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                logger.debug(f"Not UTF-8: {rel_path}")
 
         if not project_files:
             return json.dumps(
                 {
                     "type": "project_reveal",
                     "error": "no_frontend_files",
-                    "message": f"在 {project_path} 中没有找到前端文件（.html/.css/.js/.jsx/.ts/.tsx/.vue/.json）",
+                    "message": f"在 {project_path} 中没有找到前端文件",
                     "scanned_files": len(all_files),
                 },
                 ensure_ascii=False,
             )
 
-        # 检测或使用指定的模板
-        detected_template = template or detect_template(project_files)
-
-        # 查找入口文件
-        entry = None
-        for candidate in ["/index.html", "/src/index.html", "/public/index.html"]:
-            if candidate in project_files:
-                entry = candidate
-                break
-
-        if not entry:
-            for candidate in ["/src/index.tsx", "/src/index.jsx", "/src/main.tsx", "/src/main.jsx"]:
-                if candidate in project_files:
-                    entry = candidate
-                    break
-
-        if not entry:
-            for candidate in ["/index.tsx", "/index.jsx", "/App.tsx", "/App.jsx"]:
-                if candidate in project_files:
-                    entry = candidate
-                    break
-
-        # 构建返回结果
         result = {
             "type": "project_reveal",
             "name": project_name,
             "description": description or "",
-            "template": detected_template,
+            "template": template or detect_template(project_files),
             "files": project_files,
-            "entry": entry,
+            "entry": _find_entry(project_files),
             "path": project_path,
             "file_count": len(project_files),
         }

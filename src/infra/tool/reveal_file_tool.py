@@ -4,9 +4,7 @@ Reveal File 工具
 让 Agent 可以向用户展示/推荐文件，前端会自动展开文件树并可以点击查看内容。
 文件会自动从 backend 下载并上传到 S3，返回 S3 URL。
 
-支持两种模式：
-1. 沙箱模式：使用 download_files 方法下载文件
-2. 非沙箱模式（PostgreSQL）：使用 read 方法读取文件内容
+统一通过 download_files 获取原始文件内容（沙箱/非沙箱均适用）。
 
 返回格式与前端 UploadResult 一致：
 {
@@ -69,11 +67,9 @@ MIME_TYPE_CATEGORIES: dict[str, FileCategory] = {
 
 def get_file_category(mime_type: str) -> FileCategory:
     """根据 MIME 类型获取文件类别"""
-    # 精确匹配
     if mime_type in MIME_TYPE_CATEGORIES:
         return MIME_TYPE_CATEGORIES[mime_type]
 
-    # 前缀匹配
     if mime_type.startswith("image/"):
         return "image"
     if mime_type.startswith("video/"):
@@ -81,7 +77,6 @@ def get_file_category(mime_type: str) -> FileCategory:
     if mime_type.startswith("audio/"):
         return "audio"
 
-    # 默认为文档
     return "document"
 
 
@@ -102,79 +97,28 @@ async def _ensure_storage_initialized() -> None:
         await init_storage(config)
 
 
-async def _read_file_from_backend(backend: Any, file_path: str) -> Optional[bytes]:
+async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[bytes]:
     """
-    从 backend 读取文件内容
+    通过 download_files 从 backend 获取原始文件内容。
 
-    支持两种模式：
-    1. 沙箱模式：使用 download_files 方法
-    2. 非沙箱模式（StoreBackend/CompositeBackend）：使用 read 方法
-
-    Args:
-        backend: Backend 实例
-        file_path: 文件路径
-
-    Returns:
-        文件内容的字节，如果失败返回 None
+    沙箱（DaytonaBackend）和非沙箱（StateBackend/StoreBackend）均支持 download_files，
+    返回原始字节，不包含行号等格式化内容。
     """
-    # 方式1: 沙箱模式 - 使用 download_files
     if hasattr(backend, "adownload_files"):
         try:
-            download_responses = await backend.adownload_files([file_path])
-            if download_responses and len(download_responses) > 0 and download_responses[0].content:
-                logger.info(f"Read file {file_path} via adownload_files")
-                return download_responses[0].content
+            responses = await backend.adownload_files([file_path])
+            if responses and responses[0].content:
+                return responses[0].content
         except Exception as e:
             logger.info(f"adownload_files failed for {file_path}: {e}")
 
     if hasattr(backend, "download_files"):
         try:
-            download_responses = await asyncio.to_thread(backend.download_files, [file_path])
-            if download_responses and len(download_responses) > 0 and download_responses[0].content:
-                logger.info(f"Read file {file_path} via download_files")
-                return download_responses[0].content
+            responses = await asyncio.to_thread(backend.download_files, [file_path])
+            if responses and responses[0].content:
+                return responses[0].content
         except Exception as e:
             logger.info(f"download_files failed for {file_path}: {e}")
-
-    # 方式2: 非沙箱模式 - 使用 read 方法 (StoreBackend/CompositeBackend)
-    if hasattr(backend, "read"):
-        try:
-            # read 方法返回文件内容（字符串或对象）
-            content = await asyncio.to_thread(backend.read, file_path)
-            if content is not None:
-                # 如果是字符串，转换为字节
-                if isinstance(content, str):
-                    logger.info(f"Read file {file_path} via read (string)")
-                    return content.encode("utf-8")
-                # 如果是字节，直接返回
-                elif isinstance(content, bytes):
-                    logger.info(f"Read file {file_path} via read (bytes)")
-                    return content
-                # 如果是字典（文件信息），尝试获取内容
-                elif isinstance(content, dict):
-                    # 可能是文件信息对象
-                    if "content" in content:
-                        file_content = content["content"]
-                        if isinstance(file_content, str):
-                            return file_content.encode("utf-8")
-                        elif isinstance(file_content, bytes):
-                            return file_content
-        except Exception as e:
-            logger.info(f"read failed for {file_path}: {e}")
-
-    # 方式3: 尝试 aread 方法（异步版本）
-    if hasattr(backend, "aread"):
-        try:
-            content = await backend.aread(file_path)
-            if content is not None:
-                if isinstance(content, str):
-                    logger.info(f"Read file {file_path} via aread (string)")
-                    return content.encode("utf-8")
-                elif isinstance(content, bytes):
-                    logger.info(f"Read file {file_path} via aread (bytes)")
-                    return content
-        except Exception as e:
-            logger.info(f"aread failed for {file_path}: {e}")
 
     return None
 
@@ -202,14 +146,11 @@ async def reveal_file(
     """
     from src.infra.storage.s3 import get_storage_service
 
-    # 初始化 S3 存储服务
     await _ensure_storage_initialized()
     storage = get_storage_service()
 
-    # 从 runtime 获取 backend（分布式安全的方式）
     backend = get_backend_from_runtime(runtime)
 
-    # 如果获取不到 backend，返回原始路径信息
     if backend is None:
         logger.warning("Backend not available from runtime, returning raw path")
         result: dict[str, Any] = {
@@ -222,8 +163,7 @@ async def reveal_file(
         return json.dumps(result, ensure_ascii=False)
 
     try:
-        # 从 backend 读取文件内容（支持沙箱和非沙箱模式）
-        file_content = await _read_file_from_backend(backend, file_path)
+        file_content = await _download_file_from_backend(backend, file_path)
 
         if file_content is None:
             logger.error(f"Failed to read file {file_path} from backend")
@@ -237,13 +177,9 @@ async def reveal_file(
             }
             return json.dumps(result, ensure_ascii=False)
 
-        # 从路径提取文件名
         filename = file_path.split("/")[-1]
-
-        # 获取 MIME 类型
         mime_type = get_mime_type(filename)
 
-        # 上传到 S3
         upload_result = await storage.upload_bytes(
             data=file_content,
             folder="revealed_files",
@@ -251,10 +187,8 @@ async def reveal_file(
             content_type=mime_type,
         )
 
-        # 获取文件类别
         file_category = get_file_category(upload_result.content_type or mime_type)
 
-        # 从 configurable 中获取 base_url
         base_url = ""
         if runtime:
             if hasattr(runtime, "config"):
@@ -265,11 +199,9 @@ async def reveal_file(
             else:
                 logger.warning("[reveal_file] runtime has no 'config' attribute")
 
-        # 生成后端代理 URL（与 /api/upload 返回格式一致）
         proxy_path = f"/api/upload/file/{upload_result.key}"
         proxy_url = f"{base_url}{proxy_path}" if base_url else proxy_path
 
-        # 返回与前端 UploadResult 一致的格式
         result = {
             "key": upload_result.key,
             "url": proxy_url,
@@ -277,7 +209,6 @@ async def reveal_file(
             "type": file_category,
             "mimeType": upload_result.content_type or mime_type,
             "size": upload_result.size,
-            # 保留额外信息供前端参考
             "_meta": {
                 "path": file_path,
                 "description": description or "",
@@ -288,7 +219,6 @@ async def reveal_file(
 
     except Exception as e:
         logger.error(f"Error processing file {file_path}: {e}")
-        # 出错时返回原始路径信息
         result = {
             "type": "file_reveal",
             "file": {
