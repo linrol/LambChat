@@ -72,8 +72,8 @@
     <td align="center"><b>平板视图</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/best-practice/mobile-view-new.png" alt="移动端视图" width="250"/></td>
-    <td><img src="docs/images/best-practice/tablet-view-new.png" alt="平板视图" width="350"/></td>
+    <td><img src="docs/images/best-practice/mobile-view.png" alt="移动端视图" width="250"/></td>
+    <td><img src="docs/images/best-practice/tablet-view.png" alt="平板视图" width="350"/></td>
   </tr>
 </table>
 
