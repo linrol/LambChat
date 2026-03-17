@@ -22,15 +22,15 @@
     <td align="center"><b>聊天界面</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/best-practice/login-page.png" alt="登录页面" width="400"/></td>
-    <td><img src="docs/images/best-practice/chat-home.png" alt="聊天界面" width="400"/></td>
+    <td><img src="docs/images/best-practice/login-page-new.png" alt="登录页面" width="400"/></td>
+    <td><img src="docs/images/best-practice/chat-home-new.png" alt="聊天界面" width="400"/></td>
   </tr>
   <tr>
     <td align="center"><b>流式输出</b></td>
     <td align="center"><b>分享对话框</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/best-practice/chat-response.png" alt="流式输出" width="400"/></td>
+    <td><img src="docs/images/best-practice/chat-response-new.png" alt="流式输出" width="400"/></td>
     <td><img src="docs/images/best-practice/share-dialog.png" alt="分享对话框" width="400"/></td>
   </tr>
 </table>
@@ -72,8 +72,8 @@
     <td align="center"><b>平板视图</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/best-practice/mobile-view.png" alt="移动端视图" width="250"/></td>
-    <td><img src="docs/images/best-practice/tablet-view.png" alt="平板视图" width="350"/></td>
+    <td><img src="docs/images/best-practice/mobile-view-new.png" alt="移动端视图" width="250"/></td>
+    <td><img src="docs/images/best-practice/tablet-view-new.png" alt="平板视图" width="350"/></td>
   </tr>
 </table>
 
@@ -84,39 +84,64 @@
 - **插件系统** - 使用 `@register_agent("id")` 装饰器快速注册自定义 Agent
 - **流式输出** - 原生支持 SSE (Server-Sent Events)
 - **子 Agent** - 支持多层级 Agent 嵌套
+- **思考模式** - 支持 Anthropic 模型的扩展思考模式
+- **代码解释器** - 内置代码执行与沙箱支持
 
 ### 🔌 MCP 集成
 - **系统级 + 用户级 MCP** - 支持全局和个人 MCP 服务器配置
 - **加密存储** - API Keys 等敏感信息加密存储
 - **动态缓存** - 工具缓存管理，支持手动刷新
+- **多种传输协议** - 支持 stdio、SSE、HTTP 传输
 
 ### 🛠️ Skills 系统
 - **双存储** - 文件系统 + MongoDB 双存储备份
 - **访问控制** - 用户级别技能访问控制
 - **GitHub 同步** - 支持从 GitHub 同步自定义 Skills
+- **技能商店** - 浏览和安装社区技能
 
 ### 💬 反馈系统
 - **点赞评分** - 简单的赞成/反对反馈
 - **文字评论** - 详细的用户反馈
 - **会话关联** - 反馈与具体会话/消息关联
 
+### 📁 文档与文件支持
+- **多格式预览** - PDF / Word / Excel / PPT / Markdown / Mermaid
+- **图片查看器** - 内置图片预览，支持缩放
+- **文件上传** - 拖拽或点击上传多个文件
+- **云存储** - S3 / OSS / MinIO 集成
+
 ### 🔐 安全
-- **JWT 认证** - 完整的认证流程
+- **JWT 认证** - 完整的认证流程，支持 Token 刷新
 - **RBAC 角色** - Admin / User / Guest 三级角色
 - **多租户** - 租户级别的资源隔离
 - **密码加密** - bcrypt 哈希加密
+- **OAuth 支持** - 支持 Google、GitHub 等第三方登录
+- **邮箱验证** - 安全的邮箱验证机制
 
 ### 🎨 前端
 - **现代技术栈** - React 19 + Vite + TailwindCSS
 - **ChatGPT 风格** - 熟悉的对话界面体验
-- **文档预览** - PDF / Word / Excel / PPT / Markdown / Mermaid
-- **主题切换** - 深色/浅色模式
-- **国际化** - 多语言支持
+- **主题切换** - 深色/浅色模式，平滑过渡
+- **国际化** - 多语言支持（英文、中文，更多语言开发中）
+- **响应式设计** - 移动端、平板、桌面端完美适配
+- **PWA 就绪** - 可安装为渐进式 Web 应用
 
 ### ⚡ 实时 & 存储
 - **双写机制** - Redis 实时写入，MongoDB 持久化存储
 - **自动重连** - 断线后自动恢复对话
-- **S3/OSS 支持** - 云存储集成
+- **会话分享** - 支持公开或需登录的会话分享链接
+- **消息搜索** - 全文搜索所有对话
+
+### 🔗 集成
+- **飞书集成** - 原生支持飞书/Lark 平台
+- **通知系统** - 实时通知推送
+- **项目管理** - 按项目组织对话
+
+### 📊 管理功能
+- **用户管理** - 查看和管理用户
+- **角色分配** - 配置每个角色可访问的 Agent
+- **系统监控** - 健康检查和指标监控
+- **审计日志** - 追踪系统活动
 
 ## 🚀 快速开始
 

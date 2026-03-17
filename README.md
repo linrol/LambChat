@@ -22,15 +22,15 @@ English | [简体中文](README_CN.md)
     <td align="center"><b>Chat Interface</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/best-practice/login-page.png" alt="Login Page" width="400"/></td>
-    <td><img src="docs/images/best-practice/chat-home.png" alt="Chat Interface" width="400"/></td>
+    <td><img src="docs/images/best-practice/login-page-new.png" alt="Login Page" width="400"/></td>
+    <td><img src="docs/images/best-practice/chat-home-new.png" alt="Chat Interface" width="400"/></td>
   </tr>
   <tr>
     <td align="center"><b>Streaming Response</b></td>
     <td align="center"><b>Share Dialog</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/best-practice/chat-response.png" alt="Streaming Response" width="400"/></td>
+    <td><img src="docs/images/best-practice/chat-response-new.png" alt="Streaming Response" width="400"/></td>
     <td><img src="docs/images/best-practice/share-dialog.png" alt="Share Dialog" width="400"/></td>
   </tr>
 </table>
@@ -72,8 +72,8 @@ English | [简体中文](README_CN.md)
     <td align="center"><b>Tablet View</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/best-practice/mobile-view.png" alt="Mobile View" width="250"/></td>
-    <td><img src="docs/images/best-practice/tablet-view.png" alt="Tablet View" width="350"/></td>
+    <td><img src="docs/images/best-practice/mobile-view-new.png" alt="Mobile View" width="250"/></td>
+    <td><img src="docs/images/best-practice/tablet-view-new.png" alt="Tablet View" width="350"/></td>
   </tr>
 </table>
 
@@ -84,39 +84,64 @@ English | [简体中文](README_CN.md)
 - **Plugin System** - Register custom agents with `@register_agent("id")` decorator
 - **Streaming Output** - Native SSE (Server-Sent Events) support
 - **Sub-agents** - Multi-level agent nesting support
+- **Thinking Mode** - Extended thinking mode for Anthropic models
+- **Code Interpreter** - Built-in code execution with sandbox support
 
 ### 🔌 MCP Integration
 - **System + User Level MCP** - Global and personal MCP server configs
 - **Encrypted Storage** - Sensitive data like API keys are encrypted
 - **Dynamic Caching** - Tool caching with manual refresh support
+- **Multiple Transports** - Support for stdio, SSE, and HTTP transports
 
 ### 🛠️ Skills System
 - **Dual Storage** - File system + MongoDB backup
 - **Access Control** - User-level skill permissions
 - **GitHub Sync** - Sync custom skills from GitHub repositories
+- **Skill Store** - Browse and install community skills
 
 ### 💬 Feedback System
 - **Thumbs Rating** - Simple positive/negative feedback
 - **Text Comments** - Detailed user feedback
 - **Session Linking** - Feedback tied to specific sessions/messages
 
+### 📁 Document & File Support
+- **Multi-format Preview** - PDF / Word / Excel / PPT / Markdown / Mermaid
+- **Image Viewer** - Built-in image preview with zoom support
+- **File Upload** - Drag & drop or click to upload multiple files
+- **Cloud Storage** - S3 / OSS / MinIO integration
+
 ### 🔐 Security
-- **JWT Authentication** - Complete auth flow
+- **JWT Authentication** - Complete auth flow with token refresh
 - **RBAC Roles** - Admin / User / Guest levels
 - **Multi-tenancy** - Tenant-level resource isolation
 - **Password Encryption** - bcrypt hashing
+- **OAuth Support** - Login with Google, GitHub, etc.
+- **Email Verification** - Secure email-based account verification
 
 ### 🎨 Frontend
 - **Modern Stack** - React 19 + Vite + TailwindCSS
 - **ChatGPT Style** - Familiar chat interface
-- **Document Preview** - PDF / Word / Excel / PPT / Markdown / Mermaid
-- **Theme Support** - Dark/Light mode
-- **i18n** - Multi-language support
+- **Theme Support** - Dark/Light mode with smooth transitions
+- **i18n** - Multi-language support (English, Chinese, more coming)
+- **Responsive Design** - Mobile, tablet, and desktop optimized
+- **PWA Ready** - Install as a progressive web app
 
 ### ⚡ Real-time & Storage
 - **Dual-write Mechanism** - Redis for real-time, MongoDB for persistence
 - **Auto Reconnect** - Resume conversation after disconnection
-- **S3/OSS Support** - Cloud storage integration
+- **Session Sharing** - Share conversations with public or authenticated links
+- **Message Search** - Full-text search across all conversations
+
+### 🔗 Integrations
+- **Feishu (飞书)** - Native integration with Lark/Feishu platform
+- **Notifications** - Real-time notification system
+- **Project Management** - Organize chats by projects
+
+### 📊 Admin Features
+- **User Management** - View and manage users
+- **Role Assignment** - Configure agent access per role
+- **System Monitoring** - Health checks and metrics
+- **Audit Logging** - Track system activities
 
 ## 🚀 Quick Start
 
