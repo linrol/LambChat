@@ -72,8 +72,8 @@ English | [简体中文](README_CN.md)
     <td align="center"><b>Tablet View</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/best-practice/mobile-view-new.png" alt="Mobile View" width="250"/></td>
-    <td><img src="docs/images/best-practice/tablet-view-new.png" alt="Tablet View" width="350"/></td>
+    <td><img src="docs/images/best-practice/mobile-view.png" alt="Mobile View" width="250"/></td>
+    <td><img src="docs/images/best-practice/tablet-view.png" alt="Tablet View" width="350"/></td>
   </tr>
 </table>
 
