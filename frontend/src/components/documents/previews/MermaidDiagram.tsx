@@ -1,6 +1,5 @@
 import { memo, useEffect, useRef, useState, useCallback } from "react";
 import { Copy, Check, Download, ChevronDown } from "lucide-react";
-import mermaid from "mermaid";
 
 interface MermaidDiagramProps {
   code: string;
@@ -99,9 +98,10 @@ const MermaidDiagram = memo(function MermaidDiagram({
   useEffect(() => {
     const renderDiagram = async () => {
       try {
+        const mermaid = await import("mermaid");
         // Initialize mermaid with theme based on dark mode
         const isDark = document.documentElement.classList.contains("dark");
-        mermaid.initialize({
+        mermaid.default.initialize({
           startOnLoad: false,
           theme: isDark ? "dark" : "default",
           securityLevel: "strict",
@@ -111,7 +111,7 @@ const MermaidDiagram = memo(function MermaidDiagram({
           },
         });
 
-        const { svg } = await mermaid.render(`mermaid-${Date.now()}`, code);
+        const { svg } = await mermaid.default.render(`mermaid-${Date.now()}`, code);
         setSvg(svg);
         setError(null);
       } catch (err) {

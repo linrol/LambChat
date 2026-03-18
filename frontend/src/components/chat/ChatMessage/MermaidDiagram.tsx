@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import mermaid from "mermaid";
 import { Check, Copy, Download } from "lucide-react";
 import { useTranslation } from "react-i18next";
-
-// Initialize mermaid
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "default",
-  securityLevel: "strict",
-});
 
 // Mermaid diagram component with actions
 export function MermaidDiagram({
@@ -120,15 +112,24 @@ export function MermaidDiagram({
       if (!chart.trim()) return;
 
       try {
+        const mermaid = await import("mermaid");
+
+        // Initialize mermaid
+        mermaid.default.initialize({
+          startOnLoad: false,
+          theme: "default",
+          securityLevel: "strict",
+        });
+
         // Clear previous content
         setSvg("");
         setError(null);
 
         // Validate mermaid syntax before rendering
-        await mermaid.parse(chart);
+        await mermaid.default.parse(chart);
 
         // Render the diagram
-        const { svg } = await mermaid.render(idRef.current, chart);
+        const { svg } = await mermaid.default.render(idRef.current, chart);
 
         // Fix SVG: remove width="100%" which causes display issues
         // Keep the original width/height values from mermaid to preserve text rendering

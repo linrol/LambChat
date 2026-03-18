@@ -38,13 +38,13 @@ import {
 // Import preview components
 import CodeRenderer from "./previews/CodeRenderer";
 import MarkdownRenderer from "./previews/MarkdownRenderer";
-import PdfPreview from "./previews/PdfPreview";
 import PptPreview from "./previews/PptPreview";
-import WordPreview from "./previews/WordPreview";
-import ExcelPreview from "./previews/ExcelPreview";
 import HtmlPreview from "./previews/HtmlPreview";
 
-// Lazy load Excalidraw preview (large library ~500KB)
+// Lazy load heavy preview components
+const PdfPreview = lazy(() => import("./previews/PdfPreview"));
+const WordPreview = lazy(() => import("./previews/WordPreview"));
+const ExcelPreview = lazy(() => import("./previews/ExcelPreview"));
 const ExcalidrawPreview = lazy(() => import("./previews/ExcalidrawPreview"));
 
 // Re-export utilities for external use
@@ -69,10 +69,6 @@ export {
 // Export components for external use
 export { default as CodeRenderer } from "./previews/CodeRenderer";
 export { default as MarkdownRenderer } from "./previews/MarkdownRenderer";
-export { default as PdfPreview } from "./previews/PdfPreview";
-export { default as PptPreview } from "./previews/PptPreview";
-export { default as WordPreview } from "./previews/WordPreview";
-export { default as ExcelPreview } from "./previews/ExcelPreview";
 export { default as HtmlPreview } from "./previews/HtmlPreview";
 
 interface DocumentPreviewProps {
@@ -590,9 +586,17 @@ export default function DocumentPreview({
               </button>
             </div>
           ) : pdfFile ? (
-            <div className="h-full min-h-[400px]">
-              {pdfUrl && <PdfPreview url={pdfUrl} />}
-            </div>
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center h-full min-h-[400px]">
+                  <LoadingSpinner size="lg" />
+                </div>
+              }
+            >
+              <div className="h-full min-h-[400px]">
+                {pdfUrl && <PdfPreview url={pdfUrl} />}
+              </div>
+            </Suspense>
           ) : videoFile && videoUrl ? (
             <div className="flex items-center justify-center h-full bg-gradient-to-b from-stone-900 to-stone-950 min-h-[400px] p-4 sm:p-8">
               <div className="relative w-full max-w-4xl mx-auto">
@@ -622,9 +626,25 @@ export default function DocumentPreview({
               <HtmlPreview content={htmlContent} />
             </div>
           ) : wordFile && arrayBuffer ? (
-            <WordPreview arrayBuffer={arrayBuffer} t={t} />
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center h-full min-h-[400px]">
+                  <LoadingSpinner size="lg" />
+                </div>
+              }
+            >
+              <WordPreview arrayBuffer={arrayBuffer} t={t} />
+            </Suspense>
           ) : excelFile && arrayBuffer ? (
-            <ExcelPreview arrayBuffer={arrayBuffer} fileName={fileName} t={t} />
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center h-full min-h-[400px]">
+                  <LoadingSpinner size="lg" />
+                </div>
+              }
+            >
+              <ExcelPreview arrayBuffer={arrayBuffer} fileName={fileName} t={t} />
+            </Suspense>
           ) : imageFile || imageUrl ? (
             <>
               <div className="flex items-center justify-center p-4 sm:p-8 bg-stone-50 dark:bg-stone-800/50 min-h-[200px] overflow-auto">

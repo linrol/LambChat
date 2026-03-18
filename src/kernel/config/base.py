@@ -101,6 +101,10 @@ class Settings(BaseSettings):
     MONGODB_SESSIONS_COLLECTION: str = "sessions"
     MONGODB_TRACES_COLLECTION: str = "traces"
 
+    # Event Merger Settings
+    ENABLE_EVENT_MERGER: bool = True  # 是否启用事件合并
+    EVENT_MERGE_INTERVAL: float = 300.0  # 合并间隔（秒，默认 5 分钟）
+
     # Long-term Storage Settings (PostgreSQL for LangGraph Store)
     ENABLE_LONG_TERM_STORAGE: bool = False
     POSTGRES_HOST: str = "localhost"

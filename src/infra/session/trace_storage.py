@@ -53,6 +53,7 @@ class TraceStorage:
 
     def __init__(self):
         self._collection = None
+        self._merger = None  # 事件合并器
 
     @property
     def collection(self):
@@ -68,9 +69,10 @@ class TraceStorage:
         """确保索引存在（由首次使用时调用）"""
         if not hasattr(self, "_indexes_ensured"):
             self._indexes_ensured = True
-            asyncio.create_task(self._ensure_indexes())
             task = asyncio.create_task(self._ensure_indexes())
             task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
+            # 启动事件合并器
+            self._start_merger()
 
     async def _ensure_indexes(self):
         """确保必要的索引存在"""
@@ -107,6 +109,22 @@ class TraceStorage:
             logger.info("MongoDB indexes ensured for trace_storage")
         except Exception as e:
             logger.warning(f"Failed to create indexes (non-critical): {e}")
+
+    def _start_merger(self):
+        """启动事件合并器"""
+        if not settings.ENABLE_EVENT_MERGER:
+            logger.info("EventMerger disabled by configuration")
+            return
+
+        if self._merger is None:
+            try:
+                from src.infra.session.event_merger import get_event_merger
+
+                self._merger = get_event_merger(self)
+                self._merger.start()
+                logger.info("EventMerger started successfully")
+            except Exception as e:
+                logger.warning(f"Failed to start EventMerger: {e}")
 
     async def create_trace(
         self,
@@ -449,7 +467,6 @@ class TraceStorage:
         except Exception as e:
             logger.error(f"Failed to delete session traces: {e}")
             return 0
-
 
 # Singleton
 _trace_storage: Optional[TraceStorage] = None

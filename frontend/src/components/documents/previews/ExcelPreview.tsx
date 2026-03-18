@@ -1,6 +1,5 @@
 import { memo, useEffect, useState } from "react";
 import { LoadingSpinner } from "../../common/LoadingSpinner";
-import * as XLSX from "xlsx";
 
 interface ExcelPreviewProps {
   arrayBuffer: ArrayBuffer;
@@ -26,6 +25,7 @@ const ExcelPreview = memo(function ExcelPreview({
   useEffect(() => {
     const parseExcel = async () => {
       try {
+        const XLSX = await import("xlsx");
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
         const sheetData = workbook.SheetNames.map((name) => {
           const sheet = workbook.Sheets[name];

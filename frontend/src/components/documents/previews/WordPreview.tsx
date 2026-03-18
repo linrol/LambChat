@@ -1,7 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { FileText, AlertCircle } from "lucide-react";
 import { LoadingSpinner } from "../../common/LoadingSpinner";
-import mammoth from "mammoth";
 import DOMPurify from "dompurify";
 
 interface WordPreviewProps {
@@ -204,7 +203,8 @@ const WordPreview = memo(function WordPreview({
   useEffect(() => {
     const convertWord = async () => {
       try {
-        const result = await mammoth.convertToHtml(
+        const mammoth = await import("mammoth");
+        const result = await mammoth.default.convertToHtml(
           { arrayBuffer },
           {
             styleMap: [
