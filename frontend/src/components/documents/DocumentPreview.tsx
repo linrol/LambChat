@@ -39,6 +39,7 @@ import {
 
 // Import preview components
 import CodeRenderer from "./previews/CodeRenderer";
+import PlainTextViewer from "./previews/PlainTextViewer";
 import MarkdownRenderer from "./previews/MarkdownRenderer";
 import PptPreview from "./previews/PptPreview";
 import HtmlPreview from "./previews/HtmlPreview";
@@ -356,26 +357,25 @@ export default function DocumentPreview({
     }
   };
 
-  const handleDownload = () => {
-    // 优先使用已传入的签名 URL 下载（直接走原始链接）
-    if (signedUrl) {
-      const a = document.createElement("a");
-      a.href = signedUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      return;
-    }
-
-    // 使用外部图片 URL 下载
-    if (externalImageUrl) {
-      const a = document.createElement("a");
-      a.href = externalImageUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+  const handleDownload = async () => {
+    // Cross-origin URLs: fetch as blob to ensure download attribute filename is respected
+    if (signedUrl || externalImageUrl) {
+      try {
+        const url = signedUrl || externalImageUrl || "";
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      } catch {
+        // Fallback: open in new tab if fetch fails (e.g., CORS blocked)
+        window.open(signedUrl || externalImageUrl || "", "_blank");
+      }
       return;
     }
 
@@ -721,15 +721,9 @@ export default function DocumentPreview({
             </Suspense>
           ) : markdownFile ? (
             viewSource ? (
-              <CodeRenderer
-                content={data?.content || ""}
-                language="markdown"
-                t={t}
-              />
+              <PlainTextViewer content={data?.content || ""} />
             ) : (
-              <div className="p-4 sm:p-6 lg:p-8">
-                <MarkdownRenderer content={data?.content || ""} t={t} />
-              </div>
+              <MarkdownRenderer content={data?.content || ""} t={t} />
             )
           ) : (
             <CodeRenderer
