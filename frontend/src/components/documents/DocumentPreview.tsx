@@ -723,7 +723,7 @@ export default function DocumentPreview({
             viewSource ? (
               <PlainTextViewer content={data?.content || ""} />
             ) : (
-              <MarkdownRenderer content={data?.content || ""} t={t} />
+              <MarkdownRenderer content={data?.content || ""} _t={t} />
             )
           ) : (
             <CodeRenderer

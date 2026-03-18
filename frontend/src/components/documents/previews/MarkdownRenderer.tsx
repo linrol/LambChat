@@ -9,7 +9,6 @@ interface MarkdownRendererProps {
 // Reuse MarkdownContent to avoid maintaining two separate markdown renderers
 const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
-  _t,
 }: MarkdownRendererProps) {
   // Limit content for very large files
   const displayContent = useMemo(() => {
