@@ -8,7 +8,7 @@ from .context import (
 )
 from .deepagent import (
     create_memory_backend_factory,
-    create_postgres_backend_factory,
+    create_persistent_backend_factory,
     create_sandbox_backend_factory,
 )
 from .skills_store import SkillsStoreBackend, create_skills_backend
@@ -21,7 +21,7 @@ __all__ = [
     "clear_user_context",
     # DeepAgent Backend
     "create_memory_backend_factory",
-    "create_postgres_backend_factory",
+    "create_persistent_backend_factory",
     "create_sandbox_backend_factory",
     # Skills Store Backend
     "SkillsStoreBackend",

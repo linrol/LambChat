@@ -24,6 +24,7 @@ import {
   isImageFile,
   isPdfFile,
   isWordFile,
+  isLegacyDocFile,
   isExcelFile,
   isPptFile,
   isPptxFile,
@@ -107,6 +108,7 @@ export default function DocumentPreview({
   const [htmlUrl, setHtmlUrl] = useState<string | null>(null);
   const [htmlContent, setHtmlContent] = useState<string>("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [docUrl, setDocUrl] = useState<string | null>(null);
   const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
@@ -119,6 +121,7 @@ export default function DocumentPreview({
   const imageFile = isImageFile(fileName);
   const pdfFile = isPdfFile(ext);
   const wordFile = isWordFile(ext);
+  const legacyDocFile = isLegacyDocFile(ext);
   const excelFile = isExcelFile(ext);
   const pptxFile = isPptxFile(ext);
   // Keep pptFile for backward compatibility
@@ -277,6 +280,14 @@ export default function DocumentPreview({
             }
             const text = await response.text();
             setExcalidrawData(text);
+            setData({ content: "", path });
+            setLoading(false);
+            return;
+          }
+
+          // 旧版 .doc 文件不支持预览，保存 URL 用于下载
+          if (legacyDocFile) {
+            setDocUrl(url);
             setData({ content: "", path });
             setLoading(false);
             return;
@@ -657,6 +668,31 @@ export default function DocumentPreview({
           ) : htmlFile && htmlUrl ? (
             <div className="h-full min-h-[400px]">
               <HtmlPreview content={htmlContent} />
+            </div>
+          ) : legacyDocFile && docUrl ? (
+            <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-4 sm:p-6">
+              <div className="max-w-sm sm:max-w-md w-full text-center">
+                <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-blue-100 dark:bg-blue-900/40 mx-auto mb-4">
+                  <Icon
+                    size={36}
+                    className="text-blue-600 dark:text-blue-400"
+                  />
+                </div>
+                <h3 className="text-base font-medium text-stone-700 dark:text-stone-200 mb-2">
+                  {t("documents.docNotSupported") || "不支持预览旧版 Word 文档"}
+                </h3>
+                <p className="text-sm text-stone-500 dark:text-stone-400 mb-6">
+                  {t("documents.docConvertHint") ||
+                    "该文件为旧版 .doc 格式，请将其转换为 .docx 格式后预览，或直接下载文件。"}
+                </p>
+                <button
+                  onClick={handleDownload}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Download size={16} />
+                  {t("documents.download") || "下载文件"}
+                </button>
+              </div>
             </div>
           ) : wordFile && arrayBuffer ? (
             <Suspense

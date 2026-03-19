@@ -266,8 +266,11 @@ class TaskExecutor:
         presenter: Any,
     ) -> None:
         """处理通用异常"""
-        await self._update_session_status(session_id, TaskStatus.FAILED, str(error), run_id=run_id)
-        logger.error(f"Task failed: session={session_id}, run_id={run_id}, error={error}")
+        error_msg = str(error) or type(error).__name__
+        await self._update_session_status(session_id, TaskStatus.FAILED, error_msg, run_id=run_id)
+        logger.error(
+            f"Task failed: session={session_id}, run_id={run_id}, error={error}", exc_info=True
+        )
 
         # 先刷新所有缓冲，确保已产生的事件不丢失
         # 注意：dual_writer 可能还是 None（如果任务在 get_dual_writer() 之前就失败）
@@ -301,7 +304,7 @@ class TaskExecutor:
 
         # 发送任务失败通知
         await self._send_task_notification(
-            session_id, run_id, TaskStatus.FAILED, user_id, str(error)
+            session_id, run_id, TaskStatus.FAILED, user_id, error_msg
         )
 
     async def _send_task_notification(

@@ -18,6 +18,7 @@ export {
   isPptFile,
   isPptxFile,
   isLegacyPptFile,
+  isLegacyDocFile,
   isHtmlFile,
   isPreviewableFile,
   isCodeFile,

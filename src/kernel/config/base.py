@@ -75,13 +75,6 @@ class Settings(BaseSettings):
     LLM_MAX_RETRIES: int = 3
     LLM_MAX_INPUT_TOKENS: int | None = None  # DeepAgent summarization trigger threshold
 
-    # LLM Fallback Settings
-    LLM_FALLBACK_MODEL: str = ""
-    LLM_FALLBACK_API_BASE: Optional[str] = None
-    LLM_FALLBACK_API_KEY: str = ""
-    LLM_FALLBACK_TEMPERATURE: float = 0.7
-    LLM_FALLBACK_MAX_TOKENS: int = 4096
-
     # MCP Settings
     ENABLE_MCP: bool = True
     MCP_ENCRYPTION_SALT: Optional[str] = None  # 默认随机生成，确保加密一致性
@@ -112,8 +105,8 @@ class Settings(BaseSettings):
     ENABLE_EVENT_MERGER: bool = True  # 是否启用事件合并
     EVENT_MERGE_INTERVAL: float = 300.0  # 合并间隔（秒，默认 1 分钟）
 
-    # Long-term Storage Settings (PostgreSQL for LangGraph Store)
-    ENABLE_LONG_TERM_STORAGE: bool = False
+    # Long-term Storage Settings
+    ENABLE_POSTGRES_STORAGE: bool = False
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "postgres"
@@ -270,6 +263,12 @@ class Settings(BaseSettings):
             os.environ["LANGSMITH_API_URL"] = self.LANGSMITH_API_URL
         if self.LANGSMITH_SAMPLE_RATE:
             os.environ["LANGSMITH_SAMPLE_RATE"] = str(self.LANGSMITH_SAMPLE_RATE)
+
+        # Sync LLM settings to os.environ (required by LangChain clients)
+        if self.LLM_API_KEY:
+            os.environ["ANTHROPIC_API_KEY"] = self.LLM_API_KEY
+        if self.LLM_API_BASE:
+            os.environ["ANTHROPIC_BASE_URL"] = self.LLM_API_BASE
 
     def get_s3_config(self) -> "S3Config":
         """Get S3 storage configuration."""

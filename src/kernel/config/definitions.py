@@ -92,37 +92,6 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "default": None,
         "nullable": True,
     },
-    "LLM_FALLBACK_MODEL": {
-        "type": SettingType.STRING,
-        "category": SettingCategory.LLM,
-        "description": "Fallback LLM model identifier (leave empty to disable fallback)",
-        "default": "",
-    },
-    "LLM_FALLBACK_API_BASE": {
-        "type": SettingType.STRING,
-        "category": SettingCategory.LLM,
-        "description": "Fallback LLM API base URL (leave empty to use main LLM API base)",
-        "default": "",
-    },
-    "LLM_FALLBACK_API_KEY": {
-        "type": SettingType.STRING,
-        "category": SettingCategory.LLM,
-        "description": "Fallback LLM API key (leave empty to use main LLM API key)",
-        "default": "",
-        "is_sensitive": True,
-    },
-    "LLM_FALLBACK_TEMPERATURE": {
-        "type": SettingType.NUMBER,
-        "category": SettingCategory.LLM,
-        "description": "Fallback LLM temperature for response generation (0.0-2.0)",
-        "default": 0.7,
-    },
-    "LLM_FALLBACK_MAX_TOKENS": {
-        "type": SettingType.NUMBER,
-        "category": SettingCategory.LLM,
-        "description": "Maximum tokens in fallback LLM response",
-        "default": 4096,
-    },
     # ============================================
     # Session Settings
     # ============================================
@@ -533,7 +502,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     # ============================================
     # Long-term Storage Settings (PostgreSQL)
     # ============================================
-    "ENABLE_LONG_TERM_STORAGE": {
+    "ENABLE_POSTGRES_STORAGE": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.LONG_TERM_STORAGE,
         "description": "Enable PostgreSQL-based long-term storage",
@@ -545,21 +514,21 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.LONG_TERM_STORAGE,
         "description": "PostgreSQL host",
         "default": "localhost",
-        "depends_on": "ENABLE_LONG_TERM_STORAGE",
+        "depends_on": "ENABLE_POSTGRES_STORAGE",
     },
     "POSTGRES_PORT": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.LONG_TERM_STORAGE,
         "description": "PostgreSQL port",
         "default": 5432,
-        "depends_on": "ENABLE_LONG_TERM_STORAGE",
+        "depends_on": "ENABLE_POSTGRES_STORAGE",
     },
     "POSTGRES_USER": {
         "type": SettingType.STRING,
         "category": SettingCategory.LONG_TERM_STORAGE,
         "description": "PostgreSQL username",
         "default": "postgres",
-        "depends_on": "ENABLE_LONG_TERM_STORAGE",
+        "depends_on": "ENABLE_POSTGRES_STORAGE",
     },
     "POSTGRES_PASSWORD": {
         "type": SettingType.STRING,
@@ -567,28 +536,28 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "PostgreSQL password",
         "default": "postgres",
         "is_sensitive": True,
-        "depends_on": "ENABLE_LONG_TERM_STORAGE",
+        "depends_on": "ENABLE_POSTGRES_STORAGE",
     },
     "POSTGRES_DB": {
         "type": SettingType.STRING,
         "category": SettingCategory.LONG_TERM_STORAGE,
         "description": "PostgreSQL database name",
         "default": "langgraph",
-        "depends_on": "ENABLE_LONG_TERM_STORAGE",
+        "depends_on": "ENABLE_POSTGRES_STORAGE",
     },
     "POSTGRES_POOL_MIN_SIZE": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.LONG_TERM_STORAGE,
         "description": "PostgreSQL connection pool minimum size",
         "default": 2,
-        "depends_on": "ENABLE_LONG_TERM_STORAGE",
+        "depends_on": "ENABLE_POSTGRES_STORAGE",
     },
     "POSTGRES_POOL_MAX_SIZE": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.LONG_TERM_STORAGE,
         "description": "PostgreSQL connection pool maximum size",
         "default": 10,
-        "depends_on": "ENABLE_LONG_TERM_STORAGE",
+        "depends_on": "ENABLE_POSTGRES_STORAGE",
     },
     # ============================================
     # User Management Settings

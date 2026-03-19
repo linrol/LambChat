@@ -7,12 +7,11 @@ LLM 客户端
 import asyncio
 import os
 from functools import lru_cache
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
-from langsmith import traceable
 from pydantic import SecretStr
 
 from src.infra.logging import get_logger
@@ -170,6 +169,10 @@ class LLMClient:
         """获取 LangChain 聊天模型（带缓存）。"""
         model = model or settings.LLM_MODEL
         provider, model_name = _parse_provider(model)
+
+        if profile is None and settings.LLM_MAX_INPUT_TOKENS is not None:
+            profile = {"max_input_tokens": settings.LLM_MAX_INPUT_TOKENS}
+
         cache_key = _make_cache_key(
             provider,
             model_name,
@@ -198,63 +201,6 @@ class LLMClient:
         )
         LLMClient._model_cache[cache_key] = instance
         return instance
-
-    @staticmethod
-    def get_fallback_model(
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        api_key: Optional[str] = None,
-        api_base: Optional[str] = None,
-        thinking: Optional[dict] = None,
-        profile: Optional[dict] = None,
-        **kwargs: Any,
-    ) -> BaseChatModel:
-        """获取带 fallback 的 LLM 模型。
-
-        当 LLM_FALLBACK_MODEL 配置不为空时，主模型失败会自动切换到 fallback 模型。
-        """
-        primary = LLMClient.get_model(
-            model=model,
-            temperature=temperature or settings.LLM_TEMPERATURE,
-            max_tokens=max_tokens,
-            api_key=api_key,
-            api_base=api_base,
-            thinking=thinking,
-            profile=profile,
-            **kwargs,
-        )
-
-        if not settings.LLM_FALLBACK_MODEL:
-            return primary
-
-        fallback = LLMClient.get_model(
-            model=settings.LLM_FALLBACK_MODEL,
-            temperature=temperature or settings.LLM_FALLBACK_TEMPERATURE,
-            max_tokens=max_tokens or settings.LLM_FALLBACK_MAX_TOKENS,
-            api_key=api_key or settings.LLM_FALLBACK_API_KEY or None,
-            api_base=api_base or settings.LLM_FALLBACK_API_BASE or None,
-            thinking=thinking,
-            profile=profile,
-            **kwargs,
-        )
-
-        logger.info(
-            f"LLM fallback enabled: {model or settings.LLM_MODEL} -> {settings.LLM_FALLBACK_MODEL}"
-        )
-        return cast("BaseChatModel", primary.with_fallbacks([fallback]))
-
-    @staticmethod
-    @traceable(name="get_deep_agent_model", run_type="llm")
-    def get_deep_agent_model(
-        model: Optional[str] = None,
-        profile: Optional[dict] = None,
-        **kwargs: Any,
-    ) -> BaseChatModel:
-        """获取 DeepAgent 配置的模型。"""
-        if profile is None and settings.LLM_MAX_INPUT_TOKENS is not None:
-            profile = {"max_input_tokens": settings.LLM_MAX_INPUT_TOKENS}
-        return LLMClient.get_model(model=model or settings.LLM_MODEL, profile=profile, **kwargs)
 
     @staticmethod
     def get_langgraph_model(

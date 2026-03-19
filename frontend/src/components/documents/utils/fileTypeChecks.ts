@@ -90,6 +90,11 @@ export function isWordFile(ext: string): boolean {
   return wordExts.includes(ext);
 }
 
+// Check if file is legacy Word format (.doc)
+export function isLegacyDocFile(ext: string): boolean {
+  return ext === "doc";
+}
+
 // Check if file is Excel spreadsheet
 export function isExcelFile(ext: string): boolean {
   const excelExts = ["xls", "xlsx", "csv"];

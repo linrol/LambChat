@@ -24,16 +24,15 @@ from src.agents.search_agent.prompt import (
 )
 from src.infra.agent import AgentEventProcessor
 from src.infra.backend import (
-    create_postgres_backend_factory,
+    create_persistent_backend_factory,
     create_sandbox_backend_factory,
 )
-from src.infra.backend.deepagent import create_memory_backend_factory
 from src.infra.llm.client import LLMClient
 from src.infra.logging import get_logger
 from src.infra.sandbox.session_manager import get_session_sandbox_manager
 from src.infra.skill.loader import build_skills_prompt
 from src.infra.storage.checkpoint import get_async_checkpointer
-from src.infra.storage.postgres import create_postgres_store
+from src.infra.storage.mongodb_store import create_store
 from src.infra.writer.present import Presenter
 from src.kernel.config import settings
 
@@ -240,7 +239,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
 
     # 创建 LLM
     llm_start = time.time()
-    llm = LLMClient.get_fallback_model(
+    llm = LLMClient.get_model(
         api_base=settings.LLM_API_BASE,
         api_key=settings.LLM_API_KEY,
         model=settings.LLM_MODEL,
@@ -390,27 +389,16 @@ async def _create_backend_and_prompt(
     # 构建记忆系统提示
     memory_guide = HINDSIGHT_MEMORY_SECTION if settings.HINDSIGHT_ENABLED else EMPTY_MEMORY_SECTION
 
-    # 根据设置决定是否使用长期存储
-    if settings.ENABLE_LONG_TERM_STORAGE:
-        # 使用 PostgreSQL 长期存储，每个 agent 创建独立的 store 实例
-        store = create_postgres_store()
-    else:
-        # 不使用长期存储，使用内存 store
-        store = None
+    # 创建 store（优先 PostgreSQL → MongoDB fallback）
+    store = create_store()
 
     # 获取 user_id 用于 skills 读写
     user_id = context.user_id or "default"
 
     if not settings.ENABLE_SANDBOX:
-        # 非沙箱模式
-        if settings.ENABLE_LONG_TERM_STORAGE:
-            logger.info(
-                f"Sandbox disabled, using CompositeBackend with PostgresStore for assistant: {assistant_id}"
-            )
-            backend_factory = create_postgres_backend_factory(assistant_id, user_id=user_id)
-        else:
-            logger.info(f"Sandbox disabled, using in-memory backend for assistant: {assistant_id}")
-            backend_factory = create_memory_backend_factory(assistant_id, user_id=user_id)
+        # 非沙箱模式：使用持久化 backend（PostgreSQL 或 MongoDB，由 store 决定）
+        logger.info(f"Sandbox disabled, using PersistentBackend for assistant: {assistant_id}")
+        backend_factory = create_persistent_backend_factory(assistant_id, user_id=user_id)
         return (
             backend_factory,
             DEFAULT_SYSTEM_PROMPT.replace("{skills}", skills_prompt).replace(
