@@ -15,6 +15,7 @@ import {
   ToolCallItem,
   FileRevealItem,
   ProjectRevealItem,
+  ReadFileItem,
 } from "./ToolCallItem";
 import { ThinkingBlock, SubagentBlock, SandboxItem } from "./SubagentBlocks";
 import { TodoBlock } from "./TodoBlock";
@@ -368,6 +369,17 @@ function MessagePartRenderer({
   }
 
   if (part.type === "tool") {
+    // Detect Read tool, use dedicated component (strips line numbers, shows file path)
+    if (part.name === "Read" || part.name === "read_file") {
+      return (
+        <ReadFileItem
+          args={part.args}
+          result={part.result}
+          success={part.success}
+          isPending={part.isPending}
+        />
+      );
+    }
     // Detect reveal_file tool, use dedicated component
     if (part.name === "reveal_file") {
       return (

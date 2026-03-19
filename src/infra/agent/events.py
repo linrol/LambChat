@@ -462,16 +462,9 @@ class AgentEventProcessor:
         #  10. 其他对象 — str()
         raw = self._extract_tool_output(out)
 
-        # 错误检测
-        is_error, error_message = False, None
-        if isinstance(raw, dict):
-            if raw.get("error") or raw.get("status") == "error":
-                is_error = True
-                error_message = raw.get("error") or raw.get("message") or str(raw)
-        elif isinstance(raw, str):
-            raw_lower = raw.lower()
-            if any(e in raw_lower for e in _TOOL_ERROR_INDICATORS):
-                is_error, error_message = True, raw
+        # 错误检测：优先使用 ToolMessage.status（框架权威信号），
+        # 仅在无法获取 status 时 fallback 到内容关键字扫描
+        is_error, error_message = self._detect_tool_error(out, raw)
 
         # JSON 解析（字符串可能是 JSON，尝试解析为结构化数据给前端）
         result: Any = raw
@@ -561,6 +554,87 @@ class AgentEventProcessor:
                 return nested
 
             return out
+
+    @staticmethod
+    def _detect_tool_error(out: Any, raw: Any) -> tuple[bool, str | None]:
+        """检测工具调用是否失败。
+
+        检测优先级:
+          1. ToolMessage.status == "error" — 框架权威信号（工具抛异常时设置）
+          2. 结构化数据中的 error/status 字段
+          3. 内容关键字扫描（仅当无法获取 ToolMessage.status 时作为 fallback）
+
+        Args:
+            out: 工具节点的原始输出（可能包含 ToolMessage 对象）
+            raw: 经 _extract_tool_output 处理后的内容
+
+        Returns:
+            (is_error, error_message)
+        """
+        # 1. 从原始输出中提取 ToolMessage.status（最可靠）
+        tool_status = AgentEventProcessor._get_tool_status(out)
+        if tool_status == "error":
+            return True, str(raw) if raw else "Tool execution failed"
+
+        # 2. 结构化数据中的错误字段
+        if isinstance(raw, dict):
+            if raw.get("error") or raw.get("status") == "error":
+                return True, raw.get("error") or raw.get("message") or str(raw)
+
+        # 3. Fallback: 内容关键字扫描（仅在拿不到 ToolMessage.status 时）
+        #    仅检查内容开头，避免文件/资源内容中包含 "Error:" 等关键字导致误判
+        if isinstance(raw, str) and raw:
+            first_line = raw.lstrip()[:200].lower()
+            if any(first_line.startswith(e) for e in _TOOL_ERROR_INDICATORS):
+                return True, raw
+
+        return False, None
+
+    @staticmethod
+    def _get_tool_status(out: Any) -> str | None:
+        """从工具原始输出中提取 ToolMessage.status。
+
+        遍历各种包装类型（ToolMessage, list, Command, dict）找到 status 字段。
+        """
+
+        def _check(obj: Any) -> str | None:
+            status = getattr(obj, "status", None)
+            if status and isinstance(status, str):
+                return status
+            return None
+
+        if out is None:
+            return None
+
+        # ToolMessage 或其他 BaseMessage 对象
+        if not isinstance(out, (dict, list, str)):
+            s = _check(out)
+            if s:
+                return s
+            # Command 对象
+            update = getattr(out, "update", None)
+            if isinstance(update, dict):
+                return AgentEventProcessor._get_tool_status(update.get("messages"))
+            return None
+
+        # list[BaseMessage] 或 MCP content blocks
+        if isinstance(out, list):
+            for item in out:
+                if isinstance(item, (dict, str)):
+                    continue
+                s = _check(item)
+                if s:
+                    return s
+            return None
+
+        # dict — 检查嵌套 messages
+        if isinstance(out, dict):
+            update = out.get("update")
+            if isinstance(update, dict):
+                return AgentEventProcessor._get_tool_status(update.get("messages"))
+            return None
+
+        return None
 
     @staticmethod
     def _normalize_content(content: Any) -> Any:

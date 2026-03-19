@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
-import { Wrench, ExternalLink, Code2, FolderTree } from "lucide-react";
+import { Wrench, ExternalLink, Code2, FolderTree, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LoadingSpinner, CollapsiblePill, ImageViewer } from "../../common";
 import type { CollapsibleStatus } from "../../common";
@@ -53,6 +53,70 @@ interface McpMultiModalResult {
   text?: string;
   blocks?: McpContentBlock[];
 }
+
+// 去除 cat -n 格式的行号前缀 (如 "  201\tcontent" 或 "201→content")
+function stripLineNumbers(text: string): string {
+  return text.replace(/^\s*\d+[→\t]/gm, "");
+}
+
+// Read File 工具专用渲染 — 去行号 + 文件路径 header + 代码块样式
+const ReadFileItem = memo(function ReadFileItem({
+  args,
+  result,
+  success,
+  isPending,
+}: {
+  args: Record<string, unknown>;
+  result?: string | Record<string, unknown>;
+  success?: boolean;
+  isPending?: boolean;
+}) {
+  const filePath = (args.file_path as string) || "";
+  const fileName = filePath.split("/").pop() || filePath;
+  const offset = args.offset as number | undefined;
+  const limit = args.limit as number | undefined;
+
+  // useMemo 缓存行号去除，避免大文件重复计算
+  const displayContent = useMemo(() => {
+    if (!result) return "";
+    const raw = typeof result === "string" ? result : JSON.stringify(result, null, 2);
+    return stripLineNumbers(raw);
+  }, [result]);
+
+  return (
+    <CollapsiblePill
+      status={isPending ? "loading" : success ? "success" : "error"}
+      icon={<FileText size={12} className="shrink-0 opacity-50" />}
+      label={fileName || "Read"}
+      variant="tool"
+      expandable={!!displayContent}
+    >
+      {displayContent && (
+        <div className="mt-2 ml-4 pl-3 border-l-2 border-stone-200/60 dark:border-stone-700/50">
+          {/* 文件路径 header */}
+          <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md bg-stone-100 dark:bg-stone-800 text-xs text-stone-500 dark:text-stone-400 font-mono">
+            <span className="truncate">{filePath}</span>
+            {(offset !== undefined || limit !== undefined) && (
+              <span className="shrink-0 text-stone-400 dark:text-stone-500">
+                :L{offset ?? 1}{limit ? `-${(offset ?? 1) + limit}` : ""}
+              </span>
+            )}
+          </div>
+          {/* 代码内容 */}
+          <pre
+            className={clsx(
+              "text-xs max-h-64 overflow-y-auto rounded-md p-3",
+              "bg-stone-50 dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/50",
+              "text-stone-700 dark:text-stone-300 whitespace-pre-wrap break-words font-mono",
+            )}
+          >
+            {displayContent}
+          </pre>
+        </div>
+      )}
+    </CollapsiblePill>
+  );
+});
 
 // 工具结果渲染组件 — 支持 str / dict / MCP 多模态
 function ToolResultContent({
@@ -154,6 +218,8 @@ function McpBlockPreview({ block }: { block: McpContentBlock }) {
 }
 
 // Collapsible Tool Call Item (compact design)
+export { ReadFileItem };
+
 export function ToolCallItem({
   name,
   args,
