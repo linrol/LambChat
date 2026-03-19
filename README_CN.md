@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/Python-3.12+-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/React-19-green.svg" alt="React">
   <img src="https://img.shields.io/badge/FastAPI-Latest-orange.svg" alt="FastAPI">
-  <img src="https://img.shields.io/badge/LangGraph-Latest-purple.svg" alt="LangGraph">
+  <img src="https://img.shields.io/badge/deepagents-Latest-purple.svg" alt="deepagents">
   <img src="https://img.shields.io/badge/MongoDB-Latest-green.svg" alt="MongoDB">
   <img src="https://img.shields.io/badge/Redis-Latest-red.svg" alt="Redis">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
@@ -12,7 +12,7 @@
 
 [English](README.md) | 简体中文
 
-> 基于 FastAPI + LangGraph 构建的生产级 AI Agent 系统
+> 基于 FastAPI + deepagents 构建的生产级 AI Agent 系统
 
 ## 📸 界面展示
 
@@ -88,7 +88,7 @@
 ## ✨ 核心特性
 
 ### 🤖 Agent 系统
-- **LangGraph 架构** - 编译图架构，支持细粒度状态管理
+- **deepagents 架构** - 编译图架构，支持细粒度状态管理
 - **多 Agent 类型** - 核心 Agent（默认）、快速 Agent（速度优化）、搜索 Agent（网络搜索）
 - **插件系统** - 使用 `@register_agent("id")` 装饰器快速注册自定义 Agent
 - **流式输出** - 原生支持 SSE (Server-Sent Events)

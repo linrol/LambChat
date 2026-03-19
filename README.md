@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/Python-3.12+-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/React-19-green.svg" alt="React">
   <img src="https://img.shields.io/badge/FastAPI-Latest-orange.svg" alt="FastAPI">
-  <img src="https://img.shields.io/badge/LangGraph-Latest-purple.svg" alt="LangGraph">
+  <img src="https://img.shields.io/badge/deepagents-Latest-purple.svg" alt="deepagents">
   <img src="https://img.shields.io/badge/MongoDB-Latest-green.svg" alt="MongoDB">
   <img src="https://img.shields.io/badge/Redis-Latest-red.svg" alt="Redis">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
@@ -12,7 +12,7 @@
 
 English | [简体中文](README_CN.md)
 
-> A production-ready AI Agent system built with FastAPI + LangGraph
+> A production-ready AI Agent system built with FastAPI + deepagents
 
 ## 📸 Screenshots
 
@@ -88,7 +88,7 @@ English | [简体中文](README_CN.md)
 ## ✨ Features
 
 ### 🤖 Agent System
-- **LangGraph Architecture** - Compiled graph with fine-grained state management
+- **deepagents Architecture** - Compiled graph with fine-grained state management
 - **Multi-Agent Types** - Core Agent (default), Fast Agent (optimized speed), Search Agent (web search)
 - **Plugin System** - Register custom agents with `@register_agent("id")` decorator
 - **Streaming Output** - Native SSE (Server-Sent Events) support
