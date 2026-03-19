@@ -6,6 +6,7 @@ Provides endpoints for file uploads to S3-compatible storage.
 
 import asyncio
 import base64
+import re
 from typing import Any
 
 from fastapi import (
@@ -17,6 +18,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from src.api.deps import get_current_user_required, require_permissions
@@ -28,11 +30,26 @@ from src.api.routes.file_type import (
 )
 from src.infra.auth.rbac import check_permission
 from src.infra.logging import get_logger
-from src.infra.storage.s3 import S3Config, S3Provider, get_storage_service, init_storage
+from src.infra.storage.s3 import (
+    LocalStorageBackend,
+    S3Config,
+    S3Provider,
+    get_storage_service,
+    init_storage,
+)
 from src.kernel.config import settings
 from src.kernel.schemas.user import TokenPayload
 
 logger = get_logger(__name__)
+
+_VIDEO_EXTENSIONS = frozenset(
+    {"mp4", "webm", "mov", "avi", "mkv", "m4v", "ogg", "ogv", "flv", "wmv"}
+)
+
+
+def _is_video_key(key: str) -> bool:
+    ext = key.rsplit(".", 1)[-1].lower() if "." in key else ""
+    return ext in _VIDEO_EXTENSIONS
 
 
 def _parse_bool(value: Any) -> bool:
@@ -65,7 +82,10 @@ async def get_s3_config_from_settings() -> S3Config:
         "tencent": S3Provider.TENCENT,
         "minio": S3Provider.MINIO,
         "custom": S3Provider.CUSTOM,
+        "local": S3Provider.LOCAL,
     }
+
+    storage_path = getattr(settings, "LOCAL_STORAGE_PATH", "./uploads") or "./uploads"
 
     return S3Config(
         provider=provider_map.get(str(settings.S3_PROVIDER).lower(), S3Provider.AWS),
@@ -78,6 +98,7 @@ async def get_s3_config_from_settings() -> S3Config:
         path_style=_parse_bool(settings.S3_PATH_STYLE),
         public_bucket=_parse_bool(settings.S3_PUBLIC_BUCKET),
         max_file_size=(int(settings.S3_MAX_FILE_SIZE) if settings.S3_MAX_FILE_SIZE else 10485760),
+        storage_path=storage_path,
     )
 
 
@@ -87,6 +108,12 @@ async def get_or_init_storage():
     if s3_enabled:
         config = await get_s3_config_from_settings()
         await init_storage(config)
+    else:
+        # Auto-enable local storage when S3 is not configured
+        storage = get_storage_service()
+        if storage._backend is None:
+            config = S3Config(provider=S3Provider.LOCAL, storage_path="./uploads")
+            await init_storage(config)
     return get_storage_service()
 
 
@@ -154,12 +181,6 @@ async def upload_file(
     Returns:
         Upload result with URL and metadata
     """
-    if not get_s3_enabled():
-        raise HTTPException(
-            status_code=503,
-            detail="File storage is not enabled. Please configure S3 settings in System Settings.",
-        )
-
     storage = await get_or_init_storage()
 
     # Determine file category from filename and content_type (no need to read content)
@@ -388,12 +409,6 @@ async def delete_file(
     Returns:
         Deletion status
     """
-    if not get_s3_enabled():
-        raise HTTPException(
-            status_code=503,
-            detail="File storage is not enabled. Please configure S3 settings in System Settings.",
-        )
-
     storage = await get_or_init_storage()
 
     # Async delete - return immediately, delete in background
@@ -428,8 +443,8 @@ async def get_storage_config(
     upload_limits = await resolve_upload_limits(current_user.roles)
 
     return {
-        "enabled": s3_enabled,
-        "provider": settings.S3_PROVIDER if s3_enabled else None,
+        "enabled": True,  # Always enabled (local storage as fallback)
+        "provider": settings.S3_PROVIDER if s3_enabled else "local",
         "uploadLimits": {
             "image": upload_limits["image"],
             "video": upload_limits["video"],
@@ -497,6 +512,21 @@ async def get_signed_urls(
         )
 
     storage = await get_or_init_storage()
+    backend = storage._get_backend()
+
+    # Local storage: return proxy URLs directly
+    if isinstance(backend, LocalStorageBackend):
+        urls = []
+        for key in request.keys:
+            try:
+                exists = await backend.exists(key)
+                if exists:
+                    urls.append(SignedUrlItem(key=key, url=f"/api/upload/file/{key}"))
+                else:
+                    urls.append(SignedUrlItem(key=key, error="File not found"))
+            except Exception as e:
+                urls.append(SignedUrlItem(key=key, error=str(e)))
+        return SignedUrlResponse(urls=urls, expires_in=0)
 
     # Check if bucket is private (need signed URLs)
     if storage._config.public_bucket:
@@ -556,8 +586,14 @@ async def get_single_signed_url(
         )
 
     storage = await get_or_init_storage()
+    backend = storage._get_backend()
 
     try:
+        if isinstance(backend, LocalStorageBackend):
+            exists = await backend.exists(key)
+            if not exists:
+                return SignedUrlItem(key=key, error="File not found")
+            return SignedUrlItem(key=key, url=f"/api/upload/file/{key}")
         # If bucket is public, return direct URL
         if storage._config.public_bucket:
             url = await storage.get_file_url(key)
@@ -609,8 +645,14 @@ async def get_signed_url_simple(
         )
 
     storage = await get_or_init_storage()
+    backend = storage._get_backend()
 
     try:
+        if isinstance(backend, LocalStorageBackend):
+            exists = await backend.exists(key)
+            if not exists:
+                raise HTTPException(status_code=404, detail="File not found")
+            return SignedUrlResponseSimple(url=f"/api/upload/file/{key}", expires_in=0)
         # If bucket is public, return direct URL
         if storage._config.public_bucket:
             url = await storage.get_file_url(key)
@@ -626,49 +668,138 @@ async def get_signed_url_simple(
 @router.get("/file/{key:path}")
 async def get_file_proxy(
     key: str,
+    request: Request,
+    direct: bool = False,
 ) -> Response:
     """
     Dynamic proxy endpoint for file access
 
-    Generates a short-lived presigned URL and redirects to it.
-    This ensures the URL never expires from the user's perspective.
-    No authentication required - uses presigned URLs for access.
+    For S3 storage: generates a short-lived presigned URL and redirects.
+    For local storage: serves the file directly.
+    No authentication required.
 
-    Args:
-        key: S3 object key
-
-    Returns:
-        302 redirect to presigned URL
+    Query params:
+        direct: If true, return the URL as JSON instead of redirecting (for video streaming).
     """
-    if not get_s3_enabled():
-        raise HTTPException(
-            status_code=503,
-            detail="File storage is not enabled.",
-        )
+    from fastapi.responses import JSONResponse
 
     storage = await get_or_init_storage()
+    backend = storage._get_backend()
 
-    # Verify file exists
+    base_url = str(request.base_url).rstrip("/")
+    proxy_url = f"{base_url}/api/upload/file/{key}"
+
+    # Local storage: serve file directly with FileResponse (native Range/sendfile support)
+    if isinstance(backend, LocalStorageBackend):
+        if direct:
+            return JSONResponse({"url": proxy_url})
+        try:
+            file_path = backend._get_file_path(key)
+            if not file_path.exists():
+                raise HTTPException(status_code=404, detail="File not found")
+
+            import mimetypes
+
+            content_type, _ = mimetypes.guess_type(key)
+            if not content_type:
+                content_type = "application/octet-stream"
+
+            filename = key.split("/")[-1]
+            return FileResponse(
+                path=str(file_path),
+                media_type=content_type,
+                filename=filename,
+                content_disposition_type="inline",
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to serve local file {key}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to read file")
+
+    # S3 storage: redirect to presigned URL
     try:
         exists = await storage.file_exists(key)
         if not exists:
             raise HTTPException(status_code=404, detail="File not found")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.warning(f"Failed to check file existence for {key}: {e}")
-        # Continue anyway - let S3 handle the error
 
-    # Generate short-lived presigned URL (5 minutes)
     try:
         if storage._config.public_bucket:
             url = await storage.get_file_url(key)
         else:
-            url = await storage.get_presigned_url(key, 300)  # 5 minutes
+            url = await storage.get_presigned_url(key, 300)
     except Exception as e:
         logger.error(f"Failed to generate presigned URL for {key}: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate file URL")
 
-    # Redirect to presigned URL
+    if direct:
+        return JSONResponse({"url": url})
+
+    # Video: proxy through backend to bypass OSS force-download (x-oss-force-download)
+    if _is_video_key(key):
+        import mimetypes as _mt
+
+        content_type, _ = _mt.guess_type(key)
+        if not content_type or not content_type.startswith("video/"):
+            content_type = "video/mp4"
+
+        try:
+            total_size = await backend.get_size(key)
+        except Exception as e:
+            logger.error(f"Failed to stat video {key}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to read video file")
+
+        range_header = request.headers.get("range")
+
+        if range_header:
+            range_match = re.match(r"bytes=(\d+)-(\d*)", range_header)
+            if range_match:
+                start = int(range_match.group(1))
+                end = int(range_match.group(2)) if range_match.group(2) else total_size - 1
+
+                try:
+                    content = await backend.download_range(key, start, end)
+                except Exception as e:
+                    logger.error(f"Failed to download video range {key}: {e}")
+                    raise HTTPException(status_code=500, detail="Failed to read video file")
+
+                return Response(
+                    content=content,
+                    status_code=206,
+                    media_type=content_type,
+                    headers={
+                        "Content-Range": f"bytes {start}-{end}/{total_size}",
+                        "Accept-Ranges": "bytes",
+                        "Content-Disposition": "inline",
+                        "Cache-Control": "public, max-age=86400",
+                    },
+                )
+
+        try:
+            content = await backend.download(key)
+        except Exception as e:
+            logger.error(f"Failed to download video {key}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to read video file")
+
+        return Response(
+            content=content,
+            media_type=content_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Disposition": "inline",
+                "Cache-Control": "public, max-age=86400",
+            },
+        )
+
     return Response(
         status_code=302,
-        headers={"Location": url},
+        headers={
+            "Location": url,
+            "Cache-Control": "public, max-age=300",
+        },
     )

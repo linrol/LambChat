@@ -18,16 +18,23 @@ export interface UploadOptions {
   onProgress?: (progress: number, loaded: number, total: number) => void;
 }
 
+export interface UploadHandle {
+  promise: Promise<UploadResult>;
+  abort: () => void;
+}
+
+let _configPromise: Promise<UploadConfig> | null = null;
+
 export const uploadApi = {
   /**
    * 上传文件
    * @param file - The file to upload
    * @param folderOrOptions - Either a folder string (for backward compatibility) or UploadOptions object
    */
-  async uploadFile(
+  uploadFile(
     file: File,
     folderOrOptions: string | UploadOptions = "uploads",
-  ): Promise<UploadResult> {
+  ): UploadHandle {
     // Handle backward compatibility: string folder or options object
     const options: UploadOptions =
       typeof folderOrOptions === "string"
@@ -37,11 +44,10 @@ export const uploadApi = {
     const folder = options.folder || "uploads";
     const { onProgress } = options;
 
-    return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const promise = new Promise<UploadResult>((resolve, reject) => {
       const formData = new FormData();
       formData.append("file", file);
-
-      const xhr = new XMLHttpRequest();
 
       // Track upload progress
       if (onProgress) {
@@ -100,6 +106,11 @@ export const uploadApi = {
 
       xhr.send(formData);
     });
+
+    return {
+      promise,
+      abort: () => xhr.abort(),
+    };
   },
 
   /**
@@ -160,7 +171,10 @@ export const uploadApi = {
    * 获取存储配置
    */
   async getConfig(): Promise<UploadConfig> {
-    return authFetch<UploadConfig>(`${API_BASE}/api/upload/config`);
+    if (!_configPromise) {
+      _configPromise = authFetch<UploadConfig>(`${API_BASE}/api/upload/config`);
+    }
+    return _configPromise;
   },
 
   /**

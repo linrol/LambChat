@@ -12,6 +12,8 @@ import {
   WriteFileItem,
   GrepItem,
   LsItem,
+  GlobItem,
+  ExecuteItem,
 } from "./ToolCallItem";
 import { ThinkingBlock, SubagentBlock, SandboxItem } from "./SubagentBlocks";
 import { TodoBlock } from "./TodoBlock";
@@ -39,7 +41,7 @@ export function MessagePartRenderer({
 
   if (part.type === "tool") {
     // Detect Read tool, use dedicated component (strips line numbers, shows file path)
-    if (part.name === "Read" || part.name === "read_file") {
+    if (part.name === "read_file") {
       return (
         <ReadFileItem
           args={part.args}
@@ -72,7 +74,7 @@ export function MessagePartRenderer({
       );
     }
     // Detect edit_file tool, use dedicated component
-    if (part.name === "Edit" || part.name === "edit_file") {
+    if (part.name === "edit_file") {
       return (
         <EditFileItem
           args={part.args}
@@ -83,7 +85,7 @@ export function MessagePartRenderer({
       );
     }
     // Detect write_file tool, use dedicated component
-    if (part.name === "Write" || part.name === "write_file") {
+    if (part.name === "write_file") {
       return (
         <WriteFileItem
           args={part.args}
@@ -94,7 +96,7 @@ export function MessagePartRenderer({
       );
     }
     // Detect grep tool, use dedicated component
-    if (part.name === "Grep" || part.name === "grep") {
+    if (part.name === "grep") {
       return (
         <GrepItem
           args={part.args}
@@ -105,9 +107,31 @@ export function MessagePartRenderer({
       );
     }
     // Detect ls tool, use dedicated component
-    if (part.name === "Ls" || part.name === "ls" || part.name === "list_directory") {
+    if (part.name === "ls") {
       return (
         <LsItem
+          args={part.args}
+          result={part.result}
+          success={part.success}
+          isPending={part.isPending}
+        />
+      );
+    }
+    // Detect glob tool, use dedicated component
+    if (part.name === "glob") {
+      return (
+        <GlobItem
+          args={part.args}
+          result={part.result}
+          success={part.success}
+          isPending={part.isPending}
+        />
+      );
+    }
+    // Detect execute tool, use dedicated component
+    if (part.name === "execute") {
+      return (
+        <ExecuteItem
           args={part.args}
           result={part.result}
           success={part.success}

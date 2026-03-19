@@ -36,6 +36,7 @@ export function useFileUpload({
   const { t } = useTranslation();
   const [uploadLimits, setUploadLimits] = useState<UploadLimits | null>(null);
   const limitsFetched = useRef(false);
+  const abortMapRef = useRef<Map<string, () => void>>(new Map());
 
   // Fetch upload limits once
   if (!limitsFetched.current) {
@@ -80,6 +81,19 @@ export function useFileUpload({
     [uploadLimits, attachments.length, t],
   );
 
+  /** Cancel an in-progress upload by attachment id */
+  const cancelUpload = useCallback(
+    (id: string) => {
+      const abort = abortMapRef.current.get(id);
+      if (abort) {
+        abort();
+        abortMapRef.current.delete(id);
+      }
+      onAttachmentsChange((prev) => prev.filter((a) => a.id !== id));
+    },
+    [onAttachmentsChange],
+  );
+
   /** Upload a single file with progress tracking */
   const uploadFile = useCallback(
     (file: File, category?: FileCategory) => {
@@ -98,19 +112,23 @@ export function useFileUpload({
 
       onAttachmentsChange((prev) => [...prev, tempAttachment]);
 
-      uploadApi
-        .uploadFile(file, {
-          onProgress: (progress) => {
-            onAttachmentsChange((prev: MessageAttachment[]) =>
-              prev.map((a) =>
-                a.id === tempId
-                  ? { ...a, uploadProgress: progress, isUploading: true }
-                  : a,
-              ),
-            );
-          },
-        })
+      const handle = uploadApi.uploadFile(file, {
+        onProgress: (progress) => {
+          onAttachmentsChange((prev: MessageAttachment[]) =>
+            prev.map((a) =>
+              a.id === tempId
+                ? { ...a, uploadProgress: progress, isUploading: true }
+                : a,
+            ),
+          );
+        },
+      });
+
+      abortMapRef.current.set(tempId, handle.abort);
+
+      handle.promise
         .then((result) => {
+          abortMapRef.current.delete(tempId);
           const finalAttachment: MessageAttachment = {
             id: crypto.randomUUID(),
             key: result.key,
@@ -126,6 +144,14 @@ export function useFileUpload({
           );
         })
         .catch((error) => {
+          abortMapRef.current.delete(tempId);
+          if (
+            error instanceof Error &&
+            error.message === "Upload was aborted"
+          ) {
+            // Cancelled by user, already removed in cancelUpload
+            return;
+          }
           console.error("Upload failed:", error);
           toast.error(
             error instanceof Error
@@ -157,7 +183,14 @@ export function useFileUpload({
     [validateCount, validateSize, uploadFile],
   );
 
-  return { uploadLimits, uploadFiles, uploadFile, validateSize, validateCount };
+  return {
+    uploadLimits,
+    uploadFiles,
+    uploadFile,
+    validateSize,
+    validateCount,
+    cancelUpload,
+  };
 }
 
 export { getFileCategory };

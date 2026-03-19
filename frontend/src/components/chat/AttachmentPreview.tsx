@@ -6,6 +6,7 @@ import type { MessageAttachment } from "../../types";
 interface AttachmentPreviewProps {
   attachments: MessageAttachment[];
   onRemove: (id: string) => void;
+  onCancel?: (id: string) => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -24,6 +25,7 @@ const ICON_MAP = {
 export const AttachmentPreview = memo(function AttachmentPreview({
   attachments,
   onRemove,
+  onCancel,
 }: AttachmentPreviewProps) {
   const { t } = useTranslation();
 
@@ -31,16 +33,27 @@ export const AttachmentPreview = memo(function AttachmentPreview({
     <div className="bg-white dark:bg-stone-800 rounded-lg shadow-lg border border-gray-200 dark:border-stone-700 p-2 space-y-2">
       {attachments.map((attachment) => {
         const Icon = ICON_MAP[attachment.type] || File;
+        const isUploading = !!attachment.isUploading;
 
         return (
           <div
             key={attachment.id}
-            className="flex items-center gap-2 p-2 rounded-md bg-gray-50 dark:bg-stone-700/50"
+            className="flex items-center gap-2 p-2 rounded-md bg-gray-50 dark:bg-stone-700/50 relative overflow-hidden"
           >
+            {/* Progress bar */}
+            {isUploading && (
+              <div
+                className="absolute inset-y-0 left-0 bg-blue-400/20 dark:bg-blue-500/20 transition-all duration-200"
+                style={{
+                  width: `${attachment.uploadProgress ?? 0}%`,
+                }}
+              />
+            )}
+
             {/* Preview or icon */}
             {attachment.type === "image" &&
             attachment.mimeType.startsWith("image/") ? (
-              <div className="w-10 h-10 rounded overflow-hidden bg-gray-200 dark:bg-stone-600 flex-shrink-0">
+              <div className="w-10 h-10 rounded overflow-hidden bg-gray-200 dark:bg-stone-600 flex-shrink-0 relative z-[1]">
                 <img
                   src={attachment.url}
                   alt={attachment.name}
@@ -48,7 +61,7 @@ export const AttachmentPreview = memo(function AttachmentPreview({
                 />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded bg-gray-200 dark:bg-stone-600 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded bg-gray-200 dark:bg-stone-600 flex items-center justify-center flex-shrink-0 relative z-[1]">
                 <Icon
                   size={18}
                   className="text-stone-500 dark:text-stone-400"
@@ -57,21 +70,31 @@ export const AttachmentPreview = memo(function AttachmentPreview({
             )}
 
             {/* File info */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 relative z-[1]">
               <p className="text-sm font-medium text-gray-900 dark:text-stone-100 truncate">
                 {attachment.name}
               </p>
               <p className="text-xs text-gray-500 dark:text-stone-400">
-                {formatFileSize(attachment.size)}
+                {isUploading
+                  ? `${attachment.uploadProgress ?? 0}%`
+                  : formatFileSize(attachment.size)}
               </p>
             </div>
 
-            {/* Remove button */}
+            {/* Remove / Cancel button */}
             <button
               type="button"
-              onClick={() => onRemove(attachment.id)}
-              className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-stone-600 text-gray-500 dark:text-stone-400"
-              title={t("fileUpload.removeAttachment")}
+              onClick={() =>
+                isUploading && onCancel
+                  ? onCancel(attachment.id)
+                  : onRemove(attachment.id)
+              }
+              className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-stone-600 text-gray-500 dark:text-stone-400 relative z-[1]"
+              title={
+                isUploading
+                  ? t("fileUpload.cancelUpload")
+                  : t("fileUpload.removeAttachment")
+              }
             >
               <X size={14} />
             </button>

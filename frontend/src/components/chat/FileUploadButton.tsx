@@ -103,21 +103,12 @@ export const FileUploadButton = memo(function FileUploadButton({
           );
           continue;
         }
-
-        // Check per-file size
-        if (uploadLimits) {
-          const maxMB = uploadLimits[fileCategory];
-          if (file.size > maxMB * 1024 * 1024) {
-            toast.error(`${t("fileUpload.fileTooLarge")} (${maxMB}MB)`);
-            continue;
-          }
-        }
       }
 
       // Delegate count validation + upload to the hook
       uploadFiles(files, category);
     },
-    [hasPermission, uploadLimits, uploadFiles, t],
+    [hasPermission, uploadFiles, t],
   );
 
   // Handle category selection from dropdown

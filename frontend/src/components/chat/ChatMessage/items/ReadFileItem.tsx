@@ -1,0 +1,64 @@
+import { memo, useMemo } from "react";
+import { clsx } from "clsx";
+import { FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { CollapsiblePill } from "../../../common";
+import { stripLineNumbers, extractText } from "./toolUtils";
+
+const ReadFileItem = memo(function ReadFileItem({
+  args,
+  result,
+  success,
+  isPending,
+}: {
+  args: Record<string, unknown>;
+  result?: string | Record<string, unknown>;
+  success?: boolean;
+  isPending?: boolean;
+}) {
+  const { t } = useTranslation();
+  const filePath = (args.file_path as string) || "";
+  const fileName = filePath.split("/").pop() || filePath;
+  const offset = args.offset as number | undefined;
+  const limit = args.limit as number | undefined;
+
+  const displayContent = useMemo(() => {
+    const raw = extractText(result);
+    return raw ? stripLineNumbers(raw) : "";
+  }, [result]);
+
+  return (
+    <CollapsiblePill
+      status={isPending ? "loading" : success ? "success" : "error"}
+      icon={<FileText size={12} className="shrink-0 opacity-50" />}
+      label={`${t("chat.message.toolRead")} ${fileName || ""}`}
+      variant="tool"
+      expandable={!!displayContent}
+    >
+      {displayContent && (
+        <div className="mt-2 ml-4 pl-3 border-l-2 border-stone-200/60 dark:border-stone-700/50">
+          <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md bg-stone-100 dark:bg-stone-800 text-xs text-stone-500 dark:text-stone-400 font-mono">
+            <span className="truncate">{filePath}</span>
+            {(offset !== undefined || limit !== undefined) && (
+              <span className="shrink-0 text-stone-400 dark:text-stone-500">
+                :L{offset ?? 1}
+                {limit ? `-${(offset ?? 1) + limit}` : ""}
+              </span>
+            )}
+          </div>
+          <pre
+            className={clsx(
+              "text-xs max-h-64 overflow-y-auto rounded-md p-3",
+              "bg-stone-50 dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/50",
+              "text-stone-700 dark:text-stone-300 whitespace-pre-wrap break-words font-mono",
+            )}
+          >
+            {displayContent}
+          </pre>
+        </div>
+      )}
+    </CollapsiblePill>
+  );
+});
+
+export { ReadFileItem };

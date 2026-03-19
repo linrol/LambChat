@@ -17,7 +17,7 @@ import { uploadApi, getFullUrl } from "../../services/api";
 import DocumentPreview from "../documents/DocumentPreview";
 import { AttachmentCard } from "../common/AttachmentCard";
 import { ImageViewer } from "../common";
-import { useFileUpload, getFileCategory } from "../../hooks/useFileUpload";
+import { useFileUpload } from "../../hooks/useFileUpload";
 import type {
   ToolState,
   ToolCategory,
@@ -236,7 +236,7 @@ export const ChatInput = memo(function ChatInput({
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { uploadFiles, validateSize, validateCount } = useFileUpload({
+  const { uploadFiles, validateCount, cancelUpload } = useFileUpload({
     attachments,
     onAttachmentsChange: setAttachments,
   });
@@ -260,11 +260,6 @@ export const ChatInput = memo(function ChatInput({
     if (clipboardData.files && clipboardData.files.length > 0) {
       e.preventDefault();
       if (!validateCount(clipboardData.files.length)) return;
-
-      for (const file of Array.from(clipboardData.files)) {
-        const category = getFileCategory(file);
-        if (!validateSize(file, category)) continue;
-      }
 
       uploadFiles(clipboardData.files);
       return;
@@ -399,10 +394,6 @@ export const ChatInput = memo(function ChatInput({
 
     if (!validateCount(files.length)) return;
 
-    for (const file of Array.from(files)) {
-      if (!validateSize(file, getFileCategory(file))) return;
-    }
-
     uploadFiles(files);
   };
 
@@ -453,6 +444,11 @@ export const ChatInput = memo(function ChatInput({
                       }
                     }}
                     onRemove={handleRemove}
+                    onCancel={
+                      attachment.isUploading
+                        ? () => cancelUpload(attachment.id)
+                        : undefined
+                    }
                   />
                 );
               })}

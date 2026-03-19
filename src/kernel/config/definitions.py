@@ -71,6 +71,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.LLM,
         "description": "LLM API key",
         "default": "",
+        "is_sensitive": True,
     },
     "LLM_API_BASE": {
         "type": SettingType.STRING,
@@ -90,6 +91,37 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "LLM 上下文窗口大小，用于 DeepAgent 自动压缩对话（设为 None 则使用模型默认值）",
         "default": None,
         "nullable": True,
+    },
+    "LLM_FALLBACK_MODEL": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.LLM,
+        "description": "Fallback LLM model identifier (leave empty to disable fallback)",
+        "default": "",
+    },
+    "LLM_FALLBACK_API_BASE": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.LLM,
+        "description": "Fallback LLM API base URL (leave empty to use main LLM API base)",
+        "default": "",
+    },
+    "LLM_FALLBACK_API_KEY": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.LLM,
+        "description": "Fallback LLM API key (leave empty to use main LLM API key)",
+        "default": "",
+        "is_sensitive": True,
+    },
+    "LLM_FALLBACK_TEMPERATURE": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.LLM,
+        "description": "Fallback LLM temperature for response generation (0.0-2.0)",
+        "default": 0.7,
+    },
+    "LLM_FALLBACK_MAX_TOKENS": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.LLM,
+        "description": "Maximum tokens in fallback LLM response",
+        "default": 4096,
     },
     # ============================================
     # Session Settings
@@ -129,6 +161,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.SESSION,
         "description": "LLM API key for title generation (leave empty to use main LLM API key)",
         "default": "",
+        "is_sensitive": True,
     },
     "SESSION_TITLE_PROMPT": {
         "type": SettingType.TEXT,
@@ -268,6 +301,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.DATABASE,
         "description": "MongoDB connection URL",
         "default": "mongodb://localhost:27017",
+        "is_sensitive": True,
     },
     "MONGODB_DB": {
         "type": SettingType.STRING,
@@ -286,6 +320,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.DATABASE,
         "description": "MongoDB password",
         "default": "",
+        "is_sensitive": True,
     },
     "MONGODB_AUTH_SOURCE": {
         "type": SettingType.STRING,
@@ -301,12 +336,14 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.DATABASE,
         "description": "Redis connection URL",
         "default": "redis://localhost:6379/0",
+        "is_sensitive": True,
     },
     "REDIS_PASSWORD": {
         "type": SettingType.STRING,
         "category": SettingCategory.DATABASE,
         "description": "Redis password",
         "default": "",
+        "is_sensitive": True,
     },
     # ============================================
     # LangSmith Tracing Settings
@@ -323,6 +360,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "LangSmith API key",
         "default": "",
         "depends_on": "LANGSMITH_TRACING",
+        "is_sensitive": True,
     },
     "LANGSMITH_PROJECT": {
         "type": SettingType.STRING,
@@ -456,6 +494,12 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     # ============================================
     # File Upload Limits
     # ============================================
+    "LOCAL_STORAGE_PATH": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.S3,
+        "description": "Local storage path when S3 is not enabled (default: ./uploads)",
+        "default": "./uploads",
+    },
     "FILE_UPLOAD_MAX_SIZE_IMAGE": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.S3,
@@ -585,6 +629,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "Google OAuth client secret",
         "default": "",
         "depends_on": "OAUTH_GOOGLE_ENABLED",
+        "is_sensitive": True,
     },
     "OAUTH_GITHUB_ENABLED": {
         "type": SettingType.BOOLEAN,
@@ -606,6 +651,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "GitHub OAuth client secret",
         "default": "",
         "depends_on": "OAUTH_GITHUB_ENABLED",
+        "is_sensitive": True,
     },
     "OAUTH_APPLE_ENABLED": {
         "type": SettingType.BOOLEAN,
@@ -627,6 +673,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "Apple OAuth client secret (private key)",
         "default": "",
         "depends_on": "OAUTH_APPLE_ENABLED",
+        "is_sensitive": True,
     },
     "OAUTH_APPLE_TEAM_ID": {
         "type": SettingType.STRING,
@@ -666,6 +713,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "Cloudflare Turnstile secret key",
         "default": "",
         "depends_on": "TURNSTILE_ENABLED",
+        "is_sensitive": True,
     },
     "TURNSTILE_REQUIRE_ON_LOGIN": {
         "type": SettingType.BOOLEAN,

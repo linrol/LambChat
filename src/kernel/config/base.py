@@ -75,6 +75,13 @@ class Settings(BaseSettings):
     LLM_MAX_RETRIES: int = 3
     LLM_MAX_INPUT_TOKENS: int | None = None  # DeepAgent summarization trigger threshold
 
+    # LLM Fallback Settings
+    LLM_FALLBACK_MODEL: str = ""
+    LLM_FALLBACK_API_BASE: Optional[str] = None
+    LLM_FALLBACK_API_KEY: str = ""
+    LLM_FALLBACK_TEMPERATURE: float = 0.7
+    LLM_FALLBACK_MAX_TOKENS: int = 4096
+
     # MCP Settings
     ENABLE_MCP: bool = True
     MCP_ENCRYPTION_SALT: Optional[str] = None  # 默认随机生成，确保加密一致性
@@ -160,6 +167,7 @@ class Settings(BaseSettings):
     S3_PRESIGNED_URL_EXPIRES: int = 7 * 24 * 3600
 
     # File Upload Settings
+    LOCAL_STORAGE_PATH: str = "./uploads"
     FILE_UPLOAD_MAX_SIZE_IMAGE: int = 10
     FILE_UPLOAD_MAX_SIZE_VIDEO: int = 100
     FILE_UPLOAD_MAX_SIZE_AUDIO: int = 50
@@ -273,6 +281,7 @@ class Settings(BaseSettings):
             "tencent": S3Provider.TENCENT,
             "minio": S3Provider.MINIO,
             "custom": S3Provider.CUSTOM,
+            "local": S3Provider.LOCAL,
         }
         provider = provider_map.get(self.S3_PROVIDER.lower(), S3Provider.AWS)
 
@@ -287,6 +296,7 @@ class Settings(BaseSettings):
             path_style=self.S3_PATH_STYLE,
             max_file_size=self.S3_MAX_FILE_SIZE,
             presigned_url_expires=self.S3_PRESIGNED_URL_EXPIRES,
+            storage_path=self.LOCAL_STORAGE_PATH,
         )
 
     @property

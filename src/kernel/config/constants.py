@@ -16,27 +16,12 @@ RESTART_REQUIRED_SETTINGS = {
     "JWT_SECRET_KEY",
 }
 
-# ============================================
-# Sensitive settings - values hidden in API responses
-# ============================================
-SENSITIVE_SETTINGS = {
-    "LLM_API_KEY",
-    "SESSION_TITLE_API_KEY",
-    "JWT_SECRET_KEY",
-    "MONGODB_URL",
-    "MONGODB_PASSWORD",
-    "REDIS_URL",
-    "REDIS_PASSWORD",
-    "LANGSMITH_API_KEY",
-    "EMBEDDING_API_KEY",
-    "RERANK_API_KEY",
-    "MILVUS_PASSWORD",
-    "S3_ACCESS_KEY",
-    "S3_SECRET_KEY",
-    "POSTGRES_PASSWORD",
-    "OAUTH_GOOGLE_CLIENT_SECRET",
-    "OAUTH_GITHUB_CLIENT_SECRET",
-    "OAUTH_APPLE_CLIENT_SECRET",
-    "TURNSTILE_SECRET_KEY",
-    "RESEND_ACCOUNTS",  # JSON array of email accounts
-}
+
+def _build_sensitive_settings() -> set[str]:
+    """Build SENSITIVE_SETTINGS from definitions where is_sensitive=True."""
+    from src.kernel.config.definitions import SETTING_DEFINITIONS
+
+    return {k for k, v in SETTING_DEFINITIONS.items() if v.get("is_sensitive", False)}
+
+
+SENSITIVE_SETTINGS = _build_sensitive_settings()

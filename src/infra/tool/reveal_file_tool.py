@@ -87,13 +87,19 @@ def get_mime_type(filename: str) -> str:
 
 
 async def _ensure_storage_initialized() -> None:
-    """确保 S3 storage 已初始化"""
-    from src.infra.storage.s3 import get_storage_service, init_storage
+    """确保 storage 已初始化（S3 或本地存储）"""
+    from src.infra.storage.s3 import S3Config, S3Provider, get_storage_service, init_storage
     from src.kernel.config import settings
 
     storage = get_storage_service()
     if storage._backend is None:
-        config = settings.get_s3_config()
+        if settings.S3_ENABLED:
+            config = settings.get_s3_config()
+        else:
+            config = S3Config(
+                provider=S3Provider.LOCAL,
+                storage_path=getattr(settings, "LOCAL_STORAGE_PATH", "./uploads") or "./uploads",
+            )
         await init_storage(config)
 
 

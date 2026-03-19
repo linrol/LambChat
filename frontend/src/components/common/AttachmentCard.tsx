@@ -38,6 +38,8 @@ export interface AttachmentCardProps {
   onClick?: () => void;
   /** 删除按钮点击回调 */
   onRemove?: () => void;
+  /** 取消上传按钮点击回调 */
+  onCancel?: () => void;
   /** 显示模式：editable 显示删除按钮，preview 显示预览指示器 */
   variant?: "editable" | "preview";
   /** 尺寸：compact 更紧凑，适合输入框区域 */
@@ -50,6 +52,7 @@ export const AttachmentCard = memo(function AttachmentCard({
   attachment,
   onClick,
   onRemove,
+  onCancel,
   variant = "preview",
   size = "default",
   isUploading = false,
@@ -88,7 +91,7 @@ export const AttachmentCard = memo(function AttachmentCard({
           "hover:border-gray-300/70 dark:hover:border-stone-600/70",
           "hover:-translate-y-0.5",
           "active:scale-[0.98]",
-          isUploading && "pointer-events-none",
+          isUploading && !onCancel && "pointer-events-none",
         )}
       >
         {/* 图标/图片 */}
@@ -120,29 +123,51 @@ export const AttachmentCard = memo(function AttachmentCard({
           </span>
           <span className="text-[11px] text-gray-400 dark:text-stone-500 mt-0.5">
             {isUploading
-              ? t("fileUpload.uploading")
+              ? `${attachment.uploadProgress ?? 0}%`
               : formatFileSize(attachment.size)}
           </span>
         </div>
 
-        {/* 删除按钮 */}
-        {variant === "editable" && onRemove && !isUploading && (
-          <button
-            type="button"
-            onClick={handleRemove}
-            className={clsx(
-              "shrink-0 size-6 rounded-full flex items-center justify-center",
-              "bg-gray-100/80 dark:bg-stone-700/80",
-              "text-gray-400 dark:text-stone-500",
-              "opacity-0 group-hover:opacity-100",
-              "transition-all duration-200",
-              "hover:bg-red-100 dark:hover:bg-red-900/30",
-              "hover:text-red-500 dark:hover:text-red-400",
-            )}
-          >
-            <X size={12} />
-          </button>
-        )}
+        {/* 删除/取消按钮 */}
+        {variant === "editable" &&
+          (isUploading && onCancel ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancel();
+              }}
+              className={clsx(
+                "shrink-0 size-6 rounded-full flex items-center justify-center",
+                "bg-red-100/80 dark:bg-red-900/30",
+                "text-red-500 dark:text-red-400",
+                "opacity-100",
+                "transition-all duration-200",
+                "hover:bg-red-200 dark:hover:bg-red-900/50",
+              )}
+              title={t("fileUpload.cancelUpload")}
+            >
+              <X size={12} />
+            </button>
+          ) : (
+            onRemove && (
+              <button
+                type="button"
+                onClick={handleRemove}
+                className={clsx(
+                  "shrink-0 size-6 rounded-full flex items-center justify-center",
+                  "bg-gray-100/80 dark:bg-stone-700/80",
+                  "text-gray-400 dark:text-stone-500",
+                  "opacity-0 group-hover:opacity-100",
+                  "transition-all duration-200",
+                  "hover:bg-red-100 dark:hover:bg-red-900/30",
+                  "hover:text-red-500 dark:hover:text-red-400",
+                )}
+              >
+                <X size={12} />
+              </button>
+            )
+          ))}
       </div>
     );
   }

@@ -55,6 +55,7 @@ export function SkillsPanel() {
   const [editingSkill, setEditingSkill] = useState<SkillResponse | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [isFormFullscreen, setIsFormFullscreen] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importJson, setImportJson] = useState("");
   const [importOverwrite, setImportOverwrite] = useState(false);
@@ -209,6 +210,7 @@ export function SkillsPanel() {
     setShowModal(false);
     setEditingSkill(null);
     setIsCreating(false);
+    setIsFormFullscreen(false);
   };
 
   const handleDelete = async (name: string, isSystem: boolean = false) => {
@@ -558,29 +560,36 @@ export function SkillsPanel() {
       {/* Form Modal - Bottom Sheet */}
       {showModal && (
         <>
-          <div className="fixed inset-0 " onClick={handleCancel} />
+          {!isFormFullscreen && (
+            <div className="fixed inset-0" onClick={handleCancel} />
+          )}
           <div className="modal-bottom-sheet sm:modal-centered-wrapper">
             <div className="modal-bottom-sheet-content sm:modal-centered-content">
-              <div className="bottom-sheet-handle sm:hidden" />
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4 dark:border-stone-800">
-                <h3 className="text-xl font-semibold text-stone-900 dark:text-stone-100 font-serif">
-                  {isCreating
-                    ? t("skills.createNew")
-                    : t("skills.editSkill", { name: editingSkill?.name })}
-                </h3>
-                <button onClick={handleCancel} className="btn-icon">
-                  <X size={20} />
-                </button>
-              </div>
+              {!isFormFullscreen && (
+                <>
+                  <div className="bottom-sheet-handle sm:hidden" />
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4 dark:border-stone-800 shrink-0">
+                    <h3 className="text-xl font-semibold text-stone-900 dark:text-stone-100 font-serif">
+                      {isCreating
+                        ? t("skills.createNew")
+                        : t("skills.editSkill", { name: editingSkill?.name })}
+                    </h3>
+                    <button onClick={handleCancel} className="btn-icon">
+                      <X size={20} />
+                    </button>
+                  </div>
+                </>
+              )}
               {/* Content */}
-              <div className="flex-1 overflow-y-auto px-2 sm:px-6 py-4 space-y-2">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col px-2 sm:px-4 py-2 sm:py-3">
                 <SkillForm
                   skill={editingSkill}
                   onSave={handleSave}
                   onCancel={handleCancel}
                   isLoading={isLoading}
                   isAdmin={canAdmin}
+                  onFullscreenChange={setIsFormFullscreen}
                 />
               </div>
             </div>
@@ -911,9 +920,7 @@ export function SkillsPanel() {
                         type="checkbox"
                         id="zipInstallAsSystem"
                         checked={zipUploadAsSystem}
-                        onChange={(e) =>
-                          setZipUploadAsSystem(e.target.checked)
-                        }
+                        onChange={(e) => setZipUploadAsSystem(e.target.checked)}
                         className="h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500 dark:border-stone-600 dark:bg-stone-800"
                       />
                       <label

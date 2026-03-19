@@ -7,7 +7,6 @@ from typing import Any, Optional
 
 from src.infra.settings.storage import (
     RESTART_REQUIRED_SETTINGS,
-    SENSITIVE_SETTINGS,
     SETTING_DEFINITIONS,
     SettingsStorage,
 )
@@ -236,7 +235,8 @@ class SettingsService:
     @staticmethod
     def is_sensitive(key: str) -> bool:
         """Check if setting is sensitive (should be hidden in API)"""
-        return key in SENSITIVE_SETTINGS
+        definition = SETTING_DEFINITIONS.get(key)
+        return definition.get("is_sensitive", False) if definition else False
 
     async def close(self) -> None:
         """Close connections"""

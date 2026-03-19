@@ -7,7 +7,6 @@ from typing import Any, Optional
 
 from src.kernel.config import (
     RESTART_REQUIRED_SETTINGS,
-    SENSITIVE_SETTINGS,
     SETTING_DEFINITIONS,
     _get_default_from_settings,
     settings,
@@ -65,8 +64,10 @@ class SettingsStorage:
             db_doc = db_settings.get(key)
             value = db_doc["value"] if db_doc else default_value
 
+            is_sensitive = definition.get("is_sensitive", False)
+
             # Mask sensitive settings in API responses
-            if mask_sensitive and key in SENSITIVE_SETTINGS and value:
+            if mask_sensitive and is_sensitive and value:
                 value = "********"
 
             item = SettingItem(
@@ -77,7 +78,7 @@ class SettingsStorage:
                 description=definition["description"],
                 default_value=default_value,
                 requires_restart=key in RESTART_REQUIRED_SETTINGS,
-                is_sensitive=key in SENSITIVE_SETTINGS,
+                is_sensitive=is_sensitive,
                 frontend_visible=definition.get("frontend_visible", False),
                 depends_on=definition.get("depends_on"),
                 updated_at=db_doc.get("updated_at") if db_doc else None,
@@ -109,8 +110,10 @@ class SettingsStorage:
 
         value = doc["value"] if doc else default_value
 
+        is_sensitive = definition.get("is_sensitive", False)
+
         # Mask sensitive settings in API responses (if requested)
-        if mask_sensitive and key in SENSITIVE_SETTINGS and value:
+        if mask_sensitive and is_sensitive and value:
             value = "********"
 
         return SettingItem(
@@ -121,7 +124,7 @@ class SettingsStorage:
             description=definition["description"],
             default_value=default_value,
             requires_restart=key in RESTART_REQUIRED_SETTINGS,
-            is_sensitive=key in SENSITIVE_SETTINGS,
+            is_sensitive=is_sensitive,
             frontend_visible=definition.get("frontend_visible", False),
             depends_on=definition.get("depends_on"),
             updated_at=doc.get("updated_at") if doc else None,
@@ -205,7 +208,6 @@ class SettingsStorage:
 # Re-export for backward compatibility
 __all__ = [
     "RESTART_REQUIRED_SETTINGS",
-    "SENSITIVE_SETTINGS",
     "SETTING_DEFINITIONS",
     "SettingsStorage",
 ]

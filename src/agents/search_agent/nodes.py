@@ -240,7 +240,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
 
     # 创建 LLM
     llm_start = time.time()
-    llm = LLMClient.get_deep_agent_model(
+    llm = LLMClient.get_fallback_model(
         api_base=settings.LLM_API_BASE,
         api_key=settings.LLM_API_KEY,
         model=settings.LLM_MODEL,

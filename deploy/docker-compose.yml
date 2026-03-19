@@ -17,6 +17,7 @@ services:
     volumes:
       - lamb-data:/app/data
       - ./workspace:/app/workspace
+      - ./uploads:/app/uploads
 
 volumes:
   lamb-data:

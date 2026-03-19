@@ -1,6 +1,18 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, X, Plus } from "lucide-react";
+import CodeMirror from "@uiw/react-codemirror";
+import { EditorView } from "@codemirror/view";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { javascript } from "@codemirror/lang-javascript";
+import { python } from "@codemirror/lang-python";
+import { yaml } from "@codemirror/lang-yaml";
+import { json } from "@codemirror/lang-json";
+import { html } from "@codemirror/lang-html";
+import { css } from "@codemirror/lang-css";
+import { sql } from "@codemirror/lang-sql";
 import type { SkillResponse, SkillCreate } from "../../types";
 
 interface FileEntry {
@@ -14,6 +26,7 @@ interface SkillFormProps {
   onCancel: () => void;
   isLoading?: boolean;
   isAdmin?: boolean;
+  onFullscreenChange?: (fullscreen: boolean) => void;
 }
 
 const DEFAULT_CONTENT = `---
@@ -39,126 +52,57 @@ Describe what this skill does.
 Example usage here.
 `;
 
-const FONT_FAMILY =
-  'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
+function getLangSupport(filePath?: string) {
+  if (!filePath) return markdown({ base: markdownLanguage });
+  const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+  switch (ext) {
+    case "js":
+    case "jsx":
+      return javascript({ jsx: true });
+    case "ts":
+    case "tsx":
+      return javascript({ jsx: true, typescript: true });
+    case "py":
+      return python();
+    case "md":
+      return markdown({ base: markdownLanguage });
+    case "yaml":
+    case "yml":
+      return yaml();
+    case "json":
+      return json();
+    case "html":
+    case "htm":
+      return html();
+    case "css":
+    case "scss":
+    case "less":
+      return css();
+    case "sql":
+      return sql();
+    default:
+      return markdown({ base: markdownLanguage });
+  }
+}
 
-// Simple reliable code editor: textarea + synchronized line number gutter
+// CodeMirror-based editor with search/replace, line numbers, syntax highlighting
 function SkillEditor({
   value,
   onChange,
-  isDark,
   className,
+  filePath,
 }: {
   value: string;
   onChange: (val: string) => void;
-  isDark: boolean;
   className?: string;
+  filePath?: string;
 }) {
-  const lineCount = useMemo(() => value.split("\n").length, [value]);
-  const lineNumberWidth =
-    lineCount >= 1000
-      ? "3.5rem"
-      : lineCount >= 100
-        ? "2.5rem"
-        : "2rem";
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const gutterRef = useRef<HTMLPreElement>(null);
-
-  const handleScroll = useCallback(() => {
-    if (textareaRef.current && gutterRef.current) {
-      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
-    }
-  }, []);
-
-  // Sync scroll on mount and when value changes
-  useEffect(() => {
-    handleScroll();
-  }, [value, handleScroll]);
-
-  const sharedStyle: React.CSSProperties = {
-    fontFamily: FONT_FAMILY,
-    fontSize: "0.875rem",
-    lineHeight: "1.5",
-    padding: "0.75rem",
-    margin: 0,
-    border: "none",
-    whiteSpace: "pre",
-    wordWrap: "normal",
-    tabSize: 2,
-  };
-
-  const lineNumbers = useMemo(
-    () => Array.from({ length: lineCount }, (_, i) => i + 1).join("\n"),
-    [lineCount],
-  );
-
-  return (
-    <div
-      className={`flex overflow-hidden ${className || ""}`}
-      style={{
-        background: isDark ? "#282c34" : "#f5f5f4",
-      }}
-    >
-      {/* Line number gutter */}
-      <pre
-        ref={gutterRef}
-        className="select-none shrink-0 text-right overflow-hidden"
-        style={{
-          ...sharedStyle,
-          width: lineNumberWidth,
-          minWidth: lineNumberWidth,
-          color: isDark ? "#6b7280" : "#9ca3af",
-          borderRight: isDark ? "1px solid #44403c" : "1px solid #e7e5e4",
-          background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-          userSelect: "none",
-        }}
-        aria-hidden="true"
-      >
-        {lineNumbers}
-      </pre>
-      {/* Editable textarea */}
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onScroll={handleScroll}
-        spellCheck={false}
-        autoCapitalize="off"
-        autoCorrect="off"
-        className="flex-1 min-w-0 resize-none outline-none bg-transparent overflow-auto"
-        style={{
-          ...sharedStyle,
-          paddingLeft: "0.75rem",
-          color: isDark ? "#e5e7eb" : "#1c1917",
-        }}
-      />
-    </div>
-  );
-}
-
-export function SkillForm({
-  skill,
-  onSave,
-  onCancel,
-  isLoading = false,
-  isAdmin = false,
-}: SkillFormProps) {
-  const { t } = useTranslation();
-  const isEditing = !!skill;
-
-  const [name, setName] = useState(skill?.name ?? "");
-  const [description, setDescription] = useState(skill?.description ?? "");
-  const [enabled, setEnabled] = useState(skill?.enabled ?? true);
-  const [isSystem, setIsSystem] = useState(skill?.is_system ?? false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDark, setIsDark] = useState(() =>
-    typeof window !== "undefined"
+    typeof document !== "undefined"
       ? document.documentElement.classList.contains("dark")
       : true,
   );
 
-  // Detect dark mode
   useEffect(() => {
     const observer = new MutationObserver(() => {
       setIsDark(document.documentElement.classList.contains("dark"));
@@ -169,6 +113,152 @@ export function SkillForm({
     });
     return () => observer.disconnect();
   }, []);
+
+  return (
+    <div
+      className={`${
+        className || ""
+      } [&_.cm-editor]:h-full [&_.cm-scroller]:!overflow-auto`}
+    >
+      <CodeMirror
+        value={value}
+        onChange={onChange}
+        theme={isDark ? oneDark : undefined}
+        extensions={[
+          getLangSupport(filePath),
+          EditorView.theme({
+            "&": { whiteSpace: "pre" },
+            ".cm-content": { whiteSpace: "pre" },
+            ".cm-line": { whiteSpace: "pre" },
+          }),
+        ]}
+        basicSetup={{
+          lineNumbers: true,
+          highlightActiveLineGutter: true,
+          highlightActiveLine: true,
+          foldGutter: true,
+          searchKeymap: true,
+          bracketMatching: true,
+          closeBrackets: true,
+          indentOnInput: true,
+        }}
+        className="h-full"
+      />
+    </div>
+  );
+}
+
+// ChatGPT-style toggle switch
+function Toggle({
+  checked,
+  onChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (val: boolean) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-ring)] focus-visible:ring-offset-1 ${
+          checked
+            ? "bg-[var(--theme-primary)]"
+            : "bg-stone-200 dark:bg-stone-700"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        <span
+          className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ${
+            checked ? "translate-x-[18px]" : "translate-x-[3px]"
+          }`}
+        />
+      </button>
+      <span className="text-sm text-stone-700 dark:text-stone-300">
+        {label}
+      </span>
+    </label>
+  );
+}
+
+// File tabs — ChatGPT style with pill shape
+function FileTabs({
+  files,
+  activeFileIndex,
+  onSelect,
+  onRemove,
+}: {
+  files: FileEntry[];
+  activeFileIndex: number;
+  onSelect: (i: number) => void;
+  onRemove: (i: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto scrollbar-none px-1">
+      {files.map((file, index) => (
+        <button
+          key={index}
+          type="button"
+          onClick={() => onSelect(index)}
+          className={`group flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-150 ${
+            activeFileIndex === index
+              ? "bg-[var(--theme-primary-light)] text-[var(--theme-text)] shadow-sm"
+              : "text-stone-500 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"
+          }`}
+          title={file.path || "Untitled"}
+        >
+          <span className="max-w-[120px] sm:max-w-[200px] truncate">
+            {file.path ? file.path.split("/").pop() || file.path : "Untitled"}
+          </span>
+          {files.length > 1 && (
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(index);
+              }}
+              className="hidden group-hover:inline-flex items-center justify-center h-3.5 w-3.5 rounded-full hover:bg-stone-300/60 dark:hover:bg-stone-600/60 text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors"
+            >
+              <X size={10} />
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function SkillForm({
+  skill,
+  onSave,
+  onCancel,
+  isLoading = false,
+  isAdmin = false,
+  onFullscreenChange,
+}: SkillFormProps) {
+  const { t } = useTranslation();
+  const isEditing = !!skill;
+
+  const [name, setName] = useState(skill?.name ?? "");
+  const [description, setDescription] = useState(skill?.description ?? "");
+  const [enabled, setEnabled] = useState(skill?.enabled ?? true);
+  const [isSystem, setIsSystem] = useState(skill?.is_system ?? false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = useCallback(
+    (fs: boolean) => {
+      setIsFullscreen(fs);
+      onFullscreenChange?.(fs);
+    },
+    [onFullscreenChange],
+  );
 
   // Files state for multi-file support
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -218,10 +308,10 @@ export function SkillForm({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape" && isFullscreen) {
-        setIsFullscreen(false);
+        toggleFullscreen(false);
       }
     },
-    [isFullscreen],
+    [isFullscreen, toggleFullscreen],
   );
 
   useEffect(() => {
@@ -234,7 +324,11 @@ export function SkillForm({
 
     if (!name.trim()) {
       newErrors.name = t("skills.form.validation.nameRequired");
-    } else if (!/^[\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\-.]+$/.test(name.trim())) {
+    } else if (
+      !/^[\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\-.]+$/.test(
+        name.trim(),
+      )
+    ) {
       newErrors.name = t("skills.form.validation.nameInvalid");
     } else if (name.trim().length > 100) {
       newErrors.name = t("skills.form.validation.nameTooLong");
@@ -316,364 +410,338 @@ export function SkillForm({
     setFiles(newFiles);
   };
 
-  return (
+  const formElement = (
     <form
       onSubmit={handleSubmit}
       className={
         isFullscreen
-          ? "fixed inset-0 z-50 flex flex-col bg-white dark:bg-stone-900"
-          : "space-y-4"
+          ? "fixed inset-0 z-[100] flex flex-col bg-[var(--theme-bg)]"
+          : "flex-1 flex flex-col min-h-0 gap-4"
       }
     >
       {isFullscreen ? (
-        /* Fullscreen layout */
+        /* ===== Fullscreen layout ===== */
         <>
           {/* Compact top bar */}
-          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-gray-200 dark:border-stone-700 shrink-0 bg-stone-50 dark:bg-stone-800/50">
-            <span className="font-mono text-sm font-semibold text-stone-700 dark:text-stone-200 truncate max-w-[120px] sm:max-w-[200px]">
-              {name || "Untitled"}
-            </span>
-            <span className="hidden sm:inline text-xs text-stone-400 dark:text-stone-500 truncate max-w-[300px]">
-              {description}
-            </span>
-            <div className="ml-auto flex items-center gap-2">
-              <label className="flex items-center gap-1 text-xs text-stone-500 dark:text-stone-400">
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                  className="h-3 w-3 rounded border-gray-300 text-stone-600 dark:border-stone-600 dark:bg-stone-800"
-                />
-                <span className="hidden sm:inline">{t("skills.form.enabled")}</span>
-              </label>
+          <div className="px-4 py-3 border-b border-[var(--theme-border)] shrink-0 bg-[var(--theme-bg-card)]">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="font-mono text-lg font-semibold text-[var(--theme-text)] truncate">
+                  {name || "Untitled"}
+                </span>
+                <span className="text-xs text-[var(--theme-text-secondary)] truncate mt-0.5">
+                  {description}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen(false)}
+                  className="rounded-lg p-1.5 text-stone-400 hover:text-[var(--theme-text)] hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                  title="Exit fullscreen"
+                >
+                  <Minimize2 size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 mt-2.5">
+              <Toggle
+                checked={enabled}
+                onChange={setEnabled}
+                label={t("skills.form.enabled")}
+              />
               {isAdmin && (
-                <label className="flex items-center gap-1 text-xs text-stone-500 dark:text-stone-400">
-                  <input
-                    type="checkbox"
-                    checked={isSystem}
-                    onChange={(e) => setIsSystem(e.target.checked)}
-                    className="h-3 w-3 rounded border-gray-300 text-stone-600 dark:border-stone-600 dark:bg-stone-800"
-                  />
-                  <span className="hidden sm:inline">{t("skills.form.systemSkill")}</span>
-                </label>
+                <Toggle
+                  checked={isSystem}
+                  onChange={setIsSystem}
+                  label={t("skills.form.systemSkill")}
+                />
               )}
-              <button
-                type="button"
-                onClick={() => setIsFullscreen(false)}
-                className="text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 p-1"
-                title="Exit fullscreen"
-              >
-                <Minimize2 size={16} />
-              </button>
             </div>
           </div>
 
           {/* File tabs + path input + editor */}
-          <div className="flex flex-1 flex-col min-h-0">
-            {/* File tabs */}
-            <div className="flex items-center gap-1 px-2 sm:px-4 pt-2 shrink-0">
-              <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-stone-700 flex-1 min-w-0">
+          <div className="flex flex-1 min-h-0 overflow-y-hidden overflow-x-auto">
+            {/* Desktop: left sidebar file list */}
+            <div className="hidden sm:flex flex-col w-48 lg:w-56 shrink-0 border-r border-[var(--theme-border)] bg-[var(--theme-primary-light)]">
+              <div className="flex-1 overflow-y-auto py-1.5">
                 {files.map((file, index) => (
-                  <div
+                  <button
                     key={index}
-                    className={`flex items-center gap-1 rounded-t-lg border-b-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm ${
+                    type="button"
+                    onClick={() => setActiveFileIndex(index)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left group transition-colors duration-150 ${
                       activeFileIndex === index
-                        ? "border-stone-500 bg-stone-50 text-stone-700 dark:border-amber-500 dark:bg-stone-800 dark:text-amber-400"
-                        : "border-transparent text-gray-500 hover:bg-gray-50 dark:text-stone-400 dark:hover:bg-stone-800"
+                        ? "bg-[var(--theme-bg-card)] text-[var(--theme-text)] font-medium border-r-2 border-[var(--theme-primary)]"
+                        : "text-stone-500 hover:bg-stone-100/80 dark:text-stone-400 dark:hover:bg-stone-800/60"
                     }`}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setActiveFileIndex(index)}
-                      className="max-w-[80px] sm:max-w-[120px] truncate"
+                    <span
+                      className="truncate flex-1"
                       title={file.path || "Untitled"}
                     >
-                      {file.path || "Untitled"}
-                    </button>
+                      {file.path
+                        ? file.path.split("/").pop() || file.path
+                        : "Untitled"}
+                    </span>
                     {files.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="ml-1 text-red-500 hover:text-red-700"
-                        title="Remove file"
+                      <span
+                        role="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile(index);
+                        }}
+                        className="hidden group-hover:inline-flex items-center justify-center h-4 w-4 rounded hover:bg-stone-200 dark:hover:bg-stone-600 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
                       >
-                        x
-                      </button>
+                        <X size={10} />
+                      </span>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={addFile}
-                className="shrink-0 whitespace-nowrap text-xs text-stone-600 hover:text-stone-800 dark:text-amber-500 dark:hover:text-amber-400 mb-1 px-1"
+              <div className="shrink-0 px-2 py-2 border-t border-[var(--theme-border)]">
+                <button
+                  type="button"
+                  onClick={addFile}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-[var(--theme-text-secondary)] hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                >
+                  <Plus size={12} />
+                  {t("skills.form.addFile", "Add file")}
+                </button>
+              </div>
+            </div>
+
+            {/* Right: path input + editor */}
+            <div className="flex flex-1 flex-col min-h-0">
+              {/* Mobile: horizontal tabs */}
+              <div className="flex items-center gap-1 px-2 pt-2 shrink-0 sm:hidden">
+                <FileTabs
+                  files={files}
+                  activeFileIndex={activeFileIndex}
+                  onSelect={setActiveFileIndex}
+                  onRemove={removeFile}
+                />
+                <button
+                  type="button"
+                  onClick={addFile}
+                  className="shrink-0 flex items-center justify-center h-7 w-7 rounded-lg text-[var(--theme-text-secondary)] hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+
+              {/* File path input */}
+              <div className="px-3 sm:px-4 py-2 shrink-0">
+                <input
+                  type="text"
+                  value={files[activeFileIndex]?.path || ""}
+                  onChange={(e) =>
+                    updateFilePath(activeFileIndex, e.target.value)
+                  }
+                  placeholder="File path"
+                  className="w-full rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-card)] px-3 py-1.5 font-mono text-xs text-[var(--theme-text)] placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-[var(--theme-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]/20 transition-all duration-150"
+                />
+              </div>
+
+              {/* Editor area */}
+              <div
+                className={`mx-3 sm:mx-4 mb-3 rounded-xl border overflow-y-hidden overflow-x-auto flex-1 min-h-0 flex flex-col transition-colors duration-150 ${
+                  errors.content
+                    ? "border-red-300 dark:border-red-700"
+                    : "border-[var(--theme-border)]"
+                }`}
               >
-                + Add
-              </button>
-            </div>
-
-            {/* File path input */}
-            <div className="px-2 sm:px-4 py-1.5 shrink-0">
-              <input
-                type="text"
-                value={files[activeFileIndex]?.path || ""}
-                onChange={(e) => updateFilePath(activeFileIndex, e.target.value)}
-                placeholder="File path (e.g., SKILL.md)"
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 sm:px-3 py-1.5 font-mono text-xs sm:text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
-              />
-            </div>
-
-            {/* Editor area - fills remaining space */}
-            <div
-              className={`mx-2 sm:mx-4 mb-2 rounded-lg border overflow-hidden flex-1 min-h-0 flex flex-col ${
-                errors.content
-                  ? "border-red-300 dark:border-red-700"
-                  : "border-gray-200 dark:border-stone-700"
-              }`}
-            >
-              <SkillEditor
-                value={files[activeFileIndex]?.content || ""}
-                onChange={(val) => updateFileContent(activeFileIndex, val)}
-                isDark={isDark}
-                className="flex-1 min-h-0"
-              />
+                <SkillEditor
+                  value={files[activeFileIndex]?.content || ""}
+                  onChange={(val) => updateFileContent(activeFileIndex, val)}
+                  className="flex-1 min-h-0"
+                  filePath={files[activeFileIndex]?.path}
+                />
+              </div>
             </div>
           </div>
 
           {/* Fullscreen footer */}
-          <div className="flex items-center justify-end gap-2 px-3 sm:px-4 py-2 border-t border-gray-200 dark:border-stone-700 shrink-0">
-            {errors.content && (
-              <span className="text-xs text-red-600 dark:text-red-400 mr-auto">
-                {errors.content}
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-[var(--theme-border)] shrink-0 bg-[var(--theme-bg-card)]">
+            {(errors.content || errors.files) && (
+              <span className="text-xs text-red-600 dark:text-red-400">
+                {errors.content || errors.files}
               </span>
             )}
-            {errors.files && (
-              <span className="text-xs text-red-600 dark:text-red-400 mr-auto">
-                {errors.files}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isLoading}
-              className="rounded-lg border border-gray-200 px-3 sm:px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-stone-700 dark:text-gray-200 dark:hover:bg-stone-800"
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex items-center gap-1 rounded-lg bg-stone-800 px-3 sm:px-4 py-2 text-sm font-medium text-white hover:bg-stone-900 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-700"
-            >
-              {isEditing
-                ? t("skills.form.saveChanges")
-                : t("skills.form.createSkill")}
-            </button>
+            {!errors.content && !errors.files && <span />}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isLoading}
+                className="rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-card)] px-4 py-2 text-sm text-[var(--theme-text)] hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-50 transition-colors duration-150"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="rounded-lg bg-[var(--theme-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--theme-primary-hover)] disabled:opacity-50 transition-colors duration-150 dark:text-stone-950"
+              >
+                {isEditing
+                  ? t("skills.form.saveChanges")
+                  : t("skills.form.createSkill")}
+              </button>
+            </div>
           </div>
         </>
       ) : (
-        /* Normal (non-fullscreen) layout */
+        /* ===== Normal layout ===== */
         <>
-          {/* Name */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">
-              {t("skills.form.name")}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isEditing}
-              placeholder={t("skills.form.namePlaceholder")}
-              className={`w-full rounded-lg border px-3 py-2 font-mono text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500 ${
-                errors.name
-                  ? "border-red-300 focus:border-red-500 focus:ring-red-500 dark:border-red-700"
-                  : ""
-              }`}
+          {/* Metadata: Name + Description */}
+          <div className="shrink-0 space-y-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[var(--theme-text)]">
+                {t("skills.form.name")}
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isEditing}
+                placeholder={t("skills.form.namePlaceholder")}
+                className={`w-full rounded-xl border px-3.5 py-2.5 font-mono text-sm text-[var(--theme-text)] placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]/20 transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  errors.name
+                    ? "border-red-300 focus:border-red-400 dark:border-red-700"
+                    : "border-[var(--theme-border)] focus:border-[var(--theme-primary)]"
+                } bg-[var(--theme-bg-card)]`}
+              />
+              {errors.name && (
+                <p className="mt-1 text-xs text-red-500">{errors.name}</p>
+              )}
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[var(--theme-text)]">
+                {t("skills.form.description")}
+              </label>
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={t("skills.form.descriptionPlaceholder")}
+                className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-[var(--theme-text)] placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]/20 transition-all duration-150 ${
+                  errors.description
+                    ? "border-red-300 focus:border-red-400 dark:border-red-700"
+                    : "border-[var(--theme-border)] focus:border-[var(--theme-primary)]"
+                } bg-[var(--theme-bg-card)]`}
+              />
+              {errors.description && (
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.description}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Settings row */}
+          <div className="shrink-0 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Toggle
+              checked={enabled}
+              onChange={setEnabled}
+              label={t("skills.form.enabled")}
             />
-            {errors.name && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {errors.name}
-              </p>
+            {isAdmin && (
+              <Toggle
+                checked={isSystem}
+                onChange={setIsSystem}
+                label={
+                  isEditing
+                    ? t("skills.form.systemSkill")
+                    : t("skills.form.createAsSystem")
+                }
+              />
             )}
             {isEditing && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-stone-500">
+              <span className="text-xs text-stone-400 dark:text-stone-500">
                 {t("skills.form.nameCannotChange")}
-              </p>
+              </span>
             )}
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">
-              {t("skills.form.description")}
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t("skills.form.descriptionPlaceholder")}
-              className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500 ${
-                errors.description
-                  ? "border-red-300 focus:border-red-500 focus:ring-red-500 dark:border-red-700"
-                  : ""
-              }`}
-            />
-            {errors.description && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {errors.description}
-              </p>
-            )}
-          </div>
-
-          {/* Files */}
-          <div>
-            <div className="mb-4 flex items-center justify-between">
-              <label className="block text-sm font-medium text-gray-700 dark:text-stone-300">
-                {t("skills.form.content")}
-              </label>
-              <div className="flex items-center gap-2">
+          {/* Editor area */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* File tabs + add + fullscreen */}
+            <div className="shrink-0 flex items-center justify-between gap-2 pb-2">
+              <FileTabs
+                files={files}
+                activeFileIndex={activeFileIndex}
+                onSelect={setActiveFileIndex}
+                onRemove={removeFile}
+              />
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsFullscreen(true)}
-                  className="text-stone-600 hover:text-stone-800 dark:text-amber-500 dark:hover:text-amber-400 p-1"
+                  onClick={addFile}
+                  className="flex items-center justify-center h-7 w-7 rounded-lg text-stone-400 hover:text-[var(--theme-text)] hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors duration-150"
+                  title={t("skills.form.addFile", "Add file")}
+                >
+                  <Plus size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleFullscreen(true)}
+                  className="flex items-center justify-center h-7 w-7 rounded-lg text-stone-400 hover:text-[var(--theme-text)] hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors duration-150"
                   title="Fullscreen editor"
                 >
                   <Maximize2 size={14} />
                 </button>
-                <button
-                  type="button"
-                  onClick={addFile}
-                  className="whitespace-nowrap text-xs text-stone-600 hover:text-stone-800 dark:text-amber-500 dark:hover:text-amber-400"
-                >
-                  + Add File
-                </button>
               </div>
             </div>
 
-            {/* File tabs */}
-            <div className="mb-2 flex flex-wrap gap-1 border-b border-gray-200 dark:border-stone-700">
-              {files.map((file, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center gap-1 rounded-t-lg border-b-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm ${
-                    activeFileIndex === index
-                      ? "border-stone-500 bg-stone-50 text-stone-700 dark:border-amber-500 dark:bg-stone-800 dark:text-amber-400"
-                      : "border-transparent text-gray-500 hover:bg-gray-50 dark:text-stone-400 dark:hover:bg-stone-800"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveFileIndex(index)}
-                    className="max-w-[80px] sm:max-w-[120px] truncate"
-                    title={file.path || "Untitled"}
-                  >
-                    {file.path || "Untitled"}
-                  </button>
-                  {files.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      className="ml-1 text-red-500 hover:text-red-700"
-                      title="Remove file"
-                    >
-                      x
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
             {/* File path input */}
-            <div className="mb-2">
+            <div className="shrink-0 pb-2">
               <input
                 type="text"
                 value={files[activeFileIndex]?.path || ""}
-                onChange={(e) => updateFilePath(activeFileIndex, e.target.value)}
+                onChange={(e) =>
+                  updateFilePath(activeFileIndex, e.target.value)
+                }
                 placeholder="File path (e.g., SKILL.md)"
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 sm:px-3 py-1.5 font-mono text-xs sm:text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
+                className="w-full rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-card)] px-3 py-1.5 font-mono text-xs text-[var(--theme-text)] placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-[var(--theme-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]/20 transition-all duration-150"
               />
             </div>
 
             {/* Editor */}
             <div
-              className={`w-full rounded-lg border overflow-hidden ${
+              className={`flex-1 min-h-[8rem] sm:min-h-[12rem] rounded-xl border overflow-y-hidden overflow-x-auto flex flex-col transition-colors duration-150 ${
                 errors.content
                   ? "border-red-300 dark:border-red-700"
-                  : "border-gray-200 dark:border-stone-700"
+                  : "border-[var(--theme-border)]"
               }`}
             >
               <SkillEditor
                 value={files[activeFileIndex]?.content || ""}
                 onChange={(val) => updateFileContent(activeFileIndex, val)}
-                isDark={isDark}
-                className="h-[12rem] sm:h-[20rem]"
+                className="flex-1 min-h-0"
+                filePath={files[activeFileIndex]?.path}
               />
             </div>
-            {errors.content && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {errors.content}
-              </p>
-            )}
-            {errors.files && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {errors.files}
+            {(errors.content || errors.files) && (
+              <p className="mt-1.5 text-xs text-red-500">
+                {errors.content || errors.files}
               </p>
             )}
           </div>
 
-          {/* Enabled */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="skill-enabled"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-stone-600 focus:ring-stone-500 dark:border-stone-600 dark:bg-stone-800 dark:text-amber-600 dark:focus:ring-amber-500"
-            />
-            <label
-              htmlFor="skill-enabled"
-              className="text-sm text-gray-700 dark:text-stone-300"
-            >
-              {t("skills.form.enabled")}
-            </label>
-          </div>
-
-          {/* System Skill (Admin only) */}
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="skill-system"
-                checked={isSystem}
-                onChange={(e) => setIsSystem(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-stone-600 focus:ring-stone-500 dark:border-stone-600 dark:bg-stone-800 dark:text-amber-600 dark:focus:ring-amber-500"
-              />
-              <label
-                htmlFor="skill-system"
-                className="text-sm text-gray-700 dark:text-stone-300"
-              >
-                {isEditing
-                  ? t("skills.form.systemSkill")
-                  : t("skills.form.createAsSystem")}
-              </label>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2">
+          {/* Bottom action bar */}
+          <div className="shrink-0 flex items-center justify-end gap-2 pt-3 border-t border-[var(--theme-border)]">
             <button
               type="button"
               onClick={onCancel}
               disabled={isLoading}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-stone-700 dark:text-gray-200 dark:hover:bg-stone-800"
+              className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-card)] px-4 py-2 text-sm text-[var(--theme-text)] hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-50 transition-colors duration-150"
             >
               {t("common.cancel")}
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-1 rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-700"
+              className="rounded-xl bg-[var(--theme-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--theme-primary-hover)] disabled:opacity-50 transition-colors duration-150 dark:text-stone-950"
             >
               {isEditing
                 ? t("skills.form.saveChanges")
@@ -684,4 +752,10 @@ export function SkillForm({
       )}
     </form>
   );
+
+  if (isFullscreen) {
+    return createPortal(formElement, document.body);
+  }
+
+  return formElement;
 }
