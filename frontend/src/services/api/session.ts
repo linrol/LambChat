@@ -36,13 +36,13 @@ export const sessionApi = {
     status?: string;
     limit?: number;
     skip?: number;
-    folder_id?: string;
+    project_id?: string;
   }): Promise<SessionListResponse | BackendSession[]> {
     const searchParams = new URLSearchParams();
     if (params?.status) searchParams.set("status", params.status);
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     if (params?.skip) searchParams.set("skip", params.skip.toString());
-    if (params?.folder_id) searchParams.set("folder_id", params.folder_id);
+    if (params?.project_id) searchParams.set("project_id", params.project_id);
 
     const url = `${API_BASE}/api/sessions${
       searchParams.toString() ? `?${searchParams}` : ""
@@ -231,15 +231,15 @@ export const sessionApi = {
   },
 
   /**
-   * Move session to folder
+   * Move session to project
    */
-  async moveToFolder(
+  async moveToProject(
     sessionId: string,
-    folderId: string | null,
+    projectId: string | null,
   ): Promise<{ status: string; session: BackendSession }> {
     return authFetch(`${API_BASE}/api/sessions/${sessionId}/move`, {
       method: "POST",
-      body: JSON.stringify({ folder_id: folderId }),
+      body: JSON.stringify({ project_id: projectId }),
     });
   },
 

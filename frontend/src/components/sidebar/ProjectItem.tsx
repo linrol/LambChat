@@ -1,5 +1,5 @@
 /**
- * Folder item component with expand/collapse and inline rename
+ * Project item component with expand/collapse and inline rename
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -12,36 +12,38 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import type { BackendSession } from "../../services/api/session";
-import type { Folder } from "../../types";
+import type { Project } from "../../types";
 import { folderApi } from "../../services/api";
 import { SessionItem } from "./SessionItem";
-import { FolderMenu } from "./FolderMenu";
+import { ProjectMenu } from "./ProjectMenu";
 
-interface FolderItemProps {
-  folder: Folder;
+interface ProjectItemProps {
+  project: Project;
   sessions: BackendSession[];
   currentSessionId: string | null;
-  allFolders: Folder[];
+  allProjects: Project[];
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
-  onMoveSession: (sessionId: string, folderId: string | null) => void;
+  onMoveSession: (sessionId: string, projectId: string | null) => void;
   onSessionUpdate: (session: BackendSession) => void;
-  onRenameFolder: (folderId: string, name: string) => void;
-  onDeleteFolder: (folderId: string) => void;
+  onRenameProject: (projectId: string, name: string) => void;
+  onDeleteProject: (projectId: string) => void;
+  draggingSessionId?: string | null;
 }
 
-export function FolderItem({
-  folder,
+export function ProjectItem({
+  project,
   sessions,
   currentSessionId,
-  allFolders,
+  allProjects,
   onSelectSession,
   onDeleteSession,
   onMoveSession,
   onSessionUpdate,
-  onRenameFolder,
-  onDeleteFolder,
-}: FolderItemProps) {
+  onRenameProject,
+  onDeleteProject,
+  draggingSessionId,
+}: ProjectItemProps) {
   const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -53,12 +55,14 @@ export function FolderItem({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const [isTouched, setIsTouched] = useState(false);
+  const touchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isFavorites = folder.type === "favorites";
+  const isFavorites = project.type === "favorites";
 
   // Start editing
   const handleStartEdit = () => {
-    setEditName(folder.name);
+    setEditName(project.name);
     setIsEditing(true);
     setIsMenuOpen(false);
   };
@@ -71,26 +75,26 @@ export function FolderItem({
     }
   }, [isEditing]);
 
-  // Save folder name
+  // Save project name
   const handleSaveName = async () => {
     const trimmedName = editName.trim();
 
     // Don't save if name hasn't changed or is empty
-    if (!trimmedName || trimmedName === folder.name) {
+    if (!trimmedName || trimmedName === project.name) {
       setIsEditing(false);
       return;
     }
 
     setIsSaving(true);
     try {
-      const updatedFolder = await folderApi.update(folder.id, {
+      const updatedProject = await folderApi.update(project.id, {
         name: trimmedName,
       });
-      onRenameFolder(folder.id, updatedFolder.name);
-      toast.success(t("sidebar.folderRenamed"));
+      onRenameProject(project.id, updatedProject.name);
+      toast.success(t("sidebar.projectRenamed"));
     } catch (error) {
-      console.error("Failed to update folder name:", error);
-      toast.error(t("sidebar.folderRenameFailed"));
+      console.error("Failed to update project name:", error);
+      toast.error(t("sidebar.projectRenameFailed"));
     } finally {
       setIsSaving(false);
       setIsEditing(false);
@@ -121,6 +125,21 @@ export function FolderItem({
     setIsMenuOpen(true);
   };
 
+  // Touch: show menu button, auto-hide after 3s
+  const handleHeaderTouchStart = () => {
+    if (isEditing) return;
+    if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+    setIsTouched(true);
+    touchTimerRef.current = setTimeout(() => setIsTouched(false), 3000);
+  };
+
+  // Cleanup touch timer
+  useEffect(() => {
+    return () => {
+      if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+    };
+  }, []);
+
   // Toggle expand/collapse
   const handleToggle = () => {
     if (!isEditing) {
@@ -136,7 +155,7 @@ export function FolderItem({
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only set dragOver to false if we're leaving the folder entirely
+    // Only set dragOver to false if we're leaving the project entirely
     const relatedTarget = e.relatedTarget as Node;
     if (!e.currentTarget.contains(relatedTarget)) {
       setIsDragOver(false);
@@ -149,20 +168,23 @@ export function FolderItem({
 
     const sessionId = e.dataTransfer.getData("text/plain");
     if (sessionId) {
-      onMoveSession(sessionId, folder.id);
+      onMoveSession(sessionId, project.id);
     }
   };
 
   return (
     <div className="mb-0.5">
-      {/* Folder header - drop target */}
+      {/* Project header - drop target */}
       <div
         onClick={handleToggle}
+        onTouchStart={handleHeaderTouchStart}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        data-project-drop
+        data-project-id={project.id}
         className={`group relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 transition-all duration-150 ${
-          isDragOver
+          isDragOver || draggingSessionId
             ? "bg-stone-100 dark:bg-stone-800/50"
             : isExpanded
               ? "bg-stone-100/40 dark:bg-stone-800/30"
@@ -177,7 +199,7 @@ export function FolderItem({
           }`}
         />
 
-        {/* Folder icon */}
+        {/* Project icon */}
         {isFavorites ? (
           <Star
             size={16}
@@ -190,7 +212,7 @@ export function FolderItem({
           />
         )}
 
-        {/* Folder name - editable or display */}
+        {/* Project name - editable or display */}
         <div className="min-w-0 flex-1">
           {isEditing ? (
             <input
@@ -206,17 +228,18 @@ export function FolderItem({
             />
           ) : (
             <div className="truncate text-sm text-stone-600 dark:text-stone-400">
-              {isFavorites ? t("sidebar.favorites") : folder.name}
+              {isFavorites ? t("sidebar.favorites") : project.name}
             </div>
           )}
         </div>
 
-        {/* Menu button - only for custom folders */}
+        {/* Menu button - only for custom projects */}
         {!isFavorites && !isEditing && (
           <button
             ref={menuButtonRef}
             onClick={handleMenuClick}
-            className="flex-shrink-0 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-stone-200/60 dark:hover:bg-stone-700/60 transition-all"
+            className="flex-shrink-0 rounded p-0.5 hover:bg-stone-200/60 dark:hover:bg-stone-700/60 transition-all opacity-0 group-hover:opacity-100 [&:not(:placeholder-shown)]:opacity-100"
+            style={isTouched ? { opacity: 1 } : undefined}
             title={t("sidebar.moreOptions")}
           >
             <MoreHorizontal
@@ -235,12 +258,16 @@ export function FolderItem({
               key={session.id}
               session={session}
               isActive={session.id === currentSessionId}
-              folders={allFolders}
+              projects={allProjects}
               onSelect={() => onSelectSession(session.id)}
               onDelete={() => onDeleteSession(session.id)}
-              onMoveToFolder={(folderId) => onMoveSession(session.id, folderId)}
+              onMoveToProject={(projectId) =>
+                onMoveSession(session.id, projectId)
+              }
               onSessionUpdate={onSessionUpdate}
               isFavorite={isFavorites}
+              onDragStartTouch={undefined}
+              isDraggingTouch={draggingSessionId === session.id}
             />
           ))}
         </div>
@@ -248,12 +275,12 @@ export function FolderItem({
 
       {/* Context Menu */}
       {!isFavorites && (
-        <FolderMenu
-          folder={folder}
+        <ProjectMenu
+          project={project}
           isOpen={isMenuOpen}
           onClose={() => setIsMenuOpen(false)}
           onRename={handleStartEdit}
-          onDelete={() => onDeleteFolder(folder.id)}
+          onDelete={() => onDeleteProject(project.id)}
           anchorEl={menuAnchor}
         />
       )}

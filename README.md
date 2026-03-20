@@ -129,7 +129,7 @@ English | [简体中文](README_CN.md)
 - **Image Viewer** - Built-in image preview with zoom support
 - **File Upload** - Drag & drop or click to upload multiple files
 - **Cloud Storage** - S3 / OSS / MinIO integration
-- **Folder Management** - Organize conversations into folders
+- **Project Management** - Organize conversations into projects
 - **Session Search** - Full-text search across all conversations
 
 ### 🔄 Real-time & Storage
@@ -249,7 +249,7 @@ src/
 │   ├── channel/     # Multi-channel (Feishu, etc.)
 │   ├── email/       # Email service
 │   ├── feedback/    # Feedback system
-│   ├── folder/      # Folder management
+│   ├── folder/      # Project management
 │   ├── llm/         # LLM integration
 │   ├── memory/      # Memory & hindsight
 │   ├── mcp/         # MCP protocol

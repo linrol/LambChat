@@ -3,7 +3,12 @@ import { useState } from "react";
 import { Ban, CheckCircle, XCircle, ChevronRight } from "lucide-react";
 import { LoadingSpinner } from "./LoadingSpinner";
 
-export type CollapsibleStatus = "idle" | "loading" | "success" | "error" | "cancelled";
+export type CollapsibleStatus =
+  | "idle"
+  | "loading"
+  | "success"
+  | "error"
+  | "cancelled";
 export type CollapsibleVariant = "default" | "tool" | "thinking";
 
 export interface CollapsiblePillProps {
@@ -166,7 +171,9 @@ export function CollapsiblePill({
       >
         <StatusIndicator status={status} variant={variant} />
         {icon}
-        <span className="font-mono truncate max-w-[200px] sm:max-w-[400px]">{formattedLabel}</span>
+        <span className="font-mono truncate max-w-[200px] sm:max-w-[400px]">
+          {formattedLabel}
+        </span>
         {suffix}
         {canExpand && (
           <ChevronRight
@@ -181,7 +188,7 @@ export function CollapsiblePill({
       </button>
 
       {isExpanded && hasChildren && (
-        <div className="mt-1 animate-[fade-in_150ms_ease-out]">
+        <div className="mt-1 animate-[fade-in_150ms_ease-out] max-h-[500px] overflow-y-auto">
           {children}
         </div>
       )}

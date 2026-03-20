@@ -88,7 +88,7 @@ async def list_sessions(
     skip: int = Query(0, ge=0, description="跳过的会话数量"),
     limit: int = Query(20, ge=1, le=100, description="返回的会话数量"),
     status: Optional[str] = Query(None, description="状态过滤: active 或 archived"),
-    folder_id: Optional[str] = Query(None, description="文件夹过滤: 文件夹ID 或 'none'(未分类)"),
+    project_id: Optional[str] = Query(None, description="项目过滤: 项目ID 或 'none'(未分类)"),
     user: TokenPayload = Depends(get_current_user_required),
 ):
     """
@@ -97,10 +97,10 @@ async def list_sessions(
     普通用户只能看到自己的会话，管理员可以看到所有会话。
 
     Args:
-        folder_id: 可选的文件夹过滤
+        project_id: 可选的项目过滤
                    - 不传: 返回所有会话
                    - "none": 返回未分类的会话
-                   - 文件夹ID: 返回该文件夹内的会话
+                   - 项目ID: 返回该项目内的会话
 
     Returns:
         {
@@ -128,7 +128,7 @@ async def list_sessions(
         skip=skip,
         limit=limit,
         is_active=is_active,
-        folder_id=folder_id,
+        project_id=project_id,
     )
 
     return {
@@ -541,13 +541,13 @@ async def move_session(
     user: TokenPayload = Depends(get_current_user_required),
 ):
     """
-    移动会话到文件夹
+    移动会话到项目
 
-    将会话移动到指定文件夹，或设置为未分类。
+    将会话移动到指定项目，或设置为未分类。
 
     Args:
         session_id: 会话ID
-        body: {"folder_id": "xxx" 或 null}
+        body: {"project_id": "xxx" 或 null}
 
     Returns:
         {"status": "moved", "session": updated_session}
@@ -564,18 +564,18 @@ async def move_session(
 
     verify_session_ownership(session, user)
 
-    # Get folder_id from body
-    folder_id = body.get("folder_id")
+    # Get project_id from body
+    project_id = body.get("project_id")
 
-    # If folder_id provided (not null), verify folder exists and belongs to user
-    if folder_id is not None:
-        folder_storage = get_folder_storage()
-        folder = await folder_storage.get_by_id(folder_id, user.sub)
-        if not folder:
-            raise HTTPException(status_code=404, detail="文件夹不存在")
+    # If project_id provided (not null), verify project exists and belongs to user
+    if project_id is not None:
+        project_storage = get_folder_storage()
+        project = await project_storage.get_by_id(project_id, user.sub)
+        if not project:
+            raise HTTPException(status_code=404, detail="项目不存在")
 
     # Move session
-    updated_session = await storage.move_to_folder(session_id, user.sub, folder_id)
+    updated_session = await storage.move_to_project(session_id, user.sub, project_id)
     if not updated_session:
         raise HTTPException(status_code=500, detail="移动失败")
 

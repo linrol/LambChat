@@ -1,4 +1,4 @@
-"""Folder-related schemas for session organization."""
+"""Project-related schemas for session organization."""
 
 from datetime import datetime
 from typing import Optional
@@ -6,29 +6,29 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-class FolderBase(BaseModel):
-    """Base folder schema."""
+class ProjectBase(BaseModel):
+    """Base project schema."""
 
     name: str
     type: str = "custom"  # "favorites" or "custom"
     sort_order: int = 0
 
 
-class FolderCreate(FolderBase):
-    """Schema for creating a folder."""
+class ProjectCreate(ProjectBase):
+    """Schema for creating a project."""
 
     pass
 
 
-class FolderUpdate(BaseModel):
-    """Schema for updating a folder."""
+class ProjectUpdate(BaseModel):
+    """Schema for updating a project."""
 
     name: Optional[str] = None
     sort_order: Optional[int] = None
 
 
-class Folder(FolderBase):
-    """Folder model."""
+class Project(ProjectBase):
+    """Project model."""
 
     id: str
     user_id: str

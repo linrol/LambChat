@@ -1,5 +1,5 @@
-"""Folder storage module."""
+"""Project storage module."""
 
-from src.infra.folder.storage import FolderStorage
+from src.infra.folder.storage import ProjectStorage
 
-__all__ = ["FolderStorage"]
+__all__ = ["ProjectStorage"]

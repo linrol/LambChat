@@ -11,9 +11,9 @@ import { useInView } from "react-intersection-observer";
 import { sessionApi, folderApi, type BackendSession } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
 import { ConfirmDialog } from "../common/ConfirmDialog";
-import { FolderItem } from "../sidebar/FolderItem";
+import { ProjectItem } from "../sidebar/ProjectItem";
 import { SessionItem } from "../sidebar/SessionItem";
-import type { Folder } from "../../types";
+import type { Project } from "../../types";
 
 const PAGE_SIZE = 20;
 
@@ -70,11 +70,28 @@ export function SessionSidebar({
     sessionId: string | null;
   }>({ isOpen: false, sessionId: null });
 
-  // Folder state
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
-  const [isFoldersCollapsed, setIsFoldersCollapsed] = useState(true); // 默认收起
+  // Project state
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [isProjectsCollapsed, setIsProjectsCollapsed] = useState(true); // 默认收起
+
+  // Touch drag state for mobile
+  const [draggingSessionId, setDraggingSessionId] = useState<string | null>(
+    null,
+  );
+  const [touchDropTarget, setTouchDropTarget] = useState<string | null>(null);
+  const [dragIndicatorPos, setDragIndicatorPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [dragIndicatorTitle, setDragIndicatorTitle] = useState<string>("");
+  const touchDragRef = useRef<{
+    sessionId: string;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+  const touchDropTargetRef = useRef<string | null>(null);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.1,
@@ -156,13 +173,13 @@ export function SessionSidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMore, isLoadingMore, isLoading]);
 
-  // Load folders
-  const loadFolders = async () => {
+  // Load projects
+  const loadProjects = async () => {
     try {
-      const folderList = await folderApi.list();
-      setFolders(folderList);
+      const projectList = await folderApi.list();
+      setProjects(projectList);
     } catch (err) {
-      console.error("Failed to load folders:", err);
+      console.error("Failed to load projects:", err);
     }
   };
 
@@ -173,28 +190,17 @@ export function SessionSidebar({
   }, [inView, hasMore, isLoadingMore, loadMoreSessions]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Don't interfere with drag operations
+    if (touchDragRef.current) return;
     touchStartRef.current = e.touches[0].clientY;
     isPullingRef.current = true;
-    console.log("[TouchStart] startY:", e.touches[0].clientY);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    console.log(
-      "[TouchMove] isPulling:",
-      isPullingRef.current,
-      "isLoadingMore:",
-      isLoadingMore,
-    );
+    // Don't interfere with drag operations
+    if (touchDragRef.current) return;
     if (!isPullingRef.current || isLoadingMore) return;
     const distance = e.touches[0].clientY - touchStartRef.current;
-    console.log(
-      "[TouchMove] distance:",
-      distance,
-      "currentY:",
-      e.touches[0].clientY,
-      "startY:",
-      touchStartRef.current,
-    );
     // 往上拉(distance < 0)才触发
     if (distance < 0) {
       setPullDistance(Math.min(Math.abs(distance), 80));
@@ -204,7 +210,8 @@ export function SessionSidebar({
   };
 
   const handleTouchEnd = () => {
-    console.log("[TouchEnd] pullDistance:", pullDistance, "hasMore:", hasMore);
+    // Don't interfere with drag operations
+    if (touchDragRef.current) return;
     if (pullDistance > 60 && hasMore && !isLoadingMore) {
       loadMoreSessions();
     }
@@ -257,54 +264,54 @@ export function SessionSidebar({
     }
   };
 
-  // Folder operations
-  const handleCreateFolder = async () => {
-    const trimmedName = newFolderName.trim();
+  // Project operations
+  const handleCreateProject = async () => {
+    const trimmedName = newProjectName.trim();
     if (!trimmedName) return;
 
     try {
-      const newFolder = await folderApi.create({ name: trimmedName });
-      setFolders((prev) => [...prev, newFolder]);
-      setNewFolderName("");
-      toast.success(t("sidebar.folderCreated"));
+      const newProject = await folderApi.create({ name: trimmedName });
+      setProjects((prev) => [...prev, newProject]);
+      setNewProjectName("");
+      toast.success(t("sidebar.projectCreated"));
     } catch (err) {
-      console.error("Failed to create folder:", err);
-      toast.error(t("sidebar.folderCreateFailed"));
+      console.error("Failed to create project:", err);
+      toast.error(t("sidebar.projectCreateFailed"));
     }
   };
 
-  const handleRenameFolder = (folderId: string, name: string) => {
-    setFolders((prev) =>
-      prev.map((f) => (f.id === folderId ? { ...f, name } : f)),
+  const handleRenameProject = (projectId: string, name: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, name } : p)),
     );
   };
 
-  const handleDeleteFolder = async (folderId: string) => {
+  const handleDeleteProject = async (projectId: string) => {
     try {
-      await folderApi.delete(folderId);
-      setFolders((prev) => prev.filter((f) => f.id !== folderId));
-      // Sessions in deleted folder become uncategorized (folder_id cleared on backend)
-      // Refresh sessions to get updated folder assignments
+      await folderApi.delete(projectId);
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      // Sessions in deleted project become uncategorized (project_id cleared on backend)
+      // Refresh sessions to get updated project assignments
       loadSessions(true);
-      toast.success(t("sidebar.folderDeleted"));
+      toast.success(t("sidebar.projectDeleted"));
     } catch (err) {
-      console.error("Failed to delete folder:", err);
-      toast.error(t("sidebar.folderDeleteFailed"));
+      console.error("Failed to delete project:", err);
+      toast.error(t("sidebar.projectDeleteFailed"));
     }
   };
 
   const handleMoveSession = async (
     sessionId: string,
-    folderId: string | null,
+    projectId: string | null,
   ) => {
     try {
-      const response = await sessionApi.moveToFolder(sessionId, folderId);
+      const response = await sessionApi.moveToProject(sessionId, projectId);
       if (response.session) {
         setSessions((prev) =>
           prev.map((s) => (s.id === sessionId ? response.session : s)),
         );
         toast.success(
-          folderId ? t("sidebar.sessionMoved") : t("sidebar.sessionRemoved"),
+          projectId ? t("sidebar.sessionMoved") : t("sidebar.sessionRemoved"),
         );
       }
     } catch (err) {
@@ -312,6 +319,75 @@ export function SessionSidebar({
       toast.error(t("sidebar.sessionMoveFailed"));
     }
   };
+
+  // Keep a ref to handleMoveSession so the document listener always calls the latest version
+  const handleMoveSessionRef = useRef(handleMoveSession);
+  handleMoveSessionRef.current = handleMoveSession;
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+
+  // Touch drag handlers for mobile
+  const handleDragStartTouch = useCallback(
+    (sessionId: string, clientX: number, clientY: number) => {
+      setDraggingSessionId(sessionId);
+      touchDragRef.current = { sessionId, clientX, clientY };
+      touchDropTargetRef.current = null;
+      setDragIndicatorPos({ x: clientX, y: clientY });
+
+      // Get session title for the drag indicator
+      const s = sessionsRef.current.find((s) => s.id === sessionId);
+      if (s) {
+        const meta = s.metadata as Record<string, unknown>;
+        const title = s.name || (meta?.title as string) || "New Chat";
+        setDragIndicatorTitle(title);
+      }
+
+      const handleDocumentTouchMove = (e: TouchEvent) => {
+        if (!touchDragRef.current || e.touches.length === 0) return;
+        e.preventDefault(); // Prevent scrolling during drag
+        const touch = e.touches[0];
+        touchDragRef.current.clientX = touch.clientX;
+        touchDragRef.current.clientY = touch.clientY;
+        setDragIndicatorPos({ x: touch.clientX, y: touch.clientY });
+        // Find drop target using elementFromPoint
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (el) {
+          const projectHeader = el.closest("[data-project-drop]");
+          if (projectHeader) {
+            const projectId = projectHeader.getAttribute("data-project-id");
+            touchDropTargetRef.current = projectId;
+            setTouchDropTarget(projectId);
+          } else {
+            touchDropTargetRef.current = null;
+            setTouchDropTarget(null);
+          }
+        }
+      };
+      const handleDocumentTouchEnd = () => {
+        // Use ref to get the latest drop target (not stale closure)
+        const targetId = touchDropTargetRef.current;
+        if (targetId && touchDragRef.current) {
+          handleMoveSessionRef.current(
+            touchDragRef.current.sessionId,
+            targetId,
+          );
+        }
+        setDraggingSessionId(null);
+        setTouchDropTarget(null);
+        setDragIndicatorPos(null);
+        touchDragRef.current = null;
+        touchDropTargetRef.current = null;
+        document.removeEventListener("touchmove", handleDocumentTouchMove);
+        document.removeEventListener("touchend", handleDocumentTouchEnd);
+      };
+      document.addEventListener("touchmove", handleDocumentTouchMove, {
+        passive: false,
+      });
+      document.addEventListener("touchend", handleDocumentTouchEnd);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [],
+  );
 
   const handleSessionUpdate = (updatedSession: BackendSession) => {
     setSessions((prev) =>
@@ -321,7 +397,7 @@ export function SessionSidebar({
 
   useEffect(() => {
     loadSessions(true);
-    loadFolders();
+    loadProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
@@ -475,7 +551,7 @@ export function SessionSidebar({
         </div>
       </div>
 
-      {/* Session list with folders */}
+      {/* Session list with projects */}
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-2"
@@ -518,7 +594,7 @@ export function SessionSidebar({
               {t("sidebar.retry")}
             </button>
           </div>
-        ) : filteredSessions.length === 0 && folders.length === 0 ? (
+        ) : filteredSessions.length === 0 && projects.length === 0 ? (
           <div className="py-8 text-center">
             <p className="text-sm text-gray-400 dark:text-stone-500">
               {searchQuery
@@ -528,24 +604,24 @@ export function SessionSidebar({
           </div>
         ) : (
           <div className="space-y-1">
-            {/* Folder section header */}
+            {/* Project section header */}
             <div
-              onClick={() => setIsFoldersCollapsed(!isFoldersCollapsed)}
+              onClick={() => setIsProjectsCollapsed(!isProjectsCollapsed)}
               className="px-2 py-1.5 mt-1 flex justify-between items-center text-xs font-normal text-stone-400 dark:text-stone-500"
             >
-              <h2>{t("sidebar.folders")}</h2>
+              <h2>{t("sidebar.projects")}</h2>
               <ChevronDown
                 size={12}
                 className={`transition-transform duration-200 ${
-                  isFoldersCollapsed ? "-rotate-90" : ""
+                  isProjectsCollapsed ? "-rotate-90" : ""
                 }`}
               />
             </div>
 
             {/* New folder button - only show when expanded */}
-            {!isFoldersCollapsed && (
+            {!isProjectsCollapsed && (
               <button
-                onClick={() => setShowNewFolderModal(true)}
+                onClick={() => setShowNewProjectModal(true)}
                 className="group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 transition-all duration-150 hover:bg-stone-50 dark:hover:bg-stone-800/20"
               >
                 <FolderPlus
@@ -553,28 +629,28 @@ export function SessionSidebar({
                   className="flex-shrink-0 text-stone-500 dark:text-stone-400"
                 />
                 <span className="text-sm text-stone-600 dark:text-stone-400">
-                  {t("sidebar.newFolder")}
+                  {t("sidebar.newProject")}
                 </span>
               </button>
             )}
 
-            {/* Favorites folder */}
-            {!isFoldersCollapsed &&
+            {/* Favorites project */}
+            {!isProjectsCollapsed &&
               (() => {
-                const favoritesFolder = folders.find(
-                  (f) => f.type === "favorites",
+                const favoritesProject = projects.find(
+                  (p) => p.type === "favorites",
                 );
-                if (!favoritesFolder) return null;
+                if (!favoritesProject) return null;
                 const favoritesSessions = filteredSessions.filter(
-                  (s) => s.metadata?.folder_id === favoritesFolder.id,
+                  (s) => s.metadata?.project_id === favoritesProject.id,
                 );
                 if (favoritesSessions.length === 0) return null;
                 return (
-                  <FolderItem
-                    folder={favoritesFolder}
+                  <ProjectItem
+                    project={favoritesProject}
                     sessions={favoritesSessions}
                     currentSessionId={currentSessionId}
-                    allFolders={folders}
+                    allProjects={projects}
                     onSelectSession={(sessionId) => {
                       onSelectSession(sessionId);
                       onMobileClose?.();
@@ -584,28 +660,33 @@ export function SessionSidebar({
                     }}
                     onMoveSession={handleMoveSession}
                     onSessionUpdate={handleSessionUpdate}
-                    onRenameFolder={handleRenameFolder}
-                    onDeleteFolder={handleDeleteFolder}
+                    onRenameProject={handleRenameProject}
+                    onDeleteProject={handleDeleteProject}
+                    draggingSessionId={
+                      touchDropTarget === favoritesProject.id
+                        ? draggingSessionId
+                        : null
+                    }
                   />
                 );
               })()}
 
-            {/* Custom folders */}
-            {!isFoldersCollapsed &&
-              folders
-                .filter((f) => f.type === "custom")
+            {/* Custom projects */}
+            {!isProjectsCollapsed &&
+              projects
+                .filter((p) => p.type === "custom")
                 .sort((a, b) => a.sort_order - b.sort_order)
-                .map((folder) => {
-                  const folderSessions = filteredSessions.filter(
-                    (s) => s.metadata?.folder_id === folder.id,
+                .map((project) => {
+                  const projectSessions = filteredSessions.filter(
+                    (s) => s.metadata?.project_id === project.id,
                   );
                   return (
-                    <FolderItem
-                      key={folder.id}
-                      folder={folder}
-                      sessions={folderSessions}
+                    <ProjectItem
+                      key={project.id}
+                      project={project}
+                      sessions={projectSessions}
                       currentSessionId={currentSessionId}
-                      allFolders={folders}
+                      allProjects={projects}
                       onSelectSession={(sessionId) => {
                         onSelectSession(sessionId);
                         onMobileClose?.();
@@ -615,8 +696,13 @@ export function SessionSidebar({
                       }}
                       onMoveSession={handleMoveSession}
                       onSessionUpdate={handleSessionUpdate}
-                      onRenameFolder={handleRenameFolder}
-                      onDeleteFolder={handleDeleteFolder}
+                      onRenameProject={handleRenameProject}
+                      onDeleteProject={handleDeleteProject}
+                      draggingSessionId={
+                        touchDropTarget === project.id
+                          ? draggingSessionId
+                          : null
+                      }
                     />
                   );
                 })}
@@ -624,7 +710,7 @@ export function SessionSidebar({
             {/* Uncategorized sessions (by time) */}
             {(() => {
               const uncategorizedSessions = filteredSessions.filter(
-                (s) => !s.metadata?.folder_id,
+                (s) => !s.metadata?.project_id,
               );
               if (uncategorizedSessions.length === 0) return null;
               const groupedUncategorized = groupSessionsByTime(
@@ -643,7 +729,7 @@ export function SessionSidebar({
                           key={session.id}
                           session={session}
                           isActive={currentSessionId === session.id}
-                          folders={folders}
+                          projects={projects}
                           onSelect={() => {
                             onSelectSession(session.id);
                             onMobileClose?.();
@@ -654,11 +740,13 @@ export function SessionSidebar({
                               sessionId: session.id,
                             })
                           }
-                          onMoveToFolder={(folderId) =>
-                            handleMoveSession(session.id, folderId)
+                          onMoveToProject={(projectId) =>
+                            handleMoveSession(session.id, projectId)
                           }
                           onSessionUpdate={handleSessionUpdate}
                           isFavorite={false}
+                          onDragStartTouch={handleDragStartTouch}
+                          isDraggingTouch={draggingSessionId === session.id}
                         />
                       ))}
                   </div>
@@ -726,6 +814,19 @@ export function SessionSidebar({
         {sessionListContent}
       </div>
 
+      {/* Mobile drag indicator */}
+      {dragIndicatorPos && (
+        <div
+          className="fixed z-[100] pointer-events-none px-3 py-1.5 rounded-lg bg-stone-700 dark:bg-stone-200 text-white dark:text-stone-800 text-xs shadow-lg max-w-[200px] truncate"
+          style={{
+            left: dragIndicatorPos.x - 20,
+            top: dragIndicatorPos.y - 40,
+          }}
+        >
+          {dragIndicatorTitle}
+        </div>
+      )}
+
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={deleteConfirm.isOpen}
@@ -738,45 +839,45 @@ export function SessionSidebar({
         variant="danger"
       />
 
-      {/* New Folder Modal */}
-      {showNewFolderModal && (
+      {/* New Project Modal */}
+      {showNewProjectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/50"
-            onClick={() => setShowNewFolderModal(false)}
+            onClick={() => setShowNewProjectModal(false)}
           />
-          <div className="relative bg-white dark:bg-stone-800 rounded-lg shadow-xl p-4 w-92 max-w-[90vw] space-y-4">
+          <div className="relative bg-white dark:bg-stone-800 rounded-lg shadow-xl p-4 w-[90vw] max-w-md space-y-4">
             <h3 className="text-sm font-medium text-stone-700 dark:text-stone-200 mb-1">
-              {t("sidebar.newFolder")}
+              {t("sidebar.newProject")}
             </h3>
             <p className="text-xs text-stone-400 dark:text-stone-500 mb-3">
-              {t("sidebar.folderHint")}
+              {t("sidebar.projectHint")}
             </p>
             <input
               ref={(el) => {
                 if (el) el.focus();
               }}
               type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  handleCreateFolder();
-                  setShowNewFolderModal(false);
+                  handleCreateProject();
+                  setShowNewProjectModal(false);
                 }
                 if (e.key === "Escape") {
-                  setShowNewFolderModal(false);
-                  setNewFolderName("");
+                  setShowNewProjectModal(false);
+                  setNewProjectName("");
                 }
               }}
-              placeholder={t("sidebar.folderName")}
+              placeholder={t("sidebar.projectName")}
               className="w-full px-3 py-2 text-sm rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 text-stone-700 dark:text-stone-200 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400"
             />
             <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={() => {
-                  setShowNewFolderModal(false);
-                  setNewFolderName("");
+                  setShowNewProjectModal(false);
+                  setNewProjectName("");
                 }}
                 className="px-3 py-1.5 text-sm text-stone-600 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
               >
@@ -784,10 +885,10 @@ export function SessionSidebar({
               </button>
               <button
                 onClick={() => {
-                  handleCreateFolder();
-                  setShowNewFolderModal(false);
+                  handleCreateProject();
+                  setShowNewProjectModal(false);
                 }}
-                disabled={!newFolderName.trim()}
+                disabled={!newProjectName.trim()}
                 className="px-3 py-1.5 text-sm bg-stone-600 text-white rounded-lg hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {t("common.create")}

@@ -158,7 +158,7 @@ export const AttachmentCard = memo(function AttachmentCard({
                   "shrink-0 size-6 rounded-full flex items-center justify-center",
                   "bg-gray-100/80 dark:bg-stone-700/80",
                   "text-gray-400 dark:text-stone-500",
-                  "opacity-0 group-hover:opacity-100",
+                  "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
                   "transition-all duration-200",
                   "hover:bg-red-100 dark:hover:bg-red-900/30",
                   "hover:text-red-500 dark:hover:text-red-400",

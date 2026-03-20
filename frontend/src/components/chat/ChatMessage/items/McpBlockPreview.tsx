@@ -6,9 +6,7 @@ import type { McpContentBlock, McpMultiModalResult } from "./toolUtils";
 import { isMarkdownText, extractText } from "./toolUtils";
 
 // LangChain content blocks 数组: [{"type": "text", "text": "..."}, ...]
-function isContentBlocksArray(
-  result: unknown,
-): result is McpContentBlock[] {
+function isContentBlocksArray(result: unknown): result is McpContentBlock[] {
   return (
     Array.isArray(result) &&
     result.length > 0 &&
@@ -117,8 +115,8 @@ export function ToolResultContent({
     const mcp = result as McpMultiModalResult;
     return (
       <div className="space-y-1.5">
-        {mcp.text && (
-          isMarkdownText(mcp.text) ? (
+        {mcp.text &&
+          (isMarkdownText(mcp.text) ? (
             <div className="text-xs text-stone-600 dark:text-stone-300 max-h-64 overflow-y-auto">
               <MarkdownContent content={mcp.text} />
             </div>
@@ -126,8 +124,7 @@ export function ToolResultContent({
             <pre className="text-xs text-stone-600 dark:text-stone-300 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
               {mcp.text}
             </pre>
-          )
-        )}
+          ))}
         <div className="flex flex-wrap gap-2">
           {(mcp.blocks || []).map((block, i) => (
             <McpBlockPreview key={i} block={block} />
@@ -150,7 +147,10 @@ export function ToolResultContent({
       <div className="rounded-md border border-stone-200 dark:border-stone-700 overflow-hidden">
         {(title || url) && (
           <div className="flex items-center gap-2 px-3 py-2 bg-stone-100 dark:bg-stone-800 border-b border-stone-200 dark:border-stone-700">
-            <FileText size={14} className="shrink-0 text-stone-500 dark:text-stone-400" />
+            <FileText
+              size={14}
+              className="shrink-0 text-stone-500 dark:text-stone-400"
+            />
             {url ? (
               <a
                 href={url}
@@ -166,7 +166,10 @@ export function ToolResultContent({
               </span>
             )}
             {url && (
-              <ExternalLink size={12} className="shrink-0 text-stone-400 dark:text-stone-500 ml-auto" />
+              <ExternalLink
+                size={12}
+                className="shrink-0 text-stone-400 dark:text-stone-500 ml-auto"
+              />
             )}
           </div>
         )}
@@ -195,10 +198,14 @@ export function ToolResultContent({
 const MAX_JSON_COLLAPSED = 640;
 
 function JsonFallback({ data }: { data: unknown }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const str = JSON.stringify(data, null, 2);
   const needsTruncation = str.length > MAX_JSON_COLLAPSED;
-  const display = needsTruncation && !expanded ? str.slice(0, MAX_JSON_COLLAPSED) + "\n…" : str;
+  const display =
+    needsTruncation && !expanded
+      ? str.slice(0, MAX_JSON_COLLAPSED) + "\n…"
+      : str;
 
   return (
     <div>
@@ -211,8 +218,15 @@ function JsonFallback({ data }: { data: unknown }) {
           className="flex items-center gap-1 mt-1 text-xs text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
         >
           {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          {expanded ? "收起" : "展开全部"}
+          {expanded ? t("chat.message.collapse") : t("chat.message.expandAll")}
         </button>
+      )}
+      {expanded && str.length > MAX_JSON_COLLAPSED && (
+        <div className="mt-1 max-h-64 overflow-y-auto">
+          <pre className="text-xs text-stone-600 dark:text-stone-300 whitespace-pre-wrap break-words">
+            {str}
+          </pre>
+        </div>
       )}
     </div>
   );

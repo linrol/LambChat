@@ -1,45 +1,45 @@
 /**
- * Folder API - 文件夹管理
+ * Project API - 项目管理
  */
 
 import { API_BASE } from "./config";
 import { authFetch } from "./fetch";
-import type { Folder, FolderCreate, FolderUpdate } from "../../types";
+import type { Project, ProjectCreate, ProjectUpdate } from "../../types";
 
 export const folderApi = {
   /**
-   * List all folders for current user
+   * List all projects for current user
    */
-  async list(): Promise<Folder[]> {
-    return authFetch<Folder[]>(`${API_BASE}/api/folders`);
+  async list(): Promise<Project[]> {
+    return authFetch<Project[]>(`${API_BASE}/api/projects`);
   },
 
   /**
-   * Create a new folder
+   * Create a new project
    */
-  async create(data: FolderCreate): Promise<Folder> {
-    return authFetch<Folder>(`${API_BASE}/api/folders`, {
+  async create(data: ProjectCreate): Promise<Project> {
+    return authFetch<Project>(`${API_BASE}/api/projects`, {
       method: "POST",
       body: JSON.stringify(data),
     });
   },
 
   /**
-   * Update a folder (rename)
+   * Update a project (rename)
    */
-  async update(folderId: string, data: FolderUpdate): Promise<Folder> {
-    return authFetch<Folder>(`${API_BASE}/api/folders/${folderId}`, {
+  async update(projectId: string, data: ProjectUpdate): Promise<Project> {
+    return authFetch<Project>(`${API_BASE}/api/projects/${projectId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   },
 
   /**
-   * Delete a folder
+   * Delete a project
    */
-  async delete(folderId: string): Promise<{ status: string }> {
+  async delete(projectId: string): Promise<{ status: string }> {
     return authFetch<{ status: string }>(
-      `${API_BASE}/api/folders/${folderId}`,
+      `${API_BASE}/api/projects/${projectId}`,
       {
         method: "DELETE",
       },

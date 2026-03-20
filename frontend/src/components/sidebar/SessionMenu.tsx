@@ -6,28 +6,28 @@ import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Edit2, Trash2, FolderPlus, Star, ChevronRight, X } from "lucide-react";
 import type { BackendSession } from "../../services/api/session";
-import type { Folder } from "../../types";
+import type { Project } from "../../types";
 
 interface SessionMenuProps {
   session: BackendSession;
-  folders: Folder[];
+  projects: Project[];
   isOpen: boolean;
   onClose: () => void;
   onRename: () => void;
   onDelete: () => void;
-  onMoveToFolder: (folderId: string | null) => void;
+  onMoveToProject: (projectId: string | null) => void;
   anchorEl: HTMLElement | null;
   isFavorite?: boolean;
 }
 
 export function SessionMenu({
   session: _session,
-  folders,
+  projects,
   isOpen,
   onClose,
   onRename,
   onDelete,
-  onMoveToFolder,
+  onMoveToProject,
   anchorEl,
   isFavorite = false,
 }: SessionMenuProps) {
@@ -35,7 +35,7 @@ export function SessionMenu({
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
-  const [showFolderSubmenu, setShowFolderSubmenu] = useState(false);
+  const [showProjectSubmenu, setShowProjectSubmenu] = useState(false);
 
   // Reactive mobile detection
   const [isMobile, setIsMobile] = useState(() => {
@@ -57,7 +57,7 @@ export function SessionMenu({
   useEffect(() => {
     if (
       isMobile &&
-      showFolderSubmenu &&
+      showProjectSubmenu &&
       submenuRef.current &&
       menuRef.current
     ) {
@@ -69,7 +69,7 @@ export function SessionMenu({
         });
       }, 100);
     }
-  }, [isMobile, showFolderSubmenu]);
+  }, [isMobile, showProjectSubmenu]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -112,15 +112,15 @@ export function SessionMenu({
   // Reset submenu when menu opens/closes
   useEffect(() => {
     if (!isOpen) {
-      setShowFolderSubmenu(false);
+      setShowProjectSubmenu(false);
     }
   }, [isOpen]);
 
   if (!isOpen || !anchorEl) return null;
 
   // Get favorites folder if it exists
-  const favoritesFolder = folders.find((f) => f.type === "favorites");
-  const customFolders = folders.filter((f) => f.type === "custom");
+  const favoritesProject = projects.find((f) => f.type === "favorites");
+  const customProjects = projects.filter((f) => f.type === "custom");
 
   // Mobile: bottom sheet style
   if (isMobile) {
@@ -171,37 +171,37 @@ export function SessionMenu({
             {/* Move to folder */}
             <div className="mt-1">
               <button
-                onClick={() => setShowFolderSubmenu(!showFolderSubmenu)}
+                onClick={() => setShowProjectSubmenu(!showProjectSubmenu)}
                 className="w-full flex items-center justify-between gap-3 px-3 py-3 text-base text-gray-700 dark:text-stone-200 hover:bg-gray-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <FolderPlus size={18} />
-                  <span>{t("sidebar.moveToFolder")}</span>
+                  <span>{t("sidebar.moveToProject")}</span>
                 </div>
                 <ChevronRight
                   size={18}
                   className={`transition-transform ${
-                    showFolderSubmenu ? "rotate-90" : ""
+                    showProjectSubmenu ? "rotate-90" : ""
                   }`}
                 />
               </button>
 
-              {showFolderSubmenu && (
+              {showProjectSubmenu && (
                 <div
                   ref={submenuRef}
                   className="mt-1 ml-4 pl-3 border-l-2 border-gray-200 dark:border-stone-700"
                 >
                   <p className="px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
-                    {t("sidebar.moveToFolderHint")}
+                    {t("sidebar.moveToProjectHint")}
                   </p>
 
-                  {favoritesFolder && (
+                  {favoritesProject && (
                     <button
                       onClick={() => {
                         if (isFavorite) {
-                          onMoveToFolder(null);
+                          onMoveToProject(null);
                         } else {
-                          onMoveToFolder(favoritesFolder.id);
+                          onMoveToProject(favoritesProject.id);
                         }
                         onClose();
                       }}
@@ -221,21 +221,21 @@ export function SessionMenu({
                     </button>
                   )}
 
-                  {customFolders.length > 0 && (
+                  {customProjects.length > 0 && (
                     <>
-                      {favoritesFolder && (
+                      {favoritesProject && (
                         <div className="h-px bg-gray-200 dark:bg-stone-700 mx-3 my-1" />
                       )}
-                      {customFolders.map((folder) => (
+                      {customProjects.map((project) => (
                         <button
-                          key={folder.id}
+                          key={project.id}
                           onClick={() => {
-                            onMoveToFolder(folder.id);
+                            onMoveToProject(project.id);
                             onClose();
                           }}
                           className="w-full flex items-center gap-3 px-3 py-3 text-base text-gray-700 dark:text-stone-200 hover:bg-gray-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
                         >
-                          <span className="truncate">{folder.name}</span>
+                          <span className="truncate">{project.name}</span>
                         </button>
                       ))}
                     </>
@@ -244,7 +244,7 @@ export function SessionMenu({
                   <div className="h-px bg-gray-200 dark:bg-stone-700 mx-3 my-1" />
                   <button
                     onClick={() => {
-                      onMoveToFolder(null);
+                      onMoveToProject(null);
                       onClose();
                     }}
                     className="w-full flex items-center gap-3 px-3 py-3 text-base text-gray-500 dark:text-stone-400 hover:bg-gray-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
@@ -275,12 +275,20 @@ export function SessionMenu({
     );
   }
 
-  // Desktop: dropdown menu
+  // Desktop: dropdown menu - open in direction with more space
   const rect = anchorEl.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openBelow = spaceBelow >= spaceAbove;
+
   const menuStyle: React.CSSProperties = {
     position: "fixed",
-    top: rect.bottom + 4,
+    ...(openBelow
+      ? { top: rect.bottom + 4 }
+      : { bottom: window.innerHeight - rect.top + 4 }),
     right: window.innerWidth - rect.right,
+    maxHeight: (openBelow ? spaceBelow : spaceAbove) - 16,
+    overflowY: "auto",
     zIndex: 50,
   };
 
@@ -305,36 +313,36 @@ export function SessionMenu({
       {/* Move to folder section */}
       <div>
         <button
-          onClick={() => setShowFolderSubmenu(!showFolderSubmenu)}
+          onClick={() => setShowProjectSubmenu(!showProjectSubmenu)}
           className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 dark:text-stone-200 hover:bg-gray-100 dark:hover:bg-stone-700 transition-colors"
         >
           <div className="flex items-center gap-2">
             <FolderPlus size={14} />
-            <span>{t("sidebar.moveToFolder")}</span>
+            <span>{t("sidebar.moveToProject")}</span>
           </div>
           <ChevronRight
             size={14}
             className={`transition-transform ${
-              showFolderSubmenu ? "rotate-90" : ""
+              showProjectSubmenu ? "rotate-90" : ""
             }`}
           />
         </button>
 
         {/* Folder submenu - inline expansion */}
-        {showFolderSubmenu && (
-          <div className="bg-gray-50 dark:bg-stone-900/50">
+        {showProjectSubmenu && (
+          <div className="bg-gray-50 dark:bg-stone-900/50 max-h-60 overflow-y-auto">
             <p className="px-3 py-1.5 text-xs text-stone-400 dark:text-stone-500">
-              {t("sidebar.moveToFolderHint")}
+              {t("sidebar.moveToProjectHint")}
             </p>
 
             {/* Favorites option - only show if favorites folder exists */}
-            {favoritesFolder && (
+            {favoritesProject && (
               <button
                 onClick={() => {
                   if (isFavorite) {
-                    onMoveToFolder(null);
+                    onMoveToProject(null);
                   } else {
-                    onMoveToFolder(favoritesFolder.id);
+                    onMoveToProject(favoritesProject.id);
                   }
                   onClose();
                 }}
@@ -355,21 +363,21 @@ export function SessionMenu({
             )}
 
             {/* Custom folders */}
-            {customFolders.length > 0 && (
+            {customProjects.length > 0 && (
               <>
-                {favoritesFolder && (
+                {favoritesProject && (
                   <div className="h-px bg-gray-200 dark:bg-stone-700 mx-3" />
                 )}
-                {customFolders.map((folder) => (
+                {customProjects.map((project) => (
                   <button
-                    key={folder.id}
+                    key={project.id}
                     onClick={() => {
-                      onMoveToFolder(folder.id);
+                      onMoveToProject(project.id);
                       onClose();
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 pl-8 text-sm text-gray-700 dark:text-stone-200 hover:bg-gray-100 dark:hover:bg-stone-700 transition-colors"
                   >
-                    <span className="truncate">{folder.name}</span>
+                    <span className="truncate">{project.name}</span>
                   </button>
                 ))}
               </>
@@ -379,7 +387,7 @@ export function SessionMenu({
             <div className="h-px bg-gray-200 dark:bg-stone-700 mx-3" />
             <button
               onClick={() => {
-                onMoveToFolder(null);
+                onMoveToProject(null);
                 onClose();
               }}
               className="w-full flex items-center gap-2 px-3 py-2 pl-8 text-sm text-gray-500 dark:text-stone-400 hover:bg-gray-100 dark:hover:bg-stone-700 transition-colors"

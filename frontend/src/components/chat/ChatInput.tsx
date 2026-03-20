@@ -68,6 +68,13 @@ interface ChatInputProps {
   agentOptions?: Record<string, AgentOption>;
   agentOptionValues?: Record<string, boolean | string | number>;
   onToggleAgentOption?: (key: string, value: boolean | string | number) => void;
+  // External attachments (for page-level drag and drop)
+  attachments?: MessageAttachment[];
+  onAttachmentsChange?: (
+    attachments:
+      | MessageAttachment[]
+      | ((prev: MessageAttachment[]) => MessageAttachment[]),
+  ) => void;
 }
 
 // Agent option toggle/select button component
@@ -226,15 +233,23 @@ export const ChatInput = memo(function ChatInput({
   agentOptions,
   agentOptionValues = {},
   onToggleAgentOption,
+  attachments: externalAttachments,
+  onAttachmentsChange: externalOnAttachmentsChange,
 }: ChatInputProps) {
   const { t } = useTranslation();
   const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
+  const [internalAttachments, setInternalAttachments] = useState<
+    MessageAttachment[]
+  >([]);
   const [previewAttachment, setPreviewAttachment] =
     useState<MessageAttachment | null>(null);
   const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Use external attachments if provided, otherwise use internal state
+  const attachments = externalAttachments ?? internalAttachments;
+  const setAttachments = externalOnAttachmentsChange ?? setInternalAttachments;
 
   const { uploadFiles, validateCount, cancelUpload } = useFileUpload({
     attachments,
@@ -371,22 +386,19 @@ export const ChatInput = memo(function ChatInput({
   const canSubmit =
     hasContent && canSend && !isLoading && !hasUploadingAttachment;
 
-  // Drag and drop handlers
+  // Drag and drop handlers (no stopPropagation — page-level listeners in AppContent handle the overlay)
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDraggingOver(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDraggingOver(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDraggingOver(false);
 
     const files = e.dataTransfer?.files;
@@ -407,7 +419,7 @@ export const ChatInput = memo(function ChatInput({
           onDrop={handleDrop}
           className={`flex flex-col relative w-full rounded-3xl px-1 bg-white dark:bg-stone-800 border shadow-[0_0_10px_rgba(0,0,0,0.05)] dark:shadow-[0_0_10px_rgba(0,0,0,0.1)] transition-all duration-200 ${
             isDraggingOver
-              ? "border-purple-400 dark:border-purple-500 border-2 border-dashed"
+              ? "border-stone-400 dark:border-stone-500 border-2 border-dashed"
               : "border-gray-200/50 dark:border-stone-700/50"
           }`}
         >

@@ -5,6 +5,8 @@ import { toast } from "react-hot-toast";
 import { Menu, Check, X } from "lucide-react";
 import { ChatMessage } from "../chat/ChatMessage";
 import { ChatInput } from "../chat/ChatInput";
+import { useFileUpload } from "../../hooks/useFileUpload";
+import type { MessageAttachment } from "../../types";
 import { ApprovalPanel } from "../panels/ApprovalPanel";
 import { SkillsPanel } from "../panels/SkillsPanel";
 import { SessionSidebar } from "../panels/SessionSidebar";
@@ -55,9 +57,77 @@ export function AppContent({ activeTab }: AppContentProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isPageDragging, setIsPageDragging] = useState(false);
+  const [pageDragAttachments, setPageDragAttachments] = useState<
+    MessageAttachment[]
+  >([]);
   const navigate = useNavigate();
   const { enableMcp, enableSkills } = useSettingsContext();
   const { versionInfo } = useVersion();
+
+  // Page-level file upload for drag and drop
+  const { uploadFiles, validateCount } = useFileUpload({
+    attachments: pageDragAttachments,
+    onAttachmentsChange: setPageDragAttachments,
+  });
+
+  // Drag counter: increment on enter, decrement on leave.
+  // This correctly handles child elements (each child triggers enter+leave pairs).
+  const dragCounterRef = useRef(0);
+
+  useEffect(() => {
+    const handleDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) {
+        e.preventDefault();
+        dragCounterRef.current++;
+        if (dragCounterRef.current === 1) {
+          setIsPageDragging(true);
+        }
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) {
+        dragCounterRef.current--;
+        if (dragCounterRef.current <= 0) {
+          dragCounterRef.current = 0;
+          setIsPageDragging(false);
+        }
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      dragCounterRef.current = 0;
+      setIsPageDragging(false);
+
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+
+      e.preventDefault();
+
+      if (!validateCount(files.length)) return;
+
+      uploadFiles(files);
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener("dragenter", handleDragEnter);
+    document.addEventListener("dragleave", handleDragLeave);
+    document.addEventListener("drop", handleDrop);
+    document.addEventListener("dragover", handleDragOver);
+
+    return () => {
+      document.removeEventListener("dragenter", handleDragEnter);
+      document.removeEventListener("dragleave", handleDragLeave);
+      document.removeEventListener("drop", handleDrop);
+      document.removeEventListener("dragover", handleDragOver);
+    };
+  }, [uploadFiles, validateCount]);
 
   // Get approvals hook's addApproval method
   const {
@@ -166,6 +236,15 @@ export function AppContent({ activeTab }: AppContentProps) {
         isSupported,
         permission,
       });
+
+      // Auto-refresh session history if the completed session is currently viewed
+      if (session_id === sessionId) {
+        console.log(
+          "[AppContent] Task completed for current session, refreshing history:",
+          session_id,
+        );
+        loadHistoryRef.current(session_id);
+      }
 
       // Fetch session name for notification title
       let sessionName = "";
@@ -495,6 +574,31 @@ export function AppContent({ activeTab }: AppContentProps) {
       />
 
       <div className="flex h-[100dvh] w-full overflow-hidden bg-white dark:bg-stone-900">
+        {/* Drag overlay */}
+        {isPageDragging && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-stone-500/5 dark:bg-stone-500/10 backdrop-blur-sm transition-colors">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-stone-400 dark:border-stone-500 bg-white/95 dark:bg-stone-800/95 px-16 py-12 shadow-xl transition-colors">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-12 h-12 text-stone-500 dark:text-stone-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                />
+              </svg>
+              <span className="text-lg font-medium text-stone-600 dark:text-stone-300">
+                {t("chat.dropFilesHere", "Drop files here to upload")}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Session Sidebar - only show on chat tab */}
         {activeTab === "chat" && (
           <SessionSidebar
@@ -773,6 +877,8 @@ export function AppContent({ activeTab }: AppContentProps) {
                 agentOptions={currentAgentOptions}
                 agentOptionValues={agentOptionValues}
                 onToggleAgentOption={handleToggleAgentOption}
+                attachments={pageDragAttachments}
+                onAttachmentsChange={setPageDragAttachments}
               />
             </>
           ) : activeTab === "skills" ? (

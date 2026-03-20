@@ -1,4 +1,4 @@
-"""Folder storage layer for session organization."""
+"""Project storage layer for session organization."""
 
 from datetime import datetime
 from typing import Optional
@@ -6,17 +6,17 @@ from typing import Optional
 from bson import ObjectId
 
 from src.kernel.config import settings
-from src.kernel.schemas.folder import Folder, FolderCreate, FolderUpdate
+from src.kernel.schemas.project import Project, ProjectCreate, ProjectUpdate
 
 
-class FolderStorage:
+class ProjectStorage:
     """
-    Folder storage class using MongoDB.
+    Project storage class using MongoDB.
 
-    Manages folders for organizing user sessions, including the special "favorites" folder.
+    Manages projects for organizing user sessions, including the special "favorites" project.
     """
 
-    FOLDER_COLLECTION = "folders"
+    FOLDER_COLLECTION = "projects"
 
     def __init__(self):
         self._collection = None
@@ -32,75 +32,75 @@ class FolderStorage:
             self._collection = db[self.FOLDER_COLLECTION]
         return self._collection
 
-    async def create(self, folder_data: FolderCreate, user_id: str) -> Folder:
-        """Create a new folder."""
+    async def create(self, project_data: ProjectCreate, user_id: str) -> Project:
+        """Create a new project."""
         now = datetime.now()
 
-        folder_dict = {
-            "name": folder_data.name,
-            "type": folder_data.type,
-            "sort_order": folder_data.sort_order,
+        project_dict = {
+            "name": project_data.name,
+            "type": project_data.type,
+            "sort_order": project_data.sort_order,
             "user_id": user_id,
             "created_at": now,
             "updated_at": now,
         }
 
-        result = await self.collection.insert_one(folder_dict)
-        folder_dict["id"] = str(result.inserted_id)
+        result = await self.collection.insert_one(project_dict)
+        project_dict["id"] = str(result.inserted_id)
 
-        return Folder(**folder_dict)
+        return Project(**project_dict)
 
-    async def get_by_id(self, folder_id: str, user_id: str) -> Optional[Folder]:
-        """Get a folder by ID for a specific user."""
+    async def get_by_id(self, project_id: str, user_id: str) -> Optional[Project]:
+        """Get a project by ID for a specific user."""
         try:
-            folder_dict = await self.collection.find_one(
-                {"_id": ObjectId(folder_id), "user_id": user_id}
+            project_dict = await self.collection.find_one(
+                {"_id": ObjectId(project_id), "user_id": user_id}
             )
         except Exception:
             return None
 
-        if not folder_dict:
+        if not project_dict:
             return None
 
-        folder_dict["id"] = str(folder_dict.pop("_id"))
-        return Folder(**folder_dict)
+        project_dict["id"] = str(project_dict.pop("_id"))
+        return Project(**project_dict)
 
-    async def get_by_type(self, user_id: str, folder_type: str) -> Optional[Folder]:
-        """Get a folder by type for a specific user (e.g., 'favorites')."""
-        folder_dict = await self.collection.find_one({"user_id": user_id, "type": folder_type})
+    async def get_by_type(self, user_id: str, project_type: str) -> Optional[Project]:
+        """Get a project by type for a specific user (e.g., 'favorites')."""
+        project_dict = await self.collection.find_one({"user_id": user_id, "type": project_type})
 
-        if not folder_dict:
+        if not project_dict:
             return None
 
-        folder_dict["id"] = str(folder_dict.pop("_id"))
-        return Folder(**folder_dict)
+        project_dict["id"] = str(project_dict.pop("_id"))
+        return Project(**project_dict)
 
-    async def list_folders(self, user_id: str) -> list[Folder]:
-        """List all folders for a user, sorted by sort_order."""
+    async def list_folders(self, user_id: str) -> list[Project]:
+        """List all projects for a user, sorted by sort_order."""
         cursor = self.collection.find({"user_id": user_id}).sort("sort_order", 1)
-        folders = []
+        projects = []
 
-        for folder_dict in await cursor.to_list(length=100):
-            folder_dict["id"] = str(folder_dict.pop("_id"))
-            folders.append(Folder(**folder_dict))
+        for project_dict in await cursor.to_list(length=100):
+            project_dict["id"] = str(project_dict.pop("_id"))
+            projects.append(Project(**project_dict))
 
-        return folders
+        return projects
 
     async def update(
-        self, folder_id: str, user_id: str, folder_data: FolderUpdate
-    ) -> Optional[Folder]:
-        """Update a folder."""
+        self, project_id: str, user_id: str, project_data: ProjectUpdate
+    ) -> Optional[Project]:
+        """Update a project."""
         update_dict: dict = {"updated_at": datetime.now()}
 
-        if folder_data.name is not None:
-            update_dict["name"] = folder_data.name
+        if project_data.name is not None:
+            update_dict["name"] = project_data.name
 
-        if folder_data.sort_order is not None:
-            update_dict["sort_order"] = folder_data.sort_order
+        if project_data.sort_order is not None:
+            update_dict["sort_order"] = project_data.sort_order
 
         try:
             result = await self.collection.find_one_and_update(
-                {"_id": ObjectId(folder_id), "user_id": user_id},
+                {"_id": ObjectId(project_id), "user_id": user_id},
                 {"$set": update_dict},
                 return_document=True,
             )
@@ -111,35 +111,35 @@ class FolderStorage:
             return None
 
         result["id"] = str(result.pop("_id"))
-        return Folder(**result)
+        return Project(**result)
 
-    async def delete(self, folder_id: str, user_id: str) -> bool:
-        """Delete a folder.
+    async def delete(self, project_id: str, user_id: str) -> bool:
+        """Delete a project.
 
-        Note: This does not delete the sessions in the folder, only the folder itself.
+        Note: This does not delete the sessions in the project, only the project itself.
         """
         try:
             result = await self.collection.delete_one(
-                {"_id": ObjectId(folder_id), "user_id": user_id}
+                {"_id": ObjectId(project_id), "user_id": user_id}
             )
             return result.deleted_count > 0
         except Exception:
             return False
 
-    async def ensure_favorites_folder(self, user_id: str) -> Folder:
-        """Ensure the favorites folder exists for a user.
+    async def ensure_favorites_folder(self, user_id: str) -> Project:
+        """Ensure the favorites project exists for a user.
 
-        Creates the favorites folder if it doesn't exist.
-        Returns the favorites folder.
+        Creates the favorites project if it doesn't exist.
+        Returns the favorites project.
         """
-        # Check if favorites folder already exists
+        # Check if favorites project already exists
         existing = await self.get_by_type(user_id, "favorites")
         if existing:
             return existing
 
-        # Create the favorites folder
+        # Create the favorites project
         now = datetime.now()
-        folder_dict = {
+        project_dict = {
             "name": "Favorites",
             "type": "favorites",
             "sort_order": 0,  # Favorites always first
@@ -148,19 +148,19 @@ class FolderStorage:
             "updated_at": now,
         }
 
-        result = await self.collection.insert_one(folder_dict)
-        folder_dict["id"] = str(result.inserted_id)
+        result = await self.collection.insert_one(project_dict)
+        project_dict["id"] = str(result.inserted_id)
 
-        return Folder(**folder_dict)
+        return Project(**project_dict)
 
 
 # Singleton instance
-_folder_storage: Optional[FolderStorage] = None
+_project_storage: Optional[ProjectStorage] = None
 
 
-def get_folder_storage() -> FolderStorage:
-    """Get folder storage singleton."""
-    global _folder_storage
-    if _folder_storage is None:
-        _folder_storage = FolderStorage()
-    return _folder_storage
+def get_folder_storage() -> ProjectStorage:
+    """Get project storage singleton."""
+    global _project_storage
+    if _project_storage is None:
+        _project_storage = ProjectStorage()
+    return _project_storage

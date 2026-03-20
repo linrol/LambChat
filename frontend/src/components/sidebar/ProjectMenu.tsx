@@ -1,14 +1,14 @@
 /**
- * Folder context menu component for folder actions
+ * Project context menu component for project actions
  */
 
 import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Edit2, Trash2, X } from "lucide-react";
-import type { Folder } from "../../types";
+import type { Project } from "../../types";
 
-interface FolderMenuProps {
-  folder: Folder;
+interface ProjectMenuProps {
+  project: Project;
   isOpen: boolean;
   onClose: () => void;
   onRename: () => void;
@@ -16,15 +16,15 @@ interface FolderMenuProps {
   anchorEl: HTMLElement | null;
 }
 
-export function FolderMenu({
-  folder: _folder,
+export function ProjectMenu({
+  project: _project,
   isOpen,
   onClose,
   onRename,
   onDelete,
   anchorEl,
-}: FolderMenuProps) {
-  // _folder is available for future use (e.g., showing folder info in menu)
+}: ProjectMenuProps) {
+  // _project is available for future use (e.g., showing project info in menu)
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -106,7 +106,7 @@ export function FolderMenu({
           {/* Header */}
           <div className="flex items-center justify-between px-4 pb-2">
             <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
-              {t("sidebar.folderOptions")}
+              {t("sidebar.projectOptions")}
             </span>
             <button
               onClick={onClose}

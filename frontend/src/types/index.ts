@@ -189,10 +189,10 @@ export type {
 export type { VersionInfo } from "./common";
 
 // ============================================
-// Folder Types
+// Project Types
 // ============================================
 
-export interface Folder {
+export interface Project {
   id: string;
   user_id: string;
   name: string;
@@ -202,13 +202,13 @@ export interface Folder {
   updated_at: string;
 }
 
-export interface FolderCreate {
+export interface ProjectCreate {
   name: string;
   type?: "custom";
   sort_order?: number;
 }
 
-export interface FolderUpdate {
+export interface ProjectUpdate {
   name?: string;
   sort_order?: number;
 }

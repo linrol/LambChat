@@ -169,17 +169,17 @@ class SessionStorage:
         skip: int = 0,
         limit: int = 100,
         is_active: Optional[bool] = None,
-        folder_id: Optional[str] = None,
+        project_id: Optional[str] = None,
     ) -> tuple[list[Session], int]:
         """列出会话，返回 (sessions, total_count)
 
         Args:
             user_id: 用户ID，如果提供则只返回该用户的会话
                      None 表示不过滤（仅管理员使用）
-            folder_id: 文件夹ID过滤
-                       - None: 不过滤文件夹
-                       - "none": 只返回未分类的会话（没有folder_id）
-                       - 其他值: 只返回该文件夹内的会话
+            project_id: 项目ID过滤
+                       - None: 不过滤项目
+                       - "none": 只返回未分类的会话（没有project_id）
+                       - 其他值: 只返回该项目内的会话
         """
         query: dict[str, Any] = {}
         if user_id is not None:
@@ -188,12 +188,12 @@ class SessionStorage:
         if is_active is not None:
             query["is_active"] = is_active
 
-        # Folder filter
-        if folder_id == "none":
-            # 未分类：folder_id 为 None 或不存在
-            query["metadata.folder_id"] = None
-        elif folder_id is not None:
-            query["metadata.folder_id"] = folder_id
+        # Project filter
+        if project_id == "none":
+            # 未分类：project_id 为 None 或不存在
+            query["metadata.project_id"] = None
+        elif project_id is not None:
+            query["metadata.project_id"] = project_id
 
         # Get total count
         total = await self.collection.count_documents(query)
@@ -212,38 +212,38 @@ class SessionStorage:
         """获取会话 (兼容旧 API)"""
         return await self.get_by_id(session_id)
 
-    async def clear_folder_id(self, folder_id: str, user_id: str) -> int:
-        """Clear folder_id for all sessions in a folder (when folder is deleted).
+    async def clear_project_id(self, project_id: str, user_id: str) -> int:
+        """Clear project_id for all sessions in a project (when project is deleted).
 
         Args:
-            folder_id: The folder ID to clear
+            project_id: The project ID to clear
             user_id: The user ID to filter sessions
 
         Returns:
             Number of modified sessions
         """
         result = await self.collection.update_many(
-            {"user_id": user_id, "metadata.folder_id": folder_id},
-            {"$set": {"metadata.folder_id": None, "updated_at": datetime.now()}},
+            {"user_id": user_id, "metadata.project_id": project_id},
+            {"$set": {"metadata.project_id": None, "updated_at": datetime.now()}},
         )
         return result.modified_count
 
-    async def move_to_folder(
-        self, session_id: str, user_id: str, folder_id: Optional[str]
+    async def move_to_project(
+        self, session_id: str, user_id: str, project_id: Optional[str]
     ) -> Optional[Session]:
-        """Move a session to a folder.
+        """Move a session to a project.
 
         Args:
             session_id: The session ID to move
             user_id: The user ID (for ownership verification)
-            folder_id: The target folder ID, or None to uncategorize
+            project_id: The target project ID, or None to uncategorize
 
         Returns:
             Updated Session if found and updated, None otherwise
         """
         update_dict = {
             "updated_at": datetime.now(),
-            "metadata.folder_id": folder_id,
+            "metadata.project_id": project_id,
         }
 
         # Try custom session_id first

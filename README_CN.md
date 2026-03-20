@@ -249,7 +249,7 @@ src/
 │   ├── channel/     # 多渠道（飞书等）
 │   ├── email/       # 邮件服务
 │   ├── feedback/    # 反馈系统
-│   ├── folder/      # 文件夹管理
+│   ├── folder/      # 项目管理
 │   ├── llm/         # LLM 集成
 │   ├── memory/      # 记忆与 hindsight
 │   ├── mcp/         # MCP 协议

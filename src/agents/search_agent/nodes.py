@@ -11,6 +11,7 @@ import uuid
 from typing import Any, Dict
 
 from deepagents import create_deep_agent
+from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -21,6 +22,7 @@ from src.agents.search_agent.prompt import (
     EMPTY_MEMORY_SECTION,
     HINDSIGHT_MEMORY_SECTION,
     SANDBOX_SYSTEM_PROMPT,
+    SUBAGENT_PROMPT,
 )
 from src.infra.agent import AgentEventProcessor
 from src.infra.backend import (
@@ -285,6 +287,16 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
 
     # 创建 graph（带计时）
     graph_compile_start = time.time()
+
+    # 自定义子代理配置 - 强制将所有中间信息保存到文件
+    custom_subagents: list[SubAgent | CompiledSubAgent] = [
+        {
+            "name": "general-purpose",
+            "description": "General-purpose agent for researching complex questions, searching for files and content, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. This agent has access to all tools as the main agent.",
+            "system_prompt": SUBAGENT_PROMPT,
+        }
+    ]
+
     inner_graph = create_deep_agent(
         model=llm,
         system_prompt=system_prompt,
@@ -293,6 +305,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
         checkpointer=inner_checkpointer,
         store=store,  # 传递 PostgresStore
         skills=None,  # 禁用 SkillsMiddleware，使用 build_skills_prompt 代替
+        subagents=custom_subagents,
     ).with_config({"recursion_limit": settings.SESSION_MAX_RUNS_PER_SESSION})
     graph_compile_time = time.time() - graph_compile_start
     logger.debug(f"[Agent] Graph compile: {graph_compile_time * 1000:.3f}ms")

@@ -4,5 +4,5 @@
 
 export { SessionItem } from "./SessionItem";
 export { SessionMenu } from "./SessionMenu";
-export { FolderItem } from "./FolderItem";
-export { FolderMenu } from "./FolderMenu";
+export { ProjectItem } from "./ProjectItem";
+export { ProjectMenu } from "./ProjectMenu";

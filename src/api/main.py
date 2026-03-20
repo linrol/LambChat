@@ -22,10 +22,10 @@ from src.api.routes import (
     channels,
     chat,
     feedback,
-    folder,
     health,
     human,
     mcp,
+    project,
     role,
     session,
     share,
@@ -238,7 +238,7 @@ def create_app() -> FastAPI:
     app.include_router(user.router, prefix="/api/users", tags=["Users"])
     app.include_router(role.router, prefix="/api/roles", tags=["Roles"])
     app.include_router(session.router, prefix="/api/sessions", tags=["Sessions"])
-    app.include_router(folder.router, prefix="/api/folders", tags=["Folders"])
+    app.include_router(project.router, prefix="/api/projects", tags=["Projects"])
     app.include_router(share.router, prefix="/api/share", tags=["Share"])
     app.include_router(skill.router, prefix="/api/skills", tags=["Skills"])
     app.include_router(skill.admin_router, prefix="/api/admin/skills", tags=["Skills Admin"])

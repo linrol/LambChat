@@ -7,34 +7,42 @@ import { useTranslation } from "react-i18next";
 import { Star, MoreHorizontal } from "lucide-react";
 import toast from "react-hot-toast";
 import type { BackendSession } from "../../services/api/session";
-import type { Folder } from "../../types";
+import type { Project } from "../../types";
 import { sessionApi } from "../../services/api";
 import { SessionMenu } from "./SessionMenu";
 
 interface SessionItemProps {
   session: BackendSession;
   isActive: boolean;
-  folders: Folder[];
+  projects: Project[];
   onSelect: () => void;
   onDelete: () => void;
-  onMoveToFolder: (folderId: string | null) => void;
+  onMoveToProject: (projectId: string | null) => void;
   onSessionUpdate: (session: BackendSession) => void;
   isFavorite?: boolean;
   onDragStart?: (session: BackendSession) => void;
   onDragEnd?: () => void;
+  onDragStartTouch?: (
+    sessionId: string,
+    clientX: number,
+    clientY: number,
+  ) => void;
+  isDraggingTouch?: boolean;
 }
 
 export function SessionItem({
   session,
   isActive,
-  folders,
+  projects,
   onSelect,
   onDelete,
-  onMoveToFolder,
+  onMoveToProject,
   onSessionUpdate,
   isFavorite = false,
   onDragStart,
   onDragEnd,
+  onDragStartTouch,
+  isDraggingTouch = false,
 }: SessionItemProps) {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -43,9 +51,14 @@ export function SessionItem({
   const [isSaving, setIsSaving] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isTouched, setIsTouched] = useState(false);
+  const touchShowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const wasDraggingRef = useRef(false);
 
   // Get session title from various sources
   const getSessionTitle = useCallback(
@@ -125,7 +138,66 @@ export function SessionItem({
     setIsMenuOpen(true);
   };
 
-  // Drag handlers
+  // Touch: show menu button, auto-hide after 3s
+  const handleItemTouchStart = (e: React.TouchEvent) => {
+    if (isEditing) return;
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+
+    if (touchShowTimerRef.current) clearTimeout(touchShowTimerRef.current);
+    setIsTouched(true);
+    touchShowTimerRef.current = setTimeout(() => setIsTouched(false), 3000);
+
+    // Long press (400ms) to start drag
+    longPressTimerRef.current = setTimeout(() => {
+      setIsDragging(true);
+      wasDraggingRef.current = true;
+      onDragStartTouch?.(session.id, touch.clientX, touch.clientY);
+    }, 400);
+  };
+
+  const handleItemTouchMove = (e: React.TouchEvent) => {
+    // Cancel long press if moved too much before drag starts
+    if (longPressTimerRef.current && touchStartRef.current) {
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartRef.current.x;
+      const dy = touch.clientY - touchStartRef.current.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 10) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  };
+
+  const handleItemTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (isDragging) {
+      setIsDragging(false);
+      setTimeout(() => {
+        wasDraggingRef.current = false;
+      }, 100);
+    }
+  };
+
+  // Prevent context menu during drag
+  const handleContextMenu = (e: React.MouseEvent | React.TouchEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+    }
+  };
+
+  // Cleanup timers
+  useEffect(() => {
+    return () => {
+      if (touchShowTimerRef.current) clearTimeout(touchShowTimerRef.current);
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
+
+  // Drag handlers (desktop)
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("text/plain", session.id);
     e.dataTransfer.effectAllowed = "move";
@@ -147,16 +219,25 @@ export function SessionItem({
         draggable
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onTouchStart={handleItemTouchStart}
+        onTouchMove={handleItemTouchMove}
+        onTouchEnd={handleItemTouchEnd}
+        onContextMenu={handleContextMenu}
         onClick={() => {
+          if (wasDraggingRef.current) {
+            wasDraggingRef.current = false;
+            return;
+          }
           if (!isEditing) {
             onSelect();
           }
         }}
+        style={isDragging ? { touchAction: "none" } : undefined}
         className={`group relative flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2.5 transition-colors ${
           isActive
             ? "bg-stone-100 dark:bg-stone-800/50"
             : "hover:bg-stone-50 dark:hover:bg-stone-800/50"
-        } ${isDragging ? "opacity-50" : ""}`}
+        } ${isDragging || isDraggingTouch ? "opacity-50 scale-95" : ""}`}
       >
         {/* Favorite star icon */}
         {isFavorite && (
@@ -192,7 +273,8 @@ export function SessionItem({
           <button
             ref={menuButtonRef}
             onClick={handleMenuClick}
-            className="flex-shrink-0 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+            className="flex-shrink-0 rounded p-1 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all opacity-0 group-hover:opacity-100"
+            style={isTouched ? { opacity: 1 } : undefined}
             title={t("sidebar.moreOptions")}
           >
             <MoreHorizontal
@@ -206,12 +288,12 @@ export function SessionItem({
       {/* Context Menu */}
       <SessionMenu
         session={session}
-        folders={folders}
+        projects={projects}
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         onRename={handleStartEdit}
         onDelete={onDelete}
-        onMoveToFolder={onMoveToFolder}
+        onMoveToProject={onMoveToProject}
         anchorEl={menuAnchor}
         isFavorite={isFavorite}
       />
