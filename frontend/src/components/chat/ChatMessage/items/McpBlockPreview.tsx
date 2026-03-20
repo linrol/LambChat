@@ -54,7 +54,7 @@ function McpBlockPreview({ block }: { block: McpContentBlock }) {
 
   if (block.text) {
     return (
-      <pre className="text-xs text-stone-600 dark:text-stone-300 whitespace-pre-wrap break-words">
+      <pre className="text-xs text-stone-600 dark:text-stone-300 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
         {block.text}
       </pre>
     );
@@ -119,11 +119,11 @@ export function ToolResultContent({
       <div className="space-y-1.5">
         {mcp.text && (
           isMarkdownText(mcp.text) ? (
-            <div className="text-xs text-stone-600 dark:text-stone-300">
+            <div className="text-xs text-stone-600 dark:text-stone-300 max-h-64 overflow-y-auto">
               <MarkdownContent content={mcp.text} />
             </div>
           ) : (
-            <pre className="text-xs text-stone-600 dark:text-stone-300 whitespace-pre-wrap break-words">
+            <pre className="text-xs text-stone-600 dark:text-stone-300 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
               {mcp.text}
             </pre>
           )

@@ -138,7 +138,7 @@ const GrepItem = memo(function GrepItem({
               return text &&
                 parsedResult.lines.length === 0 &&
                 parsedResult.files.length === 0 ? (
-                <pre className="text-xs text-stone-500 dark:text-stone-400 whitespace-pre-wrap break-words">
+                <pre className="text-xs text-stone-500 dark:text-stone-400 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
                   {text}
                 </pre>
               ) : null;

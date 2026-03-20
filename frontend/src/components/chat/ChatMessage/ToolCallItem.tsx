@@ -75,7 +75,7 @@ export function ToolCallItem({
               <div className="text-xs uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-1 font-medium">
                 {t("chat.message.args")}
               </div>
-              <pre className="text-xs text-stone-600 dark:text-stone-300 overflow-x-auto">
+              <pre className="text-xs text-stone-600 dark:text-stone-300 overflow-x-auto max-h-40 overflow-y-auto">
                 {JSON.stringify(displayArgs, null, 2)}
               </pre>
             </div>

@@ -77,7 +77,7 @@ const EditFileItem = memo(function EditFileItem({
             (() => {
               const text = extractText(result);
               return text ? (
-                <pre className="text-xs text-stone-500 dark:text-stone-400 whitespace-pre-wrap break-words mt-1">
+                <pre className="text-xs text-stone-500 dark:text-stone-400 whitespace-pre-wrap break-words mt-1 max-h-32 overflow-y-auto">
                   {text}
                 </pre>
               ) : null;
