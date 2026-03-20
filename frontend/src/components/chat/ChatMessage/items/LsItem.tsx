@@ -10,11 +10,13 @@ const LsItem = memo(function LsItem({
   result,
   success,
   isPending,
+  cancelled,
 }: {
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
   success?: boolean;
   isPending?: boolean;
+  cancelled?: boolean;
 }) {
   const { t } = useTranslation();
   const dirPath = (args.path as string) || "/";
@@ -29,7 +31,7 @@ const LsItem = memo(function LsItem({
 
   return (
     <CollapsiblePill
-      status={isPending ? "loading" : success ? "success" : "error"}
+      status={isPending ? "loading" : cancelled ? "cancelled" : success ? "success" : "error"}
       icon={<FolderOpen size={12} className="shrink-0 opacity-50" />}
       label={`${t("chat.message.toolLs")} ${displayLabel}`}
       variant="tool"

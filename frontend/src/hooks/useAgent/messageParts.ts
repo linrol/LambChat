@@ -534,7 +534,8 @@ export function updateToolResultInPartsById(
 
 /**
  * Clear all loading states in message parts recursively.
- * Sets isPending: false on tools and subagents, isStreaming: false on thinking.
+ * Sets isPending: false and cancelled: true on tools and subagents,
+ * isStreaming: false on thinking, reverts in_progress todos to pending.
  * Returns a new parts array with updated loading states.
  */
 export function clearAllLoadingStates(parts: MessagePart[]): MessagePart[] {
@@ -543,7 +544,7 @@ export function clearAllLoadingStates(parts: MessagePart[]): MessagePart[] {
       case "tool": {
         const toolPart = part as ToolPart;
         if (!toolPart.isPending) return part;
-        return { ...toolPart, isPending: false };
+        return { ...toolPart, isPending: false, cancelled: true };
       }
       case "thinking": {
         const thinkingPart = part as ThinkingPart;
@@ -558,7 +559,8 @@ export function clearAllLoadingStates(parts: MessagePart[]): MessagePart[] {
         return {
           ...subagentPart,
           isPending: false,
-          status: "error",
+          cancelled: true,
+          status: "cancelled",
           completedAt: subagentPart.completedAt || Date.now(),
           parts: updatedParts,
         };
@@ -574,7 +576,7 @@ export function clearAllLoadingStates(parts: MessagePart[]): MessagePart[] {
           isStreaming: false,
           items: todoPart.items.map((i) =>
             i.status === "in_progress"
-              ? { ...i, status: "completed" as const }
+              ? { ...i, status: "pending" as const, activeForm: undefined }
               : i,
           ),
         };

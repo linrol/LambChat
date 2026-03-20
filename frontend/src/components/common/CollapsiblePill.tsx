@@ -1,9 +1,9 @@
 import { clsx } from "clsx";
 import { useState } from "react";
-import { CheckCircle, XCircle, ChevronRight } from "lucide-react";
+import { Ban, CheckCircle, XCircle, ChevronRight } from "lucide-react";
 import { LoadingSpinner } from "./LoadingSpinner";
 
-export type CollapsibleStatus = "idle" | "loading" | "success" | "error";
+export type CollapsibleStatus = "idle" | "loading" | "success" | "error" | "cancelled";
 export type CollapsibleVariant = "default" | "tool" | "thinking";
 
 export interface CollapsiblePillProps {
@@ -53,6 +53,9 @@ function StatusIndicator({
   if (status === "error") {
     return <XCircle size={12} className="shrink-0" />;
   }
+  if (status === "cancelled") {
+    return <Ban size={12} className="shrink-0" />;
+  }
   // idle - no indicator
   return null;
 }
@@ -89,6 +92,12 @@ function getButtonStyles(
         "text-red-700 dark:text-red-300",
       );
     }
+    if (status === "cancelled") {
+      return clsx(
+        "bg-amber-100/80 dark:bg-amber-900/30",
+        "text-amber-700 dark:text-amber-300",
+      );
+    }
     return clsx(
       "bg-stone-100 dark:bg-stone-800",
       "text-stone-600 dark:text-stone-400",
@@ -100,6 +109,12 @@ function getButtonStyles(
     return clsx(
       "bg-red-100/80 dark:bg-red-900/30",
       "text-red-700 dark:text-red-300",
+    );
+  }
+  if (status === "cancelled") {
+    return clsx(
+      "bg-amber-100/80 dark:bg-amber-900/30",
+      "text-amber-700 dark:text-amber-300",
     );
   }
   return clsx(

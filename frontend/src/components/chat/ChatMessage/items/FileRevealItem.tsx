@@ -66,11 +66,13 @@ export function FileRevealItem({
   result,
   success,
   isPending,
+  cancelled,
 }: {
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
   success?: boolean;
   isPending?: boolean;
+  cancelled?: boolean;
 }) {
   const { t } = useTranslation();
   const [showPreview, setShowPreview] = useState(false);
@@ -152,6 +154,29 @@ export function FileRevealItem({
         </div>
         <div className="text-xs text-amber-600 dark:text-amber-400">
           {t("chat.message.running")}
+        </div>
+      </div>
+    );
+  }
+
+  if (cancelled && !result) {
+    return (
+      <div className="my-2 flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+        <div className={`p-2.5 rounded-lg ${bg}`}>
+          <FileIcon size={20} className={color} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-stone-700 dark:text-stone-300 truncate">
+            {fileName}
+          </div>
+          {description && (
+            <div className="text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5">
+              {description}
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-amber-600 dark:text-amber-400">
+          {t("chat.message.cancelled")}
         </div>
       </div>
     );

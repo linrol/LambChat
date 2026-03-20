@@ -3,6 +3,7 @@ import { clsx } from "clsx";
 import {
   CheckCircle,
   XCircle,
+  Ban,
   ChevronDown,
   ChevronRight,
   Brain,
@@ -135,7 +136,7 @@ export function SubagentBlock({
   parts?: MessagePart[];
   startedAt?: number;
   completedAt?: number;
-  status?: "pending" | "running" | "complete" | "error";
+  status?: "pending" | "running" | "complete" | "error" | "cancelled";
   error?: string;
 }) {
   const { t } = useTranslation();
@@ -192,6 +193,7 @@ export function SubagentBlock({
         "border border-stone-200 dark:border-stone-700",
         "bg-white dark:bg-stone-900",
         effectiveStatus === "error" && "border-red-200 dark:border-red-900/50",
+        effectiveStatus === "cancelled" && "border-amber-200 dark:border-amber-900/50",
       )}
     >
       {/* Header - minimal design */}
@@ -213,7 +215,9 @@ export function SubagentBlock({
                 ? "bg-emerald-100 dark:bg-emerald-900/40"
                 : effectiveStatus === "error"
                   ? "bg-red-100 dark:bg-red-900/40"
-                  : "bg-stone-100 dark:bg-stone-800",
+                  : effectiveStatus === "cancelled"
+                    ? "bg-amber-100 dark:bg-amber-900/40"
+                    : "bg-stone-100 dark:bg-stone-800",
           )}
         >
           {effectiveStatus === "running" ? (
@@ -228,6 +232,8 @@ export function SubagentBlock({
             />
           ) : effectiveStatus === "error" ? (
             <XCircle size={14} className="text-red-600 dark:text-red-400" />
+          ) : effectiveStatus === "cancelled" ? (
+            <Ban size={14} className="text-amber-600 dark:text-amber-400" />
           ) : (
             <Users size={14} className="text-stone-500 dark:text-stone-400" />
           )}
@@ -247,6 +253,11 @@ export function SubagentBlock({
             {effectiveStatus === "error" && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 font-medium">
                 {t("chat.message.error")}
+              </span>
+            )}
+            {effectiveStatus === "cancelled" && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 font-medium">
+                {t("chat.message.cancelled")}
               </span>
             )}
           </div>

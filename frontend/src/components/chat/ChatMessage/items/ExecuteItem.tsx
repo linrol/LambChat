@@ -10,11 +10,13 @@ const ExecuteItem = memo(function ExecuteItem({
   result,
   success,
   isPending,
+  cancelled,
 }: {
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
   success?: boolean;
   isPending?: boolean;
+  cancelled?: boolean;
 }) {
   const { t } = useTranslation();
   const command = (args.command as string) || "";
@@ -54,7 +56,7 @@ const ExecuteItem = memo(function ExecuteItem({
 
   return (
     <CollapsiblePill
-      status={isPending ? "loading" : success ? "success" : "error"}
+      status={isPending ? "loading" : cancelled ? "cancelled" : success ? "success" : "error"}
       icon={<Terminal size={12} className="shrink-0 opacity-50" />}
       label={`${t("chat.message.toolExecute")} ${command.split(" ")[0] || ""}`}
       variant="tool"

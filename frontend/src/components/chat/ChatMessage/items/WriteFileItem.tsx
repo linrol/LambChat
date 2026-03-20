@@ -10,11 +10,13 @@ const WriteFileItem = memo(function WriteFileItem({
   result,
   success,
   isPending,
+  cancelled,
 }: {
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
   success?: boolean;
   isPending?: boolean;
+  cancelled?: boolean;
 }) {
   const { t } = useTranslation();
   const filePath = (args.file_path as string) || "";
@@ -25,7 +27,7 @@ const WriteFileItem = memo(function WriteFileItem({
 
   return (
     <CollapsiblePill
-      status={isPending ? "loading" : success ? "success" : "error"}
+      status={isPending ? "loading" : cancelled ? "cancelled" : success ? "success" : "error"}
       icon={<FilePlus size={12} className="shrink-0 opacity-50" />}
       label={`${t("chat.message.toolWrite")} ${fileName || ""}`}
       variant="tool"

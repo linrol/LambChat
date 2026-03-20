@@ -620,8 +620,16 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
     setConnectionStatus("disconnected");
     streamingMessageIdRef.current = null;
     isSendingRef.current = false;
+    isConnectingRef.current = false;
     setIsLoading(false);
     setIsInitializingSandbox(false);
+    setSandboxError(null);
+    clearReconnectTimeout(reconnectTimeoutRef);
+    activeSubagentStackRef.current = [];
+    retryCountRef.current = 0;
+
+    // Clear approvals immediately (don't wait for SSE cancel event which may never arrive)
+    options?.onClearApprovals?.();
 
     // Clear loading states on all messages and their parts
     setMessages((prev) =>
@@ -643,7 +651,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         );
       }
     }
-  }, []);
+  }, [options]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);

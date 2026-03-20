@@ -106,6 +106,7 @@ export interface ToolPart {
   success?: boolean;
   error?: string;
   isPending?: boolean;
+  cancelled?: boolean;
   depth?: number;
   agent_id?: string;
 }
@@ -119,14 +120,15 @@ export interface SubagentPart {
   success?: boolean;
   error?: string; // 错误信息
   isPending?: boolean;
+  cancelled?: boolean;
   depth: number;
   // 子代理内部的内容（嵌套）
   parts?: MessagePart[];
   // 时间追踪
   startedAt?: number; // Unix timestamp (ms)
   completedAt?: number; // Unix timestamp (ms)
-  // 状态: pending | running | complete | error
-  status?: "pending" | "running" | "complete" | "error";
+  // 状态: pending | running | complete | error | cancelled
+  status?: "pending" | "running" | "complete" | "error" | "cancelled";
 }
 
 export interface ToolCall {

@@ -10,11 +10,13 @@ const EditFileItem = memo(function EditFileItem({
   result,
   success,
   isPending,
+  cancelled,
 }: {
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
   success?: boolean;
   isPending?: boolean;
+  cancelled?: boolean;
 }) {
   const { t } = useTranslation();
   const filePath = (args.file_path as string) || "";
@@ -26,7 +28,7 @@ const EditFileItem = memo(function EditFileItem({
 
   return (
     <CollapsiblePill
-      status={isPending ? "loading" : success ? "success" : "error"}
+      status={isPending ? "loading" : cancelled ? "cancelled" : success ? "success" : "error"}
       icon={<Pencil size={12} className="shrink-0 opacity-50" />}
       label={`${t("chat.message.toolEdit")} ${fileName || ""}`}
       variant="tool"

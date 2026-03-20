@@ -22,12 +22,14 @@ export function ToolCallItem({
   result,
   success,
   isPending,
+  cancelled,
 }: {
   name: string;
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
   success?: boolean;
   isPending?: boolean;
+  cancelled?: boolean;
 }) {
   const { t } = useTranslation();
   const hasResult = result !== undefined;
@@ -48,6 +50,8 @@ export function ToolCallItem({
   let status: CollapsibleStatus = "idle";
   if (isPending) {
     status = "loading";
+  } else if (cancelled) {
+    status = "cancelled";
   } else if (success) {
     status = "success";
   } else if (hasResult) {

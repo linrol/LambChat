@@ -10,11 +10,13 @@ const ReadFileItem = memo(function ReadFileItem({
   result,
   success,
   isPending,
+  cancelled,
 }: {
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
   success?: boolean;
   isPending?: boolean;
+  cancelled?: boolean;
 }) {
   const { t } = useTranslation();
   const filePath = (args.file_path as string) || "";
@@ -29,7 +31,7 @@ const ReadFileItem = memo(function ReadFileItem({
 
   return (
     <CollapsiblePill
-      status={isPending ? "loading" : success ? "success" : "error"}
+      status={isPending ? "loading" : cancelled ? "cancelled" : success ? "success" : "error"}
       icon={<FileText size={12} className="shrink-0 opacity-50" />}
       label={`${t("chat.message.toolRead")} ${fileName || ""}`}
       variant="tool"
