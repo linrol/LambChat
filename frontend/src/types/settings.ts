@@ -2,7 +2,13 @@
 // Settings Types
 // ============================================
 
-export type SettingType = "string" | "text" | "number" | "boolean" | "json";
+export type SettingType =
+  | "string"
+  | "text"
+  | "number"
+  | "boolean"
+  | "json"
+  | "select";
 export type SettingCategory =
   | "frontend"
   | "agent"
@@ -36,6 +42,7 @@ export interface SettingItem {
   is_sensitive: boolean;
   frontend_visible: boolean;
   depends_on?: string | SettingDependsOn; // Key of parent setting or condition object
+  options?: string[]; // Available options for SELECT type
   updated_at?: string;
   updated_by?: string;
 }

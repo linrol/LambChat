@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import html
 import json
 import secrets
 import time
@@ -13,120 +12,14 @@ from typing import Optional
 
 import httpx
 
+from src.infra.email.template import EmailTemplate
+from src.infra.email.texts import get_texts
 from src.infra.logging import get_logger
 from src.kernel.config import settings
 
 logger = get_logger(__name__)
 
-# Resend API endpoint
 RESEND_API_URL = "https://api.resend.com/emails"
-
-
-class EmailTemplate:
-    """Email template renderer with consistent styling."""
-
-    @staticmethod
-    def _escape_html(text: str) -> str:
-        """Escape HTML special characters to prevent XSS attacks.
-
-        Args:
-            text: Text to escape
-
-        Returns:
-            HTML-escaped text safe for insertion into HTML
-        """
-        return html.escape(str(text), quote=True)
-
-    @staticmethod
-    def _escape_url(url: str) -> str:
-        """Validate and escape URL to prevent javascript: and data: URL attacks.
-
-        Args:
-            url: URL to validate and escape
-
-        Returns:
-            Safe URL or empty string if invalid
-        """
-        url = str(url).strip()
-        # Only allow http and https protocols
-        if url.startswith(("http://", "https://")):
-            return html.escape(url, quote=True)
-        # Block dangerous protocols
-        logger.warning("[EmailTemplate] Blocked potentially unsafe URL: %s", url[:50])
-        return ""
-
-    @staticmethod
-    def render(
-        title: str,
-        icon: str,
-        heading: str,
-        greeting: str,
-        content: str,
-        button_url: str,
-        button_text: str,
-        footer: Optional[str] = None,
-    ) -> str:
-        """Render HTML email template with XSS protection.
-
-        All user-provided content is HTML-escaped to prevent XSS attacks.
-
-        Args:
-            title: Email title in header
-            icon: Emoji icon
-            heading: Main heading
-            greeting: Greeting text with username
-            content: Main content paragraph
-            button_url: Button link URL (validated to only allow http/https)
-            button_text: Button text
-            footer: Optional footer text
-
-        Returns:
-            Complete HTML email content.
-        """
-        # Escape all user-provided content to prevent XSS
-        safe_title = EmailTemplate._escape_html(title)
-        safe_icon = EmailTemplate._escape_html(icon)
-        safe_heading = EmailTemplate._escape_html(heading)
-        safe_greeting = EmailTemplate._escape_html(greeting)
-        safe_content = EmailTemplate._escape_html(content)
-        safe_button_url = EmailTemplate._escape_url(button_url)
-        safe_button_text = EmailTemplate._escape_html(button_text)
-
-        footer_html = ""
-        if footer:
-            safe_footer = EmailTemplate._escape_html(footer)
-            footer_html = f'<p style="color: #666; font-size: 14px;">{safe_footer}</p>'
-
-        # If button_url is invalid, render button without link
-        button_html = ""
-        if safe_button_url:
-            button_html = f'<a href="{safe_button_url}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">{safe_button_text}</a>'
-        else:
-            button_html = f'<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">{safe_button_text}</span>'
-
-        return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px 10px 0 0; padding: 30px; text-align: center;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">{safe_icon} {safe_title}</h1>
-    </div>
-    <div style="background: #f9f9f9; border-radius: 0 0 10px 10px; padding: 30px;">
-        <h2 style="color: #333; margin-top: 0;">{safe_heading}</h2>
-        <p>{safe_greeting}</p>
-        <p>{safe_content}</p>
-        <div style="text-align: center; margin: 30px 0;">
-            {button_html}
-        </div>
-        {footer_html}
-    </div>
-</body>
-</html>
-"""
 
 
 class EmailService:
@@ -165,19 +58,13 @@ class EmailService:
         """Get or create HTTP client lazily with thread-safe initialization."""
         if self._http_client is None:
             async with self._http_client_lock:
-                # Double-check after acquiring lock
                 if self._http_client is None:
                     self._http_client = httpx.AsyncClient(timeout=30.0)
         return self._http_client
 
     def _parse_accounts(self) -> list[dict[str, str]]:
-        """Parse account configurations from RESEND_ACCOUNTS JSON.
-
-        Returns:
-            List of account dicts with api_key, email_from, email_from_name.
-        """
+        """Parse account configurations from RESEND_ACCOUNTS JSON."""
         accounts: list[dict[str, str]] = []
-
         resend_accounts = settings.RESEND_ACCOUNTS
         if not resend_accounts:
             return accounts
@@ -185,7 +72,6 @@ class EmailService:
         try:
             if isinstance(resend_accounts, str):
                 resend_accounts = json.loads(resend_accounts)
-
             if isinstance(resend_accounts, list):
                 for acc in resend_accounts:
                     if isinstance(acc, dict) and acc.get("api_key"):
@@ -202,64 +88,35 @@ class EmailService:
         return accounts
 
     async def _get_accounts(self) -> list[dict[str, str]]:
-        """Get accounts with hot-reload support.
-
-        Reloads accounts from settings if config may have changed.
-        Async-safe with double-checked locking.
-
-        Returns:
-            List of account dicts.
-        """
-        # Quick check without lock (hot path)
-        if self._accounts_cache is not None:
-            # Check if we should refresh (every 60 seconds)
-            if time.time() - self._config_loaded_at < 60:
-                return self._accounts_cache
+        """Get accounts with hot-reload support."""
+        if self._accounts_cache is not None and time.time() - self._config_loaded_at < 60:
+            return self._accounts_cache
 
         async with self._lock:
-            # Double-check after acquiring lock
             if self._accounts_cache is not None and time.time() - self._config_loaded_at < 60:
                 return self._accounts_cache
 
-            # Parse fresh accounts
             self._accounts_cache = self._parse_accounts()
             self._config_loaded_at = time.time()
 
             if self._accounts_cache:
-                logger.info(
-                    "[EmailService] Loaded %d Resend account(s)",
-                    len(self._accounts_cache),
-                )
+                logger.info("[EmailService] Loaded %d Resend account(s)", len(self._accounts_cache))
             else:
                 logger.warning("[EmailService] No accounts configured")
 
             return self._accounts_cache
 
     def _mask_api_key(self, key: str) -> str:
-        """Mask API key for safe logging.
-
-        Args:
-            key: API key to mask.
-
-        Returns:
-            Masked key showing only first/last 4 characters.
-        """
+        """Mask API key for safe logging."""
         if not key or len(key) < 8:
             return "***"
         return key[:4] + "..." + key[-4:]
 
     async def _get_next_account(self) -> Optional[dict[str, str]]:
-        """Get next account using round-robin rotation.
-
-        Async-safe rotation through available accounts.
-
-        Returns:
-            Account dict or None if no accounts configured.
-        """
+        """Get next account using round-robin rotation."""
         accounts = await self._get_accounts()
         if not accounts:
             return None
-
         async with self._lock:
             account = accounts[self._current_index]
             self._current_index = (self._current_index + 1) % len(accounts)
@@ -267,10 +124,7 @@ class EmailService:
 
     @classmethod
     async def get_instance(cls) -> EmailService:
-        """Get singleton instance of EmailService.
-
-        Async-safe with double-checked locking.
-        """
+        """Get singleton instance of EmailService."""
         if cls._instance is None:
             async with cls._lock:
                 if cls._instance is None:
@@ -282,14 +136,7 @@ class EmailService:
         return self._enabled and bool(self._accounts_cache)
 
     def _get_from_address(self, account: dict[str, str]) -> str:
-        """Get formatted sender address from account.
-
-        Args:
-            account: Account dict with email_from and email_from_name.
-
-        Returns:
-            Formatted sender address.
-        """
+        """Get formatted sender address from account."""
         return formataddr((account.get("email_from_name", ""), account.get("email_from", "")))
 
     def generate_token(self) -> str:
@@ -297,15 +144,7 @@ class EmailService:
         return secrets.token_urlsafe(32)
 
     def get_token_expiry(self, hours: Optional[int] = None) -> datetime:
-        """Get token expiry datetime.
-
-        Args:
-            hours: Number of hours until expiry. Defaults to
-                PASSWORD_RESET_EXPIRE_HOURS.
-
-        Returns:
-            Datetime when token expires.
-        """
+        """Get token expiry datetime."""
         if hours is None:
             hours = self._reset_expire_hours
         return datetime.now(timezone.utc) + timedelta(hours=hours)
@@ -319,19 +158,7 @@ class EmailService:
         text_content: str,
         max_retries: int = 3,
     ) -> bool:
-        """Send email via Resend API using httpx with retry logic.
-
-        Args:
-            account: Account dict with api_key.
-            to_email: Recipient email address.
-            subject: Email subject.
-            html_content: HTML content.
-            text_content: Plain text content.
-            max_retries: Maximum number of retry attempts (default: 3)
-
-        Returns:
-            True if email sent successfully, False otherwise.
-        """
+        """Send email via Resend API using httpx with retry logic."""
         last_error: Optional[Exception] = None
 
         for attempt in range(max_retries):
@@ -363,7 +190,6 @@ class EmailService:
                     )
                     return True
                 elif response.status_code == 429:
-                    # Rate limit - exponential backoff
                     retry_after = int(response.headers.get("Retry-After", 60))
                     wait_time = min(retry_after, 2**attempt * 5)
                     logger.warning(
@@ -377,7 +203,6 @@ class EmailService:
                         await asyncio.sleep(wait_time)
                     continue
                 elif response.status_code >= 500:
-                    # Server error - retry with exponential backoff
                     wait_time = 2**attempt
                     logger.error(
                         "[EmailService] Server error (HTTP %d) sending to %s, retrying in %ds (attempt %d/%d): %s",
@@ -388,12 +213,11 @@ class EmailService:
                         max_retries,
                         response.text[:200],
                     )
+                    last_error = Exception(f"HTTP {response.status_code}: {response.text[:200]}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(wait_time)
-                    last_error = Exception(f"HTTP {response.status_code}: {response.text[:200]}")
                     continue
                 else:
-                    # Client error (4xx) - don't retry
                     logger.error(
                         "[EmailService] Failed to send email to %s: HTTP %d - %s",
                         to_email,
@@ -442,7 +266,6 @@ class EmailService:
                 last_error = e
                 break
 
-        # All retries failed
         logger.error(
             "[EmailService] Failed to send email to %s after %d attempts: %s",
             to_email,
@@ -452,7 +275,7 @@ class EmailService:
         return False
 
     async def send_password_reset_email(
-        self, to_email: str, username: str, reset_token: str, base_url: str
+        self, to_email: str, username: str, reset_token: str, base_url: str, lang: str = "en"
     ) -> bool:
         """Send password reset email.
 
@@ -461,6 +284,7 @@ class EmailService:
             username: User's username for personalization.
             reset_token: Password reset token.
             base_url: Base URL for constructing reset link.
+            lang: 2-letter language code (en, zh, ja, ko, ru).
 
         Returns:
             True if email sent successfully, False otherwise.
@@ -474,37 +298,51 @@ class EmailService:
             logger.warning("[EmailService] No accounts available")
             return False
 
-        reset_url = base_url.rstrip("/") + "/reset-password?token=" + reset_token
+        reset_url = base_url.rstrip("/") + "/auth/reset-password?token=" + reset_token
         from_name = account.get("email_from_name", "LambChat")
         expire_hours = str(self._reset_expire_hours)
+        icon_url = base_url.rstrip("/") + "/icons/icon-192.png"
+        safe_username = EmailTemplate._escape_html(username)
 
-        subject = f"{from_name} - 重置密码 / Password Reset"
+        texts = get_texts(lang, "password_reset")
+        subject = texts["subject"].format(from_name=from_name)
+        footer = (
+            texts["footer"].format(from_name=from_name, hours=expire_hours)
+            if texts["footer"]
+            else None
+        )
 
         html_content = EmailTemplate.render(
             title=from_name,
-            icon="🔐",
-            heading="重置您的密码 / Reset Your Password",
-            greeting=f"您好，<strong>{username}</strong>！<br>Hello, <strong>{username}</strong>!",
-            content="我们收到了重置您密码的请求。请点击下方按钮重置密码：<br>We received a request to reset your password. Please click the button below to reset it:",
+            icon_url=icon_url,
+            heading=texts["heading"],
+            greeting=texts["greeting"].format(username=safe_username),
+            content=texts["content"].format(from_name=from_name),
             button_url=reset_url,
-            button_text="重置密码 / Reset Password",
-            footer=f"此链接将在 {expire_hours} 小时后失效。<br>This link will expire in {expire_hours} hours.",
+            button_text=texts["button_text"],
+            footer=footer,
         )
 
-        text_content = f"""{from_name} - 重置密码 / Password Reset
+        plain_greeting = (
+            texts["greeting"]
+            .replace("<strong>", "")
+            .replace("</strong>", "")
+            .format(username=username)
+        )
+        text_content = f"""{subject}
 
-您好，{username}！
+{plain_greeting}
 
-请访问以下链接重置密码：
+{texts["content"].format(from_name=from_name)}
+
 {reset_url}
 
-此链接将在 {expire_hours} 小时后失效。
-"""
+{footer.replace("<br>", "\n") if footer else ""}"""
 
         return await self._send_email(account, to_email, subject, html_content, text_content)
 
     async def send_verification_email(
-        self, to_email: str, username: str, verify_token: str, base_url: str
+        self, to_email: str, username: str, verify_token: str, base_url: str, lang: str = "en"
     ) -> bool:
         """Send email verification email.
 
@@ -513,6 +351,7 @@ class EmailService:
             username: User's username for personalization.
             verify_token: Email verification token.
             base_url: Base URL for constructing verify link.
+            lang: 2-letter language code (en, zh, ja, ko, ru).
 
         Returns:
             True if email sent successfully, False otherwise.
@@ -527,39 +366,55 @@ class EmailService:
             return False
 
         verify_url = (
-            base_url.rstrip("/") + "/verify-email?token=" + verify_token + "&email=" + to_email
+            base_url.rstrip("/") + "/auth/verify-email?token=" + verify_token + "&email=" + to_email
         )
         from_name = account.get("email_from_name", "LambChat")
+        icon_url = base_url.rstrip("/") + "/icons/icon-192.png"
+        safe_username = EmailTemplate._escape_html(username)
 
-        subject = f"{from_name} - 验证您的邮箱 / Verify Your Email"
+        texts = get_texts(lang, "verify_email")
+        subject = texts["subject"].format(from_name=from_name)
+        footer = texts["footer"].format(from_name=from_name) if texts["footer"] else None
 
         html_content = EmailTemplate.render(
             title=from_name,
-            icon="✉️",
-            heading="验证您的邮箱 / Verify Your Email",
-            greeting=f"您好，<strong>{username}</strong>！<br>Hello, <strong>{username}</strong>!",
-            content=f"感谢您注册 {from_name}！请点击下方按钮验证您的邮箱地址：<br>Thank you for registering with {from_name}! Please click the button below to verify your email address:",
+            icon_url=icon_url,
+            heading=texts["heading"],
+            greeting=texts["greeting"].format(username=safe_username),
+            content=texts["content"].format(from_name=from_name),
             button_url=verify_url,
-            button_text="验证邮箱 / Verify Email",
+            button_text=texts["button_text"],
+            footer=footer,
         )
 
-        text_content = f"""{from_name} - 验证您的邮箱 / Verify Your Email
+        plain_greeting = (
+            texts["greeting"]
+            .replace("<strong>", "")
+            .replace("</strong>", "")
+            .format(username=username)
+        )
+        text_content = f"""{subject}
 
-您好，{username}！
+{plain_greeting}
 
-请访问以下链接验证您的邮箱地址：
+{texts["content"].format(from_name=from_name)}
+
 {verify_url}
-"""
+
+{footer.replace("<br>", "\n") if footer else ""}"""
 
         return await self._send_email(account, to_email, subject, html_content, text_content)
 
-    async def send_welcome_email(self, to_email: str, username: str, base_url: str) -> bool:
+    async def send_welcome_email(
+        self, to_email: str, username: str, base_url: str, lang: str = "en"
+    ) -> bool:
         """Send welcome email after registration.
 
         Args:
             to_email: Recipient email address.
             username: User's username for personalization.
             base_url: Base URL for constructing login link.
+            lang: 2-letter language code (en, zh, ja, ko, ru).
 
         Returns:
             True if email sent successfully, False otherwise.
@@ -573,26 +428,37 @@ class EmailService:
             logger.warning("[EmailService] No accounts available")
             return False
 
-        login_url = base_url.rstrip("/") + "/login"
+        login_url = base_url.rstrip("/") + "/auth/login"
         from_name = account.get("email_from_name", "LambChat")
+        icon_url = base_url.rstrip("/") + "/icons/icon-192.png"
+        safe_username = EmailTemplate._escape_html(username)
 
-        subject = f"欢迎加入 {from_name}！/ Welcome to {from_name}!"
+        texts = get_texts(lang, "welcome")
+        subject = texts["subject"].format(from_name=from_name)
 
         html_content = EmailTemplate.render(
             title=from_name,
-            icon="🎉",
-            heading="欢迎加入！/ Welcome!",
-            greeting=f"您好，<strong>{username}</strong>！<br>Hello, <strong>{username}</strong>!",
-            content=f"欢迎加入 {from_name}！<br>Welcome to {from_name}!",
+            icon_url=icon_url,
+            heading=texts["heading"],
+            greeting=texts["greeting"].format(username=safe_username),
+            content=texts["content"].format(from_name=from_name),
             button_url=login_url,
-            button_text="开始使用 / Get Started",
+            button_text=texts["button_text"],
         )
 
-        text_content = f"""欢迎加入 {from_name}！
+        plain_greeting = (
+            texts["greeting"]
+            .replace("<strong>", "")
+            .replace("</strong>", "")
+            .format(username=username)
+        )
+        text_content = f"""{subject}
 
-您好，{username}！
+{plain_greeting}
 
-立即登录开始使用：{login_url}
+{texts["content"].format(from_name=from_name)}
+
+{login_url}
 """
 
         return await self._send_email(account, to_email, subject, html_content, text_content)

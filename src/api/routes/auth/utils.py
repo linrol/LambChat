@@ -40,6 +40,21 @@ def _get_client_ip(request: Request) -> str:
     return "unknown"
 
 
+SUPPORTED_EMAIL_LANGUAGES = {"en", "zh", "ja", "ko", "ru"}
+
+
+def _get_language(request: Request) -> str:
+    """Extract preferred language from Accept-Language header.
+
+    Returns a 2-letter language code (e.g. 'en', 'zh').
+    Falls back to 'en' if the header is missing or unsupported.
+    """
+    accept_lang = request.headers.get("accept-language", "en")
+    # Take the first language code before any comma or semicolon
+    lang = accept_lang.split(",")[0].split("-")[0].strip().lower()
+    return lang if lang in SUPPORTED_EMAIL_LANGUAGES else "en"
+
+
 def _get_frontend_url(request: Request) -> str:
     """从请求中获取前端 URL
 

@@ -22,7 +22,7 @@ from src.kernel.schemas.user import (
     UserUpdate,
 )
 
-from .utils import _get_client_ip, _get_frontend_url
+from .utils import _get_client_ip, _get_frontend_url, _get_language
 
 router = APIRouter()
 security = HTTPBearer()
@@ -78,11 +78,13 @@ async def register(user_data: UserCreate, request: Request):
 
                 # 发送验证邮件
                 frontend_url = _get_frontend_url(request)
+                lang = _get_language(request)
                 await email_service.send_verification_email(
                     to_email=user.email,
                     username=user.username,
                     verify_token=verify_token,
                     base_url=frontend_url,
+                    lang=lang,
                 )
                 logger.info(
                     "[Auth] Verification email sent to %s for new user %s",

@@ -27,7 +27,7 @@ export function ForgotPassword({ onBackToLogin }: ForgotPasswordProps) {
     if (onBackToLogin) {
       onBackToLogin();
     } else {
-      navigate("/");
+      navigate("/auth/login");
     }
   };
 

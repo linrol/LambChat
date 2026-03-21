@@ -90,7 +90,7 @@ export function TodoBlock({ items, isStreaming }: TodoBlockProps) {
       </div>
 
       {/* Task list */}
-      <div className="space-y-0.5 border-t border-stone-200/60 dark:border-stone-700/50 px-3.5 py-2">
+      <div className="space-y-0.5 border-t border-stone-200/60 dark:border-stone-700/50 px-3.5 py-2 max-h-60 overflow-y-auto">
         {items.map((item, index) => (
           <TodoItemRow key={index} item={item} />
         ))}

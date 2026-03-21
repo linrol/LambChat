@@ -47,9 +47,10 @@ def _schedule_auto_retain(
     """
     调度自动记忆存储任务（异步，不阻塞响应）。
 
-    只存储用户输入，助手回复由 Hindsight 自动关联。
+    只存储用户输入，助手回复由记忆后端自动关联。
+    统一接口自动选择 Hindsight 或 memU 后端。
     """
-    if not settings.HINDSIGHT_ENABLED or not user_id:
+    if not settings.ENABLE_MEMORY or not user_id:
         return
 
     # 只存用户输入（前 500 字符）
@@ -58,7 +59,7 @@ def _schedule_auto_retain(
         return
 
     # 延迟导入避免循环依赖
-    from src.infra.memory.hindsight import schedule_auto_retain
+    from src.infra.memory.tools import schedule_auto_retain
 
     schedule_auto_retain(
         user_id=user_id,
@@ -155,11 +156,13 @@ async def _run_with_retry(
     config: RunnableConfig,
     event_processor: "AgentEventProcessor",
     max_retries: int | None = None,
-    base_delay: float = 1.0,
+    base_delay: float | None = None,
 ) -> None:
     """带重试的 LLM 流式执行（使用 astream_events）"""
     if max_retries is None:
         max_retries = getattr(settings, "LLM_MAX_RETRIES", 3)
+    if base_delay is None:
+        base_delay = getattr(settings, "LLM_RETRY_DELAY", 1.0)
 
     last_error: Exception | None = None
     for attempt in range(max_retries):
@@ -247,7 +250,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
             logger.warning(f"Failed to build skills prompt: {e}")
 
     # 构建系统提示
-    memory_guide = HINDSIGHT_MEMORY_SECTION if settings.HINDSIGHT_ENABLED else EMPTY_MEMORY_SECTION
+    memory_guide = HINDSIGHT_MEMORY_SECTION if settings.ENABLE_MEMORY else EMPTY_MEMORY_SECTION
     system_prompt = FAST_SYSTEM_PROMPT.replace("{skills}", skills_prompt).replace(
         "{memory_guide}", memory_guide
     )

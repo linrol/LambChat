@@ -52,7 +52,7 @@ export function VerifyEmail() {
   }, [token, handleVerify]);
 
   const handleGoToLogin = () => {
-    navigate("/");
+    navigate("/auth/login");
   };
 
   const handleResend = async () => {

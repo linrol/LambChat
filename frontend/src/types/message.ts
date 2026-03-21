@@ -44,7 +44,7 @@ export type MessagePart =
 // Sandbox 状态块类型（用于渲染沙箱初始化状态）
 export interface SandboxPart {
   type: "sandbox";
-  status: "starting" | "ready" | "error";
+  status: "starting" | "ready" | "error" | "cancelled";
   sandbox_id?: string;
   work_dir?: string;
   error?: string;

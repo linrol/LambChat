@@ -16,6 +16,7 @@ import type {
   HistoryEventData,
 } from "./types";
 import { convertAttachments, processMessageEvent } from "./eventProcessor";
+import { clearAllLoadingStates } from "./messageParts";
 
 interface ProcessHistoryOptions {
   options?: {
@@ -209,25 +210,24 @@ export function reconstructMessagesFromEvents(
     // Handle user cancel
     if (eventType === "user:cancel") {
       if (currentAssistantMessage) {
-        const updatedParts = (currentAssistantMessage.parts || []).map(
-          (part): MessagePart => {
-            if (part.type === "tool" && part.isPending) {
-              return {
-                ...part,
-                isPending: false,
-                result: part.result || i18n.t("chat.cancelled"),
-                success: false,
-              };
-            }
-            if (part.type === "thinking" && part.isStreaming) {
-              return { ...part, isStreaming: false };
-            }
-            return part;
-          },
+        const clearedParts = clearAllLoadingStates(
+          currentAssistantMessage.parts || [],
         );
+        // Also set result on pending tools for history display
+        const updatedParts = clearedParts.map((part): MessagePart => {
+          if (part.type === "tool" && part.cancelled && !part.result) {
+            return {
+              ...part,
+              result: i18n.t("chat.cancelled"),
+              success: false,
+            };
+          }
+          return part;
+        });
         const updatedMessage = {
           ...currentAssistantMessage,
           isStreaming: false,
+          cancelled: true,
           parts: [...updatedParts, { type: "cancelled" as const }],
         };
         reconstructedMessages.push(updatedMessage);

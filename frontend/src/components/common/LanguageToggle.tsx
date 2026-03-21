@@ -7,6 +7,7 @@ const LANGUAGES = [
   { code: "zh", name: "Chinese", nativeName: "中文" },
   { code: "ja", name: "Japanese", nativeName: "日本語" },
   { code: "ko", name: "Korean", nativeName: "한국어" },
+  { code: "ru", name: "Russian", nativeName: "Русский" },
 ];
 
 export function LanguageToggle() {

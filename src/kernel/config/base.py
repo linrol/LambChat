@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 4096
     LLM_MAX_RETRIES: int = 3
+    LLM_RETRY_DELAY: float = 1.0
     LLM_MAX_INPUT_TOKENS: int | None = None  # DeepAgent summarization trigger threshold
 
     # MCP Settings
@@ -207,11 +208,18 @@ class Settings(BaseSettings):
     PASSWORD_RESET_EXPIRE_HOURS: int = 24
     REQUIRE_EMAIL_VERIFICATION: bool = False
 
+    # Memory Settings (Master Switch)
+    ENABLE_MEMORY: bool = False
+    MEMORY_PERFORM: str = "memu"
+
     # Hindsight Memory Settings
-    HINDSIGHT_ENABLED: bool = False
     HINDSIGHT_BASE_URL: str = ""
     HINDSIGHT_API_KEY: str = ""
     HINDSIGHT_MAX_CONCURRENT: int = 64
+
+    # memU Memory Settings
+    MEMU_API_KEY: str = ""
+    MEMU_BASE_URL: str = "https://api.memu.so"
 
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),

@@ -1,23 +1,50 @@
 services:
+  redis:
+    image: redis:alpine
+    container_name: lambchat-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  mongodb:
+    image: mongo:7
+    container_name: lambchat-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
   lamb-agent:
-    container_name: lamb-agent
+    container_name: lambchat-agent
     image: ghcr.io/yanyutin753/lambagent:latest
     restart: always
-    network_mode: host
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    env_file:
-      - /home/yangyang/LambAgent/deploy/.env.example
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
     environment:
       - TZ=Asia/Shanghai
+      - HOST=0.0.0.0
+      - PORT=8000
+      - REDIS_URL=redis://redis:6379/0
+      - MONGODB_URL=mongodb://mongodb:27017
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_API_BASE=${LLM_API_BASE:-https://api.openai.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-anthropic/claude-3-5-sonnet-20241022}
+      - LOG_LEVEL=INFO
+      - ENABLE_MESSAGE_HISTORY=true
     volumes:
       - lamb-data:/app/data
       - ./workspace:/app/workspace
       - ./uploads:/app/uploads
 
 volumes:
+  redis-data:
+  mongodb-data:
   lamb-data:

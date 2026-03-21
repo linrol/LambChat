@@ -1,30 +1,54 @@
 """
 Memory Infrastructure Module
 
-Provides cross-session long-term memory capabilities through Hindsight integration.
-Uses shared Hindsight server with bank_id isolation for multi-tenancy.
+Provides cross-session long-term memory capabilities with unified tool interface.
+Supports multiple backends: Hindsight and memU (cloud API).
+Backend selection is controlled by MEMORY_PERFORM setting.
 """
 
-from src.infra.memory.hindsight import (
+# Unified memory tools (auto-dispatch to active backend)
+# Base abstractions (for adding new backends)
+from src.infra.memory.client.base import (
+    MemoryBackend,
+    create_memory_backend,
+    is_memory_enabled,
+)
+
+# Backend-specific clients (for direct access if needed)
+from src.infra.memory.client.hindsight import (
     close_all_hindsight_clients,
     close_hindsight_client,
-    get_all_memory_tools,
     get_hindsight_client,
+)
+from src.infra.memory.client.memu import (
+    close_memu_client,
+    get_memu_client,
+)
+from src.infra.memory.tools import (
+    auto_retain_conversation,
+    get_all_memory_tools,
     get_memory_delete_tool,
-    get_memory_list_tool,
     get_memory_recall_tool,
-    get_memory_reflect_tool,
     get_memory_retain_tool,
+    schedule_auto_retain,
 )
 
 __all__ = [
-    "get_hindsight_client",
+    # Unified tools (preferred API)
     "get_all_memory_tools",
     "get_memory_retain_tool",
     "get_memory_recall_tool",
-    "get_memory_reflect_tool",
-    "get_memory_list_tool",
     "get_memory_delete_tool",
+    "auto_retain_conversation",
+    "schedule_auto_retain",
+    # Backend factory
+    "create_memory_backend",
+    "is_memory_enabled",
+    "MemoryBackend",
+    # Backend clients (backward compat)
+    "get_hindsight_client",
     "close_hindsight_client",
     "close_all_hindsight_clients",
+    "get_memu_client",
+    "close_memu_client",
 ]

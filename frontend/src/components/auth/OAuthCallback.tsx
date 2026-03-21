@@ -40,13 +40,13 @@ export function OAuthCallback() {
 
       if (error) {
         console.error("OAuth callback error:", error);
-        navigate(`/login?error=${error}`, { replace: true });
+        navigate(`/auth/login?error=${error}`, { replace: true });
         return;
       }
 
       if (!accessToken || !refreshToken) {
         console.error("No tokens found in callback URL");
-        navigate("/login?error=oauth_no_token", { replace: true });
+        navigate("/auth/login?error=oauth_no_token", { replace: true });
         return;
       }
 
@@ -65,7 +65,9 @@ export function OAuthCallback() {
         navigate(redirectPath, { replace: true });
       } catch (err) {
         console.error("OAuth callback processing error:", err);
-        navigate("/login?error=oauth_processing_failed", { replace: true });
+        navigate("/auth/login?error=oauth_processing_failed", {
+          replace: true,
+        });
       }
     };
 

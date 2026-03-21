@@ -2,6 +2,7 @@
  * Authenticated fetch wrapper with token refresh support
  */
 
+import i18n from "i18next";
 import { API_BASE } from "./config";
 import {
   getAccessToken,
@@ -50,7 +51,7 @@ function onRefreshFailed(): void {
  */
 function redirectToLogin(): void {
   const currentPath = window.location.pathname + window.location.search;
-  if (currentPath !== "/login" && currentPath !== "/") {
+  if (currentPath !== "/auth/login" && currentPath !== "/") {
     sessionStorage.setItem("redirect_after_login", currentPath);
   }
   clearTokens();
@@ -130,7 +131,10 @@ export async function authFetch<T>(
   const { skipAuth = false, headers = {}, ...restOptions } = options;
 
   const finalHeaders: HeadersInit = {
-    ...(restOptions.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+    ...(restOptions.body instanceof FormData
+      ? {}
+      : { "Content-Type": "application/json" }),
+    "Accept-Language": i18n.language || "en",
     ...headers,
   };
 
@@ -174,9 +178,11 @@ export async function authFetch<T>(
     let errorMessage: string;
     if (typeof errorData.detail === "object" && errorData.detail !== null) {
       // 如果 detail 是对象，提取 message 字段
-      errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
+      errorMessage =
+        errorData.detail.message || JSON.stringify(errorData.detail);
     } else {
-      errorMessage = errorData.detail || `Request failed: ${response.statusText}`;
+      errorMessage =
+        errorData.detail || `Request failed: ${response.statusText}`;
     }
     throw new Error(errorMessage);
   }

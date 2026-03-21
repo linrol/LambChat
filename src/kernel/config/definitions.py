@@ -85,6 +85,12 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "LLM API 最大重试次数（用于处理 429 等错误）",
         "default": 3,
     },
+    "LLM_RETRY_DELAY": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.LLM,
+        "description": "LLM API 重试基础等待时间（秒，指数退避起始值）",
+        "default": 1.0,
+    },
     "LLM_MAX_INPUT_TOKENS": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.LLM,
@@ -166,11 +172,12 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "frontend_visible": True,
     },
     "SANDBOX_PLATFORM": {
-        "type": SettingType.STRING,
+        "type": SettingType.SELECT,
         "category": SettingCategory.SANDBOX,
-        "description": "Sandbox platform: runloop, daytona, or modal",
+        "description": "Sandbox platform to use",
         "default": "runloop",
         "depends_on": "ENABLE_SANDBOX",
+        "options": ["runloop", "daytona", "modal"],
     },
     "RUNLOOP_API_KEY": {
         "type": SettingType.STRING,
@@ -384,11 +391,12 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "frontend_visible": True,
     },
     "S3_PROVIDER": {
-        "type": SettingType.STRING,
+        "type": SettingType.SELECT,
         "category": SettingCategory.S3,
-        "description": "S3 provider: aws, aliyun, tencent, minio, custom",
+        "description": "S3 provider to use",
         "default": "aws",
         "depends_on": "S3_ENABLED",
+        "options": ["aws", "aliyun", "tencent", "minio", "custom"],
     },
     "S3_ENDPOINT_URL": {
         "type": SettingType.STRING,
@@ -742,35 +750,63 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "frontend_visible": True,
     },
     # ============================================
-    # Hindsight Memory Settings
+    # Memory Settings (Master Switch)
     # ============================================
-    "HINDSIGHT_ENABLED": {
+    "ENABLE_MEMORY": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.MEMORY,
-        "description": "Enable Hindsight cross-session memory",
+        "description": "Enable cross-session memory feature (master switch)",
         "default": False,
         "frontend_visible": True,
     },
+    "MEMORY_PERFORM": {
+        "type": SettingType.SELECT,
+        "category": SettingCategory.MEMORY,
+        "description": "Memory provider to use",
+        "default": "memu",
+        "depends_on": "ENABLE_MEMORY",
+        "options": ["memu", "hindsight"],
+    },
+    # ============================================
+    # Hindsight Memory Settings
+    # ============================================
     "HINDSIGHT_BASE_URL": {
         "type": SettingType.STRING,
         "category": SettingCategory.MEMORY,
         "description": "Hindsight server URL (required, e.g., http://localhost:8888)",
         "default": "",
-        "depends_on": "HINDSIGHT_ENABLED",
+        "depends_on": {"key": "MEMORY_PERFORM", "value": "hindsight"},
     },
     "HINDSIGHT_API_KEY": {
         "type": SettingType.STRING,
         "category": SettingCategory.MEMORY,
         "description": "Hindsight API key (optional, depends on server config)",
         "default": "",
-        "depends_on": "HINDSIGHT_ENABLED",
+        "depends_on": {"key": "MEMORY_PERFORM", "value": "hindsight"},
     },
     "HINDSIGHT_MAX_CONCURRENT": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.MEMORY,
         "description": "Maximum concurrent API calls to Hindsight service (per worker process)",
         "default": 64,
-        "depends_on": "HINDSIGHT_ENABLED",
+        "depends_on": {"key": "MEMORY_PERFORM", "value": "hindsight"},
         "frontend_visible": True,
+    },
+    # ============================================
+    # memU Memory Settings
+    # ============================================
+    "MEMU_API_KEY": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.MEMORY,
+        "description": "memU API key (get from https://app.memu.so/quick-start)",
+        "default": "",
+        "depends_on": {"key": "MEMORY_PERFORM", "value": "memu"},
+    },
+    "MEMU_BASE_URL": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.MEMORY,
+        "description": "memU cloud API base URL",
+        "default": "https://api.memu.so",
+        "depends_on": {"key": "MEMORY_PERFORM", "value": "memu"},
     },
 }

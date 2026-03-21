@@ -193,7 +193,8 @@ export function SubagentBlock({
         "border border-stone-200 dark:border-stone-700",
         "bg-white dark:bg-stone-900",
         effectiveStatus === "error" && "border-red-200 dark:border-red-900/50",
-        effectiveStatus === "cancelled" && "border-amber-200 dark:border-amber-900/50",
+        effectiveStatus === "cancelled" &&
+          "border-amber-200 dark:border-amber-900/50",
       )}
     >
       {/* Header - minimal design */}
@@ -303,7 +304,7 @@ export function SubagentBlock({
 
           {/* Subagent internal content */}
           {parts && parts.length > 0 && (
-            <div className="space-y-2 pl-3 border-l-2 border-stone-200 dark:border-stone-700">
+            <div className="space-y-2 pl-3 border-l-2 border-stone-200 dark:border-stone-700 max-h-[400px] overflow-y-auto">
               {parts.map((part, index) => (
                 <MessagePartRenderer
                   key={index}
@@ -358,7 +359,7 @@ export function SandboxItem({
   sandboxId,
   error,
 }: {
-  status: "starting" | "ready" | "error";
+  status: "starting" | "ready" | "error" | "cancelled";
   sandboxId?: string;
   error?: string;
 }) {
@@ -366,14 +367,18 @@ export function SandboxItem({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const hasDetails =
-    (status === "ready" && sandboxId) || (status === "error" && error);
+    (status === "ready" && sandboxId) ||
+    (status === "error" && error) ||
+    status === "cancelled";
 
   const pillStatus: CollapsibleStatus =
     status === "starting"
       ? "loading"
       : status === "ready"
         ? "success"
-        : "error";
+        : status === "cancelled"
+          ? "cancelled"
+          : "error";
 
   return (
     <CollapsiblePill
@@ -384,7 +389,7 @@ export function SandboxItem({
       onExpandChange={setIsExpanded}
     >
       {isExpanded && hasDetails && (
-        <div className="mt-1 ml-4 pl-3 border-l-2 border-stone-300 dark:border-stone-600">
+        <div className="mt-1 ml-4 pl-3 border-l-2 border-stone-300 dark:border-stone-600 max-h-40 overflow-y-auto">
           {status === "ready" && sandboxId && (
             <div className="text-xs text-stone-600 dark:text-stone-300 pl-1 py-1 font-mono">
               ID: {sandboxId}
@@ -395,10 +400,13 @@ export function SandboxItem({
               {error}
             </div>
           )}
+          {status === "cancelled" && (
+            <div className="text-xs text-amber-600 dark:text-amber-400 pl-1 py-1">
+              {t("chat.cancelled")}
+            </div>
+          )}
         </div>
       )}
     </CollapsiblePill>
   );
 }
-
-

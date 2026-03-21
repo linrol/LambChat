@@ -233,16 +233,16 @@ export function SessionItem({
           }
         }}
         style={isDragging ? { touchAction: "none" } : undefined}
-        className={`group relative flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2.5 transition-colors ${
+        className={`group relative flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 transition-all duration-150 ${
           isActive
-            ? "bg-stone-100 dark:bg-stone-800/50"
-            : "hover:bg-stone-50 dark:hover:bg-stone-800/50"
+            ? "bg-stone-200/70 dark:bg-stone-700/40"
+            : "hover:bg-stone-100 dark:hover:bg-stone-800/40"
         } ${isDragging || isDraggingTouch ? "opacity-50 scale-95" : ""}`}
       >
         {/* Favorite star icon */}
         {isFavorite && (
           <Star
-            size={14}
+            size={13}
             className="flex-shrink-0 text-amber-500 fill-amber-500"
           />
         )}
@@ -258,11 +258,17 @@ export function SessionItem({
               onKeyDown={handleKeyDown}
               onBlur={handleSaveTitle}
               disabled={isSaving}
-              className="w-full text-sm bg-transparent text-stone-700 dark:text-stone-200 border border-stone-400 dark:border-stone-500 rounded px-1.5 py-0.5 focus:outline-none"
+              className="w-full text-[13px] bg-transparent text-stone-700 dark:text-stone-200 border border-stone-300 dark:border-stone-500 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-stone-400"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <div className="truncate text-sm text-stone-700 dark:text-stone-200">
+            <div
+              className={`truncate text-[13px] transition-colors ${
+                isActive
+                  ? "text-stone-800 dark:text-stone-100 font-medium"
+                  : "text-stone-600 dark:text-stone-300 group-hover:text-stone-700 dark:group-hover:text-stone-200"
+              }`}
+            >
               {displayTitle}
             </div>
           )}
@@ -273,7 +279,7 @@ export function SessionItem({
           <button
             ref={menuButtonRef}
             onClick={handleMenuClick}
-            className="flex-shrink-0 rounded p-1 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all opacity-0 group-hover:opacity-100"
+            className="flex-shrink-0 rounded p-1 hover:bg-stone-200/60 dark:hover:bg-stone-700/60 transition-all opacity-0 group-hover:opacity-100"
             style={isTouched ? { opacity: 1 } : undefined}
             title={t("sidebar.moreOptions")}
           >

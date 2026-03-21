@@ -8,7 +8,6 @@ import { Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
-import { AuthPage } from "./AuthPage";
 import { Permission } from "../../types";
 
 interface ProtectedRouteProps {
@@ -172,9 +171,9 @@ export function ProtectedRoute({
     return <>{loadingComponent || <LoadingSpinner />}</>;
   }
 
-  // 未登录
+  // 未登录 → 重定向到登录页
   if (!isAuthenticated) {
-    return <AuthPage />;
+    return <Navigate to="/auth/login" replace />;
   }
 
   // 无权限

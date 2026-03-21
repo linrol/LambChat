@@ -25,8 +25,8 @@ const AgentItem = memo(function AgentItem({
       className="w-full px-3 py-3 sm:py-4 text-left hover:bg-gray-100/80 dark:hover:bg-stone-700/50 transition-colors"
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600">
-          <Bot size={18} className="text-white" />
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-stone-100 to-stone-200 dark:from-amber-500/20 dark:to-orange-500/20">
+          <Bot size={18} className="text-stone-600 dark:text-amber-400" />
         </div>
         <div className="flex-1 min-w-0 space-y-1">
           <div className="text-sm font-medium text-gray-700 dark:text-stone-200 font-serif">
@@ -39,7 +39,7 @@ const AgentItem = memo(function AgentItem({
         {isSelected && (
           <Check
             size={18}
-            className="flex-shrink-0 text-violet-600 dark:text-violet-400"
+            className="flex-shrink-0 text-stone-600 dark:text-stone-400"
           />
         )}
       </div>

@@ -25,7 +25,7 @@ export function RegistrationPending() {
   useEffect(() => {
     if (!email) {
       // 如果没有 email 参数，跳转到首页（会自动显示登录页）
-      navigate("/");
+      navigate("/auth/login");
     }
   }, [email, navigate]);
 
@@ -46,7 +46,7 @@ export function RegistrationPending() {
   };
 
   const handleGoToLogin = () => {
-    navigate("/");
+    navigate("/auth/login");
   };
 
   if (!email) {
@@ -152,7 +152,10 @@ export function RegistrationPending() {
             >
               {isResending ? (
                 <span className="flex items-center justify-center gap-2">
-                  <LoadingSpinner size="sm" className="text-gray-700 dark:text-stone-300" />
+                  <LoadingSpinner
+                    size="sm"
+                    className="text-gray-700 dark:text-stone-300"
+                  />
                   {t("auth.sending")}
                 </span>
               ) : (

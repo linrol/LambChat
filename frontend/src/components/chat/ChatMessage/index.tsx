@@ -20,28 +20,28 @@ import { ShareButton } from "./ShareButton";
 // Skeleton-style loading animation component - refined thin lines
 function ThinkingIndicator() {
   return (
-    <div className="space-y-2.5 py-1">
+    <div className="space-y-2.5 py-1 px-1">
       {/* First line - long bar */}
-      <div className="skeleton-line w-full h-2 rounded-sm" />
+      <div className="skeleton-line w-full h-2 rounded-full" />
 
       {/* Second line - three medium bars */}
-      <div className="flex gap-4">
-        <div className="skeleton-line flex-1 h-2 rounded-sm" />
-        <div className="skeleton-line flex-1 h-2 rounded-sm" />
-        <div className="skeleton-line flex-1 h-2 rounded-sm" />
+      <div className="flex gap-3">
+        <div className="skeleton-line flex-1 h-2 rounded-full" />
+        <div className="skeleton-line flex-1 h-2 rounded-full" />
+        <div className="skeleton-line flex-1 h-2 rounded-full" />
       </div>
 
       {/* Third line - three medium bars */}
-      <div className="flex gap-4">
-        <div className="skeleton-line flex-1 h-2 rounded-sm" />
-        <div className="skeleton-line flex-1 h-2 rounded-sm" />
-        <div className="skeleton-line flex-1 h-2 rounded-sm" />
+      <div className="flex gap-3">
+        <div className="skeleton-line flex-1 h-2 rounded-full" />
+        <div className="skeleton-line flex-1 h-2 rounded-full" />
+        <div className="skeleton-line flex-1 h-2 rounded-full" />
       </div>
 
       {/* Fourth line */}
-      <div className="flex gap-4">
-        <div className="skeleton-line flex-1 h-2 rounded-sm" />
-        <div className="skeleton-line w-2/5 h-2 rounded-sm" />
+      <div className="flex gap-3">
+        <div className="skeleton-line flex-1 h-2 rounded-full" />
+        <div className="skeleton-line w-2/5 h-2 rounded-full" />
       </div>
     </div>
   );
@@ -215,16 +215,16 @@ export function ChatMessage({
 
   // Assistant message: left layout
   return (
-    <div className="group w-full">
+    <div className="group w-full animate-[fade-in_0.3s_ease-out]">
       <div className="mx-auto flex flex-col max-w-3xl xl:max-w-5xl px-4 sm:px-6 mb-3 sm:mb-4">
         {/* Content */}
-        <div className="min-w-0">
+        <div className="min-w-0 overflow-hidden">
           {/* Header: Avatar + Role label + Stop button */}
           <div className="mb-3 flex items-center gap-2">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-sm">
-              <Bot size={16} />
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-md shadow-amber-200/40 dark:shadow-amber-900/30">
+              <Bot size={15} />
             </div>
-            <span className="text-base font-semibold text-stone-900 dark:text-stone-100 font-serif">
+            <span className="text-base sm:text-lg font-semibold text-stone-800 dark:text-stone-100 tracking-tight font-serif">
               {t("chat.message.assistant")}
             </span>
           </div>

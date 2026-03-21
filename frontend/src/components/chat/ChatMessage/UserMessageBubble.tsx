@@ -71,8 +71,8 @@ export function UserMessageBubble({
 
           {/* Message bubble */}
           {hasContent && (
-            <div className="rounded-3xl max-w-full px-5 py-3 bg-gray-50 dark:bg-stone-800 shadow-sm">
-              <div className="leading-relaxed text-[15px] sm:text-base text-stone-700 dark:text-stone-300">
+            <div className="rounded-3xl max-w-full px-5 py-2 bg-gradient-to-br from-stone-100 to-stone-50 dark:from-stone-800 dark:to-stone-800/80 shadow-sm border border-stone-200/60 dark:border-stone-700/50">
+              <div className="leading-relaxed text-[15px] sm:text-base text-stone-700 dark:text-stone-200">
                 <MarkdownContent content={content!} />
               </div>
             </div>

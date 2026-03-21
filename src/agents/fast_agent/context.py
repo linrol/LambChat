@@ -138,18 +138,16 @@ class FastAgentContext:
         self.tools.append(reveal_project_tool)
         logger.info("[FastAgentContext] Added reveal_project tool")
 
-        # Memory 工具（Hindsight）
-        if settings.HINDSIGHT_ENABLED:
+        # Memory 工具（统一接口，自动选择 Hindsight 或 memU 后端）
+        if settings.ENABLE_MEMORY:
             try:
-                from src.infra.memory.hindsight import get_all_memory_tools
+                from src.infra.memory.tools import get_all_memory_tools
 
                 memory_tools = get_all_memory_tools()
                 self.tools.extend(memory_tools)
                 logger.info(f"[FastAgentContext] Added {len(memory_tools)} memory tools")
             except ImportError:
-                logger.warning(
-                    "[FastAgentContext] hindsight-all not installed, skipping memory tools"
-                )
+                logger.warning("[FastAgentContext] memory tools import failed, skipping")
             except Exception as e:
                 logger.warning(f"[FastAgentContext] Failed to load memory tools: {e}")
 

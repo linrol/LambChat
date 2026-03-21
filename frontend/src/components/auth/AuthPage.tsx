@@ -27,36 +27,22 @@ interface TurnstileConfig {
 
 interface AuthPageProps {
   onSuccess?: () => void;
+  /** Force initial auth mode */
+  initialMode?: AuthMode;
 }
 
-export function AuthPage({ onSuccess }: AuthPageProps) {
+export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
   const { t } = useTranslation();
 
   // 覆盖全局 overflow: hidden，允许登录页面滚动
   useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const root = document.getElementById('root');
-    
-    // 保存原始样式
-    const originalHtmlOverflow = html.style.overflow;
-    const originalBodyOverflow = body.style.overflow;
-    const originalRootOverflow = root?.style.overflow;
-    
-    // 设置允许滚动
-    html.style.overflow = 'auto';
-    body.style.overflow = 'auto';
-    if (root) root.style.overflow = 'auto';
-    
-    // 组件卸载时恢复原始样式
+    document.documentElement.classList.add("allow-scroll");
     return () => {
-      html.style.overflow = originalHtmlOverflow;
-      body.style.overflow = originalBodyOverflow;
-      if (root) root.style.overflow = originalRootOverflow || '';
+      document.documentElement.classList.remove("allow-scroll");
     };
   }, []);
 
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>(initialMode ?? "login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,7 +56,7 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
 
   // 当主题变化时，强制重新渲染 Turnstile 以更新主题
   useEffect(() => {
-    setTurnstileKey(prev => prev + 1);
+    setTurnstileKey((prev) => prev + 1);
   }, [theme]);
 
   const { login, register, loginWithOAuth } = useAuth();
@@ -131,7 +117,7 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
   useEffect(() => {
     setTurnstileToken(null);
     // 通过改变 key 强制重新渲染 Turnstile
-    setTurnstileKey(prev => prev + 1);
+    setTurnstileKey((prev) => prev + 1);
   }, [mode]);
 
   // OAuth 登录处理
@@ -197,12 +183,17 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
         toast.success(t("auth.loginSuccess"));
         onSuccess?.();
       } else {
-        const result = await register({ username, email, password }, turnstileToken || undefined);
+        const result = await register(
+          { username, email, password },
+          turnstileToken || undefined,
+        );
         if (result.requiresVerification) {
           // 注册成功，需要验证邮箱
           toast.success(t("auth.registerSuccessVerification"));
           // 跳转到验证等待页面
-          window.location.href = `/registration-pending?email=${encodeURIComponent(result.email)}`;
+          window.location.href = `/auth/pending?email=${encodeURIComponent(
+            result.email,
+          )}`;
           return;
         }
         toast.success(t("auth.registerSuccess"));
@@ -210,29 +201,36 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
       }
     } catch (err) {
       const errorMessage = (err as Error).message || t("auth.operationFailed");
-      
+
       // 检查是否是邮箱未验证或账户未激活错误，跳转到验证页面
-      if (errorMessage.includes("请先验证邮箱") || errorMessage.includes("账户未激活")) {
+      if (
+        errorMessage.includes("请先验证邮箱") ||
+        errorMessage.includes("账户未激活")
+      ) {
         // 如果输入的是邮箱，直接跳转
         const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username);
         if (isEmail) {
           toast.error(errorMessage);
           setTimeout(() => {
-            window.location.href = `/registration-pending?email=${encodeURIComponent(username)}`;
+            window.location.href = `/auth/pending?email=${encodeURIComponent(
+              username,
+            )}`;
           }, 1500);
           return;
         }
         // 如果是用户名，提示用户
-        setError(t("auth.pleaseLoginWithEmail") || "请使用注册邮箱登录以完成验证");
+        setError(
+          t("auth.pleaseLoginWithEmail") || "请使用注册邮箱登录以完成验证",
+        );
         toast.error(errorMessage);
       } else {
         toast.error(errorMessage);
         setError(errorMessage);
       }
-      
+
       // 重置 Turnstile widget
       setTurnstileToken(null);
-      setTurnstileKey(prev => prev + 1);
+      setTurnstileKey((prev) => prev + 1);
     } finally {
       setIsSubmitting(false);
     }
@@ -253,13 +251,16 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
     <div className="min-h-screen overflow-y-auto overflow-x-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-stone-950 dark:via-stone-900 dark:to-stone-800">
       {/* 左上角 Logo */}
       <div className="fixed left-3 top-3 z-50 flex items-center gap-2 sm:left-4 sm:top-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/50 backdrop-blur-sm transition-colors hover:bg-white/80 dark:bg-stone-800/50 dark:hover:bg-stone-800/80">
+        <Link
+          to="/"
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/50 backdrop-blur-sm transition-colors hover:bg-white/80 dark:bg-stone-800/50 dark:hover:bg-stone-800/80"
+        >
           <img
             src="/icons/icon.svg"
             alt="LambChat"
             className="h-5 w-5 rounded-full"
           />
-        </div>
+        </Link>
       </div>
 
       {/* 右上角按钮 */}
@@ -514,7 +515,9 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
               {registrationEnabled ? (
                 <>
                   <span>
-                    {mode === "login" ? t("auth.noAccount") : t("auth.hasAccount")}
+                    {mode === "login"
+                      ? t("auth.noAccount")
+                      : t("auth.hasAccount")}
                   </span>
                   <button
                     type="button"
@@ -539,7 +542,7 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
             {mode === "login" && (
               <div className="mt-2 text-center">
                 <Link
-                  to="/forgot-password"
+                  to="/auth/reset-request"
                   className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:text-stone-400 dark:hover:text-stone-200 sm:text-sm"
                 >
                   {t("auth.forgotPassword")}

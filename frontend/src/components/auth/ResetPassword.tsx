@@ -71,7 +71,7 @@ export function ResetPassword() {
   };
 
   const handleBackToLogin = () => {
-    navigate("/");
+    navigate("/auth/login");
   };
 
   // 成功状态

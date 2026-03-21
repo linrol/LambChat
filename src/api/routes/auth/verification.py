@@ -19,7 +19,7 @@ from src.kernel.schemas.user import (
 )
 
 from .rate_limiter import get_rate_limiter
-from .utils import _get_client_ip, _get_frontend_url
+from .utils import _get_client_ip, _get_frontend_url, _get_language
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -91,11 +91,13 @@ async def forgot_password(
 
         # 发送重置邮件
         frontend_url = _get_frontend_url(request)
+        lang = _get_language(request)
         await email_service.send_password_reset_email(
             to_email=user.email,
             username=user.username,
             reset_token=reset_token,
             base_url=frontend_url,
+            lang=lang,
         )
         logger.info("[Auth] Password reset email sent to %s", email)
     else:
@@ -274,11 +276,13 @@ async def resend_verification(
 
         # 发送验证邮件
         frontend_url = _get_frontend_url(request)
+        lang = _get_language(request)
         await email_service.send_verification_email(
             to_email=user.email,
             username=user.username,
             verify_token=verify_token,
             base_url=frontend_url,
+            lang=lang,
         )
         logger.info("[Auth] Verification email resent to %s", email)
 

@@ -417,10 +417,10 @@ export const ChatInput = memo(function ChatInput({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`flex flex-col relative w-full rounded-3xl px-1 bg-white dark:bg-stone-800 border shadow-[0_0_10px_rgba(0,0,0,0.05)] dark:shadow-[0_0_10px_rgba(0,0,0,0.1)] transition-all duration-200 ${
+          className={`chat-input-container flex flex-col relative w-full rounded-2xl px-1 bg-white dark:bg-stone-800 border transition-all duration-300 ${
             isDraggingOver
-              ? "border-stone-400 dark:border-stone-500 border-2 border-dashed"
-              : "border-gray-200/50 dark:border-stone-700/50"
+              ? "border-stone-400 dark:border-stone-500 border-2 border-dashed shadow-lg shadow-stone-200/50 dark:shadow-stone-900/50"
+              : "border-stone-200/70 dark:border-stone-700/60 shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.2)]"
           }`}
         >
           {/* Attachment preview - top area (ChatGPT style) */}
@@ -479,7 +479,7 @@ export const ChatInput = memo(function ChatInput({
                 canSend ? t("chat.placeholder") : t("chat.noPermission")
               }
               disabled={disabled || !canSend}
-              className="scrollbar-hide bg-transparent dark:text-stone-100 outline-none flex-1 pt-3 px-1 resize-none text-sm text-gray-900 placeholder-gray-400 dark:placeholder-stone-500 disabled:opacity-50"
+              className="bg-transparent dark:text-stone-100 outline-none flex-1 pt-3 px-1 resize-none text-[15px] text-gray-900 placeholder-stone-400 dark:placeholder-stone-500 disabled:opacity-50 leading-relaxed overflow-hidden"
               rows={1}
             />
           </div>
@@ -546,7 +546,7 @@ export const ChatInput = memo(function ChatInput({
             <div className="self-end flex space-x-1.5 flex-shrink-0">
               {!canSend ? (
                 <div
-                  className="flex items-center justify-center rounded-full p-2 bg-gray-100 text-gray-400 dark:bg-stone-700 dark:text-stone-500"
+                  className="flex items-center justify-center rounded-full p-2 bg-stone-100 text-stone-400 dark:bg-stone-700 dark:text-stone-500"
                   title={t("chat.noPermission")}
                 >
                   <Lock size={18} />
@@ -559,7 +559,7 @@ export const ChatInput = memo(function ChatInput({
                     e.stopPropagation();
                     onStop();
                   }}
-                  className="flex items-center justify-center rounded-full p-2 bg-stone-900 dark:bg-stone-600 text-white dark:text-stone-100 transition-all hover:scale-105"
+                  className="flex items-center justify-center rounded-full p-2 bg-stone-800 dark:bg-stone-500 text-white dark:text-stone-100 transition-all duration-200 hover:scale-105 active:scale-95 shadow-md"
                   title={t("chat.stop")}
                 >
                   <Square size={16} fill="currentColor" />
@@ -568,10 +568,10 @@ export const ChatInput = memo(function ChatInput({
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className={`flex items-center justify-center rounded-full p-2 transition-all ${
+                  className={`flex items-center justify-center rounded-full p-2 transition-all duration-200 ${
                     canSubmit
-                      ? "bg-stone-900 dark:bg-stone-600 text-white dark:text-stone-100 hover:scale-105"
-                      : "bg-gray-100 text-gray-400 dark:bg-stone-700 dark:text-stone-500"
+                      ? "bg-stone-800 dark:bg-stone-500 text-white dark:text-stone-100 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
+                      : "bg-stone-100 text-stone-400 dark:bg-stone-700 dark:text-stone-500"
                   }`}
                   title={
                     hasUploadingAttachment

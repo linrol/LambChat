@@ -37,26 +37,26 @@ export function PanelHeader({
 }: PanelHeaderProps) {
   return (
     <div className="panel-header">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3.5">
           {icon && (
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-stone-100 dark:bg-stone-800">
+            <div className="flex size-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-stone-100 to-stone-50 text-stone-600 shadow-sm ring-1 ring-stone-200/60 dark:from-stone-800 dark:to-stone-900 dark:text-stone-300 dark:ring-stone-700/50">
               {icon}
             </div>
           )}
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold text-stone-900 dark:text-stone-100 sm:text-xl">
+            <h1 className="truncate text-lg font-bold tracking-tight text-stone-900 dark:text-stone-50 sm:text-xl font-serif">
               {title}
             </h1>
             {subtitle && (
-              <p className="mt-0.5 truncate text-sm text-stone-500 dark:text-stone-400">
+              <p className="mt-0.5 truncate text-sm leading-snug text-stone-500 dark:text-stone-400">
                 {subtitle}
               </p>
             )}
           </div>
         </div>
         {actions && (
-          <div className="flex flex-nowrap flex-shrink-0 gap-1.5 sm:gap-2">
+          <div className="flex flex-nowrap flex-shrink-0 items-center gap-1.5 sm:gap-2">
             {actions}
           </div>
         )}

@@ -51,6 +51,7 @@ const TYPE_COLORS: Record<SettingType, string> = {
   boolean:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300",
   json: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
+  select: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
 };
 
 export function SettingsPanel() {
@@ -634,6 +635,25 @@ export function SettingsPanel() {
                           >
                             <option value="true">true</option>
                             <option value="false">false</option>
+                          </select>
+                        ) : setting.type === "select" && setting.options ? (
+                          <select
+                            value={getDisplayValue(setting)}
+                            onChange={(e) =>
+                              handleValueChange(
+                                setting.key,
+                                e.target.value,
+                                "string",
+                              )
+                            }
+                            disabled={!canManage}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-stone-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500"
+                          >
+                            {setting.options.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
                           </select>
                         ) : setting.type === "text" ? (
                           <textarea

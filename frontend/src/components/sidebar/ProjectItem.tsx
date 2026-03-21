@@ -174,7 +174,7 @@ export function ProjectItem({
 
   return (
     <div className="mb-0.5">
-      {/* Project header - drop target */}
+      {/* Project header - ChatGPT style drop target */}
       <div
         onClick={handleToggle}
         onTouchStart={handleHeaderTouchStart}
@@ -183,17 +183,17 @@ export function ProjectItem({
         onDrop={handleDrop}
         data-project-drop
         data-project-id={project.id}
-        className={`group relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 transition-all duration-150 ${
+        className={`group relative flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 transition-all duration-150 ${
           isDragOver || draggingSessionId
-            ? "bg-stone-100 dark:bg-stone-800/50"
+            ? "bg-stone-200/60 dark:bg-stone-700/40 ring-1 ring-inset ring-stone-300 dark:ring-stone-600"
             : isExpanded
-              ? "bg-stone-100/40 dark:bg-stone-800/30"
-              : "hover:bg-stone-50 dark:hover:bg-stone-800/20"
+              ? "bg-stone-100/60 dark:bg-stone-800/40"
+              : "hover:bg-stone-100 dark:hover:bg-stone-800/30"
         }`}
       >
         {/* Chevron icon */}
         <ChevronRight
-          size={16}
+          size={14}
           className={`flex-shrink-0 text-stone-400 dark:text-stone-500 transition-transform duration-200 ${
             isExpanded ? "rotate-90" : ""
           }`}
@@ -202,13 +202,13 @@ export function ProjectItem({
         {/* Project icon */}
         {isFavorites ? (
           <Star
-            size={16}
+            size={15}
             className="flex-shrink-0 text-amber-500 fill-amber-500"
           />
         ) : (
           <FolderIcon
-            size={16}
-            className="flex-shrink-0 text-stone-500 dark:text-stone-400"
+            size={15}
+            className="flex-shrink-0 text-stone-400 dark:text-stone-500 group-hover:text-stone-500 dark:group-hover:text-stone-400 transition-colors"
           />
         )}
 
@@ -223,11 +223,11 @@ export function ProjectItem({
               onKeyDown={handleKeyDown}
               onBlur={handleSaveName}
               disabled={isSaving}
-              className="w-full text-sm bg-transparent text-stone-700 dark:text-stone-200 border border-stone-400 dark:border-stone-500 rounded px-1.5 py-0.5 focus:outline-none"
+              className="w-full text-sm bg-transparent text-stone-700 dark:text-stone-200 border border-stone-300 dark:border-stone-500 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-stone-400"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <div className="truncate text-sm text-stone-600 dark:text-stone-400">
+            <div className="truncate text-[13px] text-stone-600 dark:text-stone-400 group-hover:text-stone-700 dark:group-hover:text-stone-300 transition-colors">
               {isFavorites ? t("sidebar.favorites") : project.name}
             </div>
           )}
@@ -243,7 +243,7 @@ export function ProjectItem({
             title={t("sidebar.moreOptions")}
           >
             <MoreHorizontal
-              size={15}
+              size={14}
               className="text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
             />
           </button>
@@ -252,7 +252,7 @@ export function ProjectItem({
 
       {/* Expandable content - sessions list */}
       {isExpanded && sessions.length > 0 && (
-        <div className="ml-2 mt-1 space-y-1">
+        <div className="ml-3 mt-0.5 space-y-0.5">
           {sessions.map((session) => (
             <SessionItem
               key={session.id}

@@ -81,6 +81,7 @@ class SettingsStorage:
                 is_sensitive=is_sensitive,
                 frontend_visible=definition.get("frontend_visible", False),
                 depends_on=definition.get("depends_on"),
+                options=definition.get("options"),
                 updated_at=db_doc.get("updated_at") if db_doc else None,
                 updated_by=db_doc.get("updated_by") if db_doc else None,
             )
@@ -127,6 +128,7 @@ class SettingsStorage:
             is_sensitive=is_sensitive,
             frontend_visible=definition.get("frontend_visible", False),
             depends_on=definition.get("depends_on"),
+            options=definition.get("options"),
             updated_at=doc.get("updated_at") if doc else None,
             updated_by=doc.get("updated_by") if doc else None,
         )
@@ -152,6 +154,11 @@ class SettingsStorage:
         elif expected_type.value == "string":
             value = str(value)
         elif expected_type.value == "text":
+            value = str(value)
+        elif expected_type.value == "select":
+            valid_options = definition.get("options", [])
+            if valid_options and value not in valid_options:
+                raise ValueError(f"Setting {key} expects one of: {valid_options}")
             value = str(value)
         elif expected_type.value == "json":
             # JSON type accepts arrays and objects

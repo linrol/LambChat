@@ -56,7 +56,7 @@ async def _ainvoke_with_retry(model, prompt: str, max_retries: int | None = None
         except Exception as e:
             last_error = e
             if _is_retryable_error(e) and attempt < max_retries - 1:
-                delay = 1.0 * (2**attempt)  # 指数退避
+                delay = settings.LLM_RETRY_DELAY * (2**attempt)  # 指数退避
                 logger.warning(
                     f"LLM call failed (attempt {attempt + 1}/{max_retries}): {e}. "
                     f"Retrying in {delay}s..."

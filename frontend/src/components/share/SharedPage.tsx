@@ -167,7 +167,7 @@ export function SharedPage() {
                 {t("share.loginRequiredDesc")}
               </p>
               <Link
-                to="/login"
+                to="/auth/login"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 text-white dark:text-stone-900 rounded-xl font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
               >
                 {t("auth.loginNow")}

@@ -584,7 +584,7 @@ export function clearAllLoadingStates(parts: MessagePart[]): MessagePart[] {
       case "sandbox": {
         const sandboxPart = part as SandboxPart;
         if (sandboxPart.status !== "starting") return part;
-        return { ...sandboxPart, status: "error" };
+        return { ...sandboxPart, status: "cancelled" };
       }
       default:
         return part;

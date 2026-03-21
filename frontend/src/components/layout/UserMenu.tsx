@@ -135,7 +135,7 @@ export function UserMenu({ onShowProfile }: UserMenuProps) {
         <button
           ref={buttonRef}
           onClick={() => setShowMenu(!showMenu)}
-          className="flex h-8 w-8 items-center justify-center rounded-full transition-colors overflow-hidden"
+          className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors overflow-hidden"
         >
           {user?.avatar_url && !imgError ? (
             <img

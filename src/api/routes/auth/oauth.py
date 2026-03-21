@@ -177,7 +177,7 @@ async def oauth_callback_get(request: Request, provider: OAuthProviderParam, cod
     if not await _verify_oauth_state(provider, state, client_ip):
         logger.warning("[OAuth] Invalid state for %s from %s", provider, client_ip)
         error_params = urlencode({"error": "invalid_state", "provider": provider})
-        return RedirectResponse(url=f"{frontend_url}/login?{error_params}", status_code=302)
+        return RedirectResponse(url=f"{frontend_url}/auth/login?{error_params}", status_code=302)
 
     token = await oauth_service.handle_callback(oauth_provider, code, state, redirect_uri)
 
@@ -187,7 +187,7 @@ async def oauth_callback_get(request: Request, provider: OAuthProviderParam, cod
     if not token:
         # 认证失败，重定向到登录页面并显示错误
         error_params = urlencode({"error": "oauth_failed", "provider": provider})
-        return RedirectResponse(url=f"{frontend_url}/login?{error_params}", status_code=302)
+        return RedirectResponse(url=f"{frontend_url}/auth/login?{error_params}", status_code=302)
 
     # 认证成功，通过 URL fragment 传递 token
     # URL fragment (# 后面的内容) 不会发送到服务器，更安全

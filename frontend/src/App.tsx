@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
@@ -9,6 +9,8 @@ import { ForgotPassword } from "./components/auth/ForgotPassword";
 import { ResetPassword } from "./components/auth/ResetPassword";
 import { VerifyEmail } from "./components/auth/VerifyEmail";
 import { RegistrationPending } from "./components/auth/RegistrationPending";
+import { LandingPage } from "./components/landing/LandingPage";
+import { AuthPage } from "./components/auth/AuthPage";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AppContent } from "./components/layout/AppContent";
 import { NotFoundPage } from "./components/common/NotFoundPage";
@@ -93,6 +95,22 @@ function AgentsPage() {
   return <AppContent activeTab="agents" />;
 }
 
+// Auth page wrapper - redirects to /chat after successful login/register
+function AuthPageWrapper({
+  initialMode,
+}: {
+  initialMode?: "login" | "register";
+}) {
+  const navigate = useNavigate();
+  usePageTitle(initialMode === "register" ? "auth.register" : "auth.login");
+  return (
+    <AuthPage
+      initialMode={initialMode}
+      onSuccess={() => navigate("/chat", { replace: true })}
+    />
+  );
+}
+
 // Main App Component
 function App() {
   const { t } = useTranslation();
@@ -127,7 +145,13 @@ function App() {
           }}
         />
         <Routes>
-          <Route path="/" element={<Navigate to="/chat" replace />} />
+          <Route path="/" element={<LandingPage />} />
+          {/* Auth routes */}
+          <Route path="/auth/login" element={<AuthPageWrapper />} />
+          <Route
+            path="/auth/register"
+            element={<AuthPageWrapper initialMode="register" />}
+          />
           <Route
             path="/chat/:sessionId?"
             element={
@@ -233,15 +257,12 @@ function App() {
           {/* OAuth callback page - handles OAuth redirect from backend */}
           <Route path="/auth/callback" element={<OAuthCallback />} />
           {/* Password reset pages - no auth required */}
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/auth/reset-request" element={<ForgotPassword />} />
+          <Route path="/auth/reset-password" element={<ResetPassword />} />
           {/* Email verification page - no auth required */}
-          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/auth/verify-email" element={<VerifyEmail />} />
           {/* Registration pending verification page - no auth required */}
-          <Route
-            path="/registration-pending"
-            element={<RegistrationPending />}
-          />
+          <Route path="/auth/pending" element={<RegistrationPending />} />
           {/* Public shared session page - no auth required */}
           <Route path="/shared/:shareId" element={<SharedPage />} />
           <Route path="*" element={<NotFoundPage />} />

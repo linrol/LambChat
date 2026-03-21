@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-hot-toast";
-import { Menu, Check, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { ChatMessage } from "../chat/ChatMessage";
 import { ChatInput } from "../chat/ChatInput";
 import { useFileUpload } from "../../hooks/useFileUpload";
@@ -420,6 +420,7 @@ export function AppContent({ activeTab }: AppContentProps) {
   // Track if navigation was initiated internally (not from URL)
   const isInternalNavRef = useRef(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
+  const [isNearTop, setIsNearTop] = useState(true);
 
   // Check if user is near the bottom (within 100px)
   const checkIfNearBottom = useCallback(() => {
@@ -431,6 +432,14 @@ export function AppContent({ activeTab }: AppContentProps) {
       threshold;
     setIsNearBottom(isAtBottom);
     return isAtBottom;
+  }, []);
+
+  // Check if user is near the top (within 100px)
+  const checkIfNearTop = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const threshold = 100;
+    setIsNearTop(container.scrollTop < threshold);
   }, []);
 
   // Track previous message count to detect new messages
@@ -454,7 +463,8 @@ export function AppContent({ activeTab }: AppContentProps) {
   // Track scroll position
   const handleScroll = useCallback(() => {
     checkIfNearBottom();
-  }, [checkIfNearBottom]);
+    checkIfNearTop();
+  }, [checkIfNearBottom, checkIfNearTop]);
 
   // Sync from URL only on initial mount
   useEffect(() => {
@@ -623,7 +633,7 @@ export function AppContent({ activeTab }: AppContentProps) {
         {/* Main Content */}
         <div className="relative z-0 flex flex-1 flex-col min-w-0 overflow-hidden">
           {/* Header */}
-          <header className="relative z-50 flex items-center px-3 pt-4 sm:px-4 mb-3">
+          <header className="relative z-50 flex items-center px-3 pt-3 sm:px-4 pb-1">
             {/* Left: Expand Sidebar + Menu + Agent Selector / Page Title */}
             <div className="flex items-center gap-2 flex-shrink-0">
               {activeTab === "chat" ? (
@@ -632,7 +642,7 @@ export function AppContent({ activeTab }: AppContentProps) {
                   {sidebarCollapsed && (
                     <button
                       onClick={() => setSidebarCollapsed(false)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-stone-800 transition-colors"
+                      className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-stone-800 transition-colors"
                       title={t("sidebar.expandSidebar")}
                     >
                       <svg
@@ -650,19 +660,28 @@ export function AppContent({ activeTab }: AppContentProps) {
                       </svg>
                     </button>
                   )}
-                  {/* Mobile menu button - only when sidebar is not collapsed */}
-                  {!sidebarCollapsed && (
-                    <button
-                      onClick={() => setMobileSidebarOpen(true)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-stone-800 sm:hidden transition-colors"
+                  {/* Mobile menu button - reuse sidebar toggle */}
+                  <button
+                    onClick={() => setMobileSidebarOpen(true)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-stone-800 sm:hidden transition-colors`}
+                    title={t("sidebar.expandSidebar")}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      className="w-5 h-5 text-gray-600 dark:text-stone-400"
                     >
-                      <Menu
-                        size={20}
-                        className="text-gray-600 dark:text-stone-400"
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M8.85719 3H15.1428C16.2266 2.99999 17.1007 2.99998 17.8086 3.05782C18.5375 3.11737 19.1777 3.24318 19.77 3.54497C20.7108 4.02433 21.4757 4.78924 21.955 5.73005C22.2568 6.32234 22.3826 6.96253 22.4422 7.69138C22.5 8.39925 22.5 9.27339 22.5 10.3572V13.6428C22.5 14.7266 22.5 15.6008 22.4422 16.3086C22.3826 17.0375 22.2568 17.6777 21.955 18.27C21.4757 19.2108 20.7108 19.9757 19.77 20.455C19.1777 20.7568 18.5375 20.8826 17.8086 20.9422C17.1008 21 16.2266 21 15.1428 21H8.85717C7.77339 21 6.89925 21 6.19138 20.9422C5.46253 20.8826 4.82234 20.7568 4.23005 20.455C3.28924 19.9757 2.52433 19.2108 2.04497 18.27C1.74318 17.6777 1.61737 17.0375 1.55782 16.3086C1.49998 15.6007 1.49999 14.7266 1.5 13.6428V10.3572C1.49999 9.27341 1.49998 8.39926 1.55782 7.69138C1.61737 6.96253 1.74318 6.32234 1.04497 5.73005C2.52433 4.78924 3.28924 4.02433 4.23005 3.54497C4.82234 3.24318 5.46253 3.11737 6.19138 3.05782C6.89926 2.99998 7.77341 2.99999 8.85719 3ZM6.35424 5.05118C5.74907 5.10062 5.40138 5.19279 5.13803 5.32698C4.57354 5.6146 4.1146 6.07354 3.82698 6.63803C3.69279 6.90138 3.60062 7.24907 3.55118 7.85424C3.50078 8.47108 3.5 9.26339 3.5 10.4V13.6C3.5 14.7366 3.50078 15.5289 3.55118 16.1458C3.60062 16.7509 3.69279 17.0986 3.82698 17.362C4.1146 17.9265 4.57354 18.3854 5.13803 18.673C5.40138 18.8072 5.74907 18.8994 6.35424 18.9488C6.97108 18.9992 7.76339 19 8.9 19H9.5V5H8.9C7.76339 5 6.97108 5.00078 6.35424 5.05118ZM11.5 5V19H15.1C16.2366 19 17.0289 18.9992 17.6458 18.9488C18.2509 18.8994 18.5986 18.8072 18.862 18.673C19.4265 18.3854 19.8854 17.9265 20.173 17.362C20.3072 17.0986 20.3994 16.7509 20.4488 16.1458C20.4992 15.5289 20.5 14.7366 20.5 13.6V10.4C20.5 9.26339 20.4992 8.47108 20.4488 7.85424C20.3994 7.24907 20.3072 6.90138 20.173 6.63803C19.8854 6.57354 19.4265 6.1146 18.862 5.32698C18.5986 5.19279 18.2509 5.10062 17.6458 5.05118C17.0289 5.00078 16.2366 5 15.1 5H11.5ZM5 8.5C5 7.94772 5.44772 7.5 6 7.5H7C7.55229 7.5 8 7.94772 8 8.5C8 9.05229 7.55229 9.5 7 9.5H6C5.44772 9.5 5 9.05229 5 8.5ZM5 12C5 11.4477 5.44772 11 6 11H7C7.55229 11 8 11.4477 8 12C8 12.4477 7.55229 13 7 13H6C5.44772 13 5 12.4477 5 12Z"
+                        fill="currentColor"
                       />
-                    </button>
-                  )}
+                    </svg>
+                  </button>
                   {/* Agent Selector - Performance Optimized */}
+
                   <AgentSelector
                     agents={agents}
                     currentAgent={currentAgent}
@@ -710,7 +729,7 @@ export function AppContent({ activeTab }: AppContentProps) {
               {activeTab === "chat" && sidebarCollapsed && (
                 <button
                   onClick={handleNewSession}
-                  className="flex cursor-pointer px-2 py-2 rounded-xl text-gray-600 dark:text-gray-400 dark:text-stone-300 dark:hover:bg-stone-800 transition"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
                   title={t("sidebar.newChat")}
                 >
                   <svg
@@ -741,7 +760,7 @@ export function AppContent({ activeTab }: AppContentProps) {
               <main
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className="relative flex-1 overflow-y-auto overflow-x-hidden min-h-0 overscroll-contain pb-5 pt-3"
+                className="relative flex-1 overflow-y-auto overflow-x-hidden min-h-0 overscroll-contain pb-5 pt-6"
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
                 {/* Session loading indicator - show when loading history (no messages yet) */}
@@ -751,45 +770,72 @@ export function AppContent({ activeTab }: AppContentProps) {
                   </div>
                 )}
                 {messages.length === 0 ? (
-                  <div className="flex h-full flex-col items-center justify-center px-4 py-8">
-                    {/* Title */}
-                    <div className="flex items-center gap-3 mb-7 sm:mb-9">
-                      <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-gray-700 dark:text-stone-200 font-serif">
+                  <div className="relative flex h-full flex-col items-center justify-center px-4 py-6 sm:py-8 welcome-grain">
+                    {/* Logo + Title */}
+                    <div className="relative flex flex-col items-center mb-6 sm:mb-8">
+                      <div className="relative mb-5 sm:mb-6">
+                        {/* Outer ring glow */}
+                        <div className="absolute -inset-3 rounded-[1.75rem] bg-gradient-to-br from-amber-300/30 to-rose-300/20 dark:from-amber-500/10 dark:to-rose-500/5 blur-xl" />
+                      </div>
+                      <h1 className="welcome-title text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-stone-800 via-stone-600 to-stone-800 dark:from-stone-50 dark:via-stone-200 dark:to-stone-50 bg-clip-text text-transparent font-serif tracking-tight mb-1 sm:mb-6">
                         LambChat
                       </h1>
                     </div>
 
                     {/* Suggestion Cards */}
-                    <div className="w-full max-w-lg space-y-3 px-4">
-                      {(
-                        settings?.settings.frontend.find(
-                          (s) => s.key === "WELCOME_SUGGESTIONS",
-                        )?.value as
-                          | Array<{ icon: string; text: string }>
-                          | undefined
-                      )?.map((suggestion) => (
-                        <button
-                          key={suggestion.text}
-                          onClick={() => sendMessage(suggestion.text)}
-                          className="w-full flex items-center gap-3 rounded-xl border border-gray-200 dark:border-stone-700 px-4 py-3 text-left text-sm text-gray-700 dark:text-stone-200 hover:bg-gray-50 dark:hover:bg-stone-800 transition-colors"
-                        >
-                          <span className="text-lg">{suggestion.icon}</span>
-                          <span className="text-sm">{suggestion.text}</span>
-                        </button>
-                      ))}
+                    <div className="relative w-full max-w-xl sm:max-w-2xl px-2 sm:px-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                        {(
+                          settings?.settings.frontend.find(
+                            (s) => s.key === "WELCOME_SUGGESTIONS",
+                          )?.value as
+                            | Array<{ icon: string; text: string }>
+                            | undefined
+                        )?.map((suggestion, i) => (
+                          <button
+                            key={suggestion.text}
+                            onClick={() => sendMessage(suggestion.text)}
+                            className="welcome-card group flex items-center gap-3 sm:gap-3.5 rounded-xl sm:rounded-2xl border border-stone-200/70 dark:border-stone-700/40 px-4 py-3.5 sm:px-5 sm:py-4 text-left text-sm text-stone-700 dark:text-stone-200 bg-white/60 dark:bg-stone-800/30 backdrop-blur-sm hover:bg-white dark:hover:bg-stone-800/60 hover:border-stone-300/80 dark:hover:border-stone-600/50 transition-all duration-300 hover:shadow-md hover:shadow-stone-200/40 dark:hover:shadow-stone-900/40 hover:-translate-y-0.5"
+                            style={{ animationDelay: `${0.4 + i * 80}ms` }}
+                          >
+                            <span className="flex items-center justify-center size-9 sm:size-10 rounded-xl bg-stone-100 dark:bg-stone-700/60 text-lg sm:text-xl shrink-0 group-hover:scale-110 group-hover:bg-stone-200/80 dark:group-hover:bg-stone-600/50 transition-all duration-300">
+                              {suggestion.icon}
+                            </span>
+                            <span className="text-[13px] sm:text-sm leading-snug text-stone-500 dark:text-stone-400 group-hover:text-stone-700 dark:group-hover:text-stone-200 transition-colors duration-300">
+                              {suggestion.text}
+                            </span>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="w-4 h-4 ml-auto shrink-0 text-stone-300 dark:text-stone-600 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:text-stone-400 dark:group-hover:text-stone-500 transition-all duration-300"
+                            >
+                              <path d="M7 5l5 5-5 5" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="mt-4 sm:mt-6 flex items-center gap-2 text-xs text-gray-400 dark:text-stone-500">
+
+                    {/* Footer */}
+                    <div className="welcome-footer mt-8 sm:mt-10 flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
                       <a
                         href="https://github.com/Yanyutin753/LambChat"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-medium hover:text-gray-600 dark:hover:text-stone-400 transition-colors font-serif"
+                        className="font-medium hover:text-stone-600 dark:hover:text-stone-300 transition-colors font-serif"
                       >
                         LambChat
                       </a>
                       {versionInfo?.app_version && (
                         <>
-                          <span>·</span>
+                          <span className="text-stone-300 dark:text-stone-600">
+                            ·
+                          </span>
                           <span>v{versionInfo.app_version}</span>
                         </>
                       )}
@@ -823,7 +869,7 @@ export function AppContent({ activeTab }: AppContentProps) {
                     });
                     setTimeout(() => checkIfNearBottom(), 100);
                   }}
-                  className="absolute left-1/2 -translate-x-1/2 z-50 flex items-center p-1.5 rounded-full bg-white/70 border border-gray-200 dark:border-none dark:bg-white/10 shadow-md hover:shadow-lg transition-all hover:scale-105"
+                  className="fixed left-1/2 z-50 flex items-center p-2 rounded-full bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700/60 shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
                   style={{
                     bottom: "9rem",
                     left: "50%",
@@ -834,11 +880,38 @@ export function AppContent({ activeTab }: AppContentProps) {
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 20 20"
                     fill="currentColor"
-                    className="w-5 h-5 text-stone-600 dark:text-stone-200"
+                    className="w-4 h-4 text-stone-500 dark:text-stone-300"
                   >
                     <path
                       fillRule="evenodd"
                       d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              )}
+
+              {/* Scroll to top button - Show when user is not at top and messages exist */}
+              {messages.length > 0 && !isNearTop && (
+                <button
+                  onClick={() => {
+                    messagesContainerRef.current?.scrollTo({
+                      top: 0,
+                      behavior: "smooth",
+                    });
+                  }}
+                  className="fixed right-2 z-50 flex items-center p-2 rounded-full bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700/60 shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+                  style={{ bottom: "10rem" }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="w-4 h-4 text-stone-500 dark:text-stone-300"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 17a.75.75 0 01-.75-.75V5.612l-3.96 4.158a.75.75 0 11-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z"
                       clipRule="evenodd"
                     />
                   </svg>

@@ -23,6 +23,7 @@ class SettingType(str, Enum):
     NUMBER = "number"
     BOOLEAN = "boolean"
     JSON = "json"
+    SELECT = "select"  # Dropdown select (uses options field)
 
 
 class SettingCategory(str, Enum):
@@ -59,6 +60,7 @@ class SettingItem(BaseModel):
     depends_on: Optional[Union[str, SettingDependsOn]] = (
         None  # Key or condition for visibility control
     )
+    options: Optional[list[str]] = None  # Available options for SELECT type
     updated_at: Optional[str] = None
     updated_by: Optional[str] = None
 

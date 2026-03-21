@@ -808,14 +808,14 @@ function UserAgentPreferencePanel() {
             {t("agentConfig.noAvailableAgents")}
           </p>
         ) : (
-          <div className="grid gap-2">
+          <div className="flex flex-col gap-2">
             {availableAgents.map((agent) => (
               <label
                 key={agent.id}
-                className={`flex cursor-pointer items-start sm:items-center gap-2.5 sm:gap-3 rounded-lg p-2.5 sm:p-3 transition-all overflow-hidden ${
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-3 transition-colors ${
                   selectedAgent === agent.id
-                    ? "bg-white dark:bg-stone-600 ring-2 ring-amber-500/40 shadow-sm"
-                    : "bg-white/50 dark:bg-stone-600/50 hover:bg-white dark:hover:bg-stone-600"
+                    ? "border-amber-400/60 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-900/15"
+                    : "border-transparent bg-white/60 dark:bg-stone-600/40 hover:bg-white dark:hover:bg-stone-600/70"
                 }`}
               >
                 <input
@@ -824,16 +824,16 @@ function UserAgentPreferencePanel() {
                   value={agent.id}
                   checked={selectedAgent === agent.id}
                   onChange={(e) => setSelectedAgent(e.target.value)}
-                  className="h-4 w-4 mt-0.5 sm:mt-0 shrink-0 border-gray-300 dark:border-stone-500 text-amber-600 focus:ring-amber-500"
+                  className="h-4 w-4 shrink-0 border-stone-300 text-amber-500 focus:ring-amber-500/30 dark:border-stone-500 dark:text-amber-400"
                 />
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  <div className="text-sm font-medium text-gray-900 dark:text-stone-100 truncate">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-gray-900 dark:text-stone-100 truncate">
                     {t(agent.name)}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-stone-400 line-clamp-2 sm:truncate mt-0.5">
+                  </span>
+                  <span className="block text-xs text-gray-500 dark:text-stone-400 mt-0.5 truncate">
                     {t(agent.description)}
-                  </div>
-                </div>
+                  </span>
+                </span>
               </label>
             ))}
           </div>

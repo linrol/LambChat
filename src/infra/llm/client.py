@@ -96,6 +96,7 @@ def _make_cache_key(
     api_base: Optional[str],
     thinking: Optional[dict],
     profile: Optional[dict],
+    max_retries: int,
 ) -> tuple:
     thinking_key = tuple(sorted(thinking.items())) if thinking else None
     profile_key = tuple(sorted(profile.items())) if profile else None
@@ -108,6 +109,7 @@ def _make_cache_key(
         api_base,
         thinking_key,
         profile_key,
+        max_retries,
     )
 
 
@@ -142,6 +144,7 @@ class LLMClient:
                 thinking=thinking,
                 base_url=api_base or None,
                 profile=profile,
+                max_retries=settings.LLM_MAX_RETRIES,
                 **kwargs,
             )
 
@@ -152,6 +155,7 @@ class LLMClient:
             api_key=api_key or "sk-placeholder",  # type: ignore[arg-type]
             base_url=api_base or None,
             profile=profile,
+            max_retries=settings.LLM_MAX_RETRIES,
             **kwargs,
         )
 
@@ -182,6 +186,7 @@ class LLMClient:
             api_base,
             thinking,
             profile,
+            settings.LLM_MAX_RETRIES,
         )
 
         if cache_key in LLMClient._model_cache:
