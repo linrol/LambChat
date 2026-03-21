@@ -341,10 +341,10 @@ class SkillsStoreBackend(BackendProtocol):
                 description = "Skill created by LLM"
 
                 if file_name == "SKILL.md":
+                    # Name comes from path, not file content
                     lines = content.split("\n")
                     for line in lines:
                         if line.startswith("# "):
-                            name = line[2:].strip()
                             desc_lines = []
                             for desc_line in lines[lines.index(line) + 1 :]:
                                 if desc_line.startswith("#") or desc_line.startswith("```"):

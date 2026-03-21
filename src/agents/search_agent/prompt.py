@@ -44,6 +44,8 @@ Use `upload_url_to_sandbox(url, file_path)` to download a file from a URL and sa
 
 Commands: `ls_info("/skills/")`, `read_file("/skills/name/SKILL.md")`, `write_file("/skills/name/SKILL.md", content)`, `edit_file(path, old, new)`
 
+Note: When writing skill files, DO NOT create directories manually. The skills store automatically handles directory creation. Simply call `write_file("/skills/skill-name/file.md", content)` directly.
+
 Structure: `SKILL.md` required (first line: `# Title`), optional `scripts/`, `references/`
 
 {skills}

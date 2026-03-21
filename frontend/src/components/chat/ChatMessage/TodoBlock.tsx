@@ -78,7 +78,7 @@ export function TodoBlock({ items, isStreaming }: TodoBlockProps) {
                 "h-full rounded-full transition-all duration-500 ease-out",
                 isAllDone
                   ? "bg-emerald-500 dark:bg-emerald-400"
-                  : "bg-blue-500 dark:bg-blue-400",
+                  : "bg-stone-400 dark:bg-stone-500",
               )}
               style={{ width: `${progress}%` }}
             />
@@ -125,11 +125,6 @@ function TodoItemRow({ item }: { item: TodoItem }) {
         >
           {item.content}
         </p>
-        {item.status === "in_progress" && item.activeForm && (
-          <p className="mt-0.5 text-[11px] text-blue-500/70 dark:text-blue-400/70">
-            {item.activeForm}
-          </p>
-        )}
       </div>
     </div>
   );
