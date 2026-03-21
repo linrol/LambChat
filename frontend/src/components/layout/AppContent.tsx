@@ -768,6 +768,7 @@ export function AppContent({ activeTab }: AppContentProps) {
                     data={messages}
                     atBottomStateChange={handleVirtuosoAtBottomChange}
                     atBottomThreshold={100}
+                    followOutput="smooth"
                     components={virtuosoComponents}
                     itemContent={virtuosoItemContent}
                     initialTopMostItemIndex={messages.length - 1}

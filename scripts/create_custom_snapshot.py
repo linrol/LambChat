@@ -21,7 +21,7 @@ from src.kernel.config import settings
 
 # ============== 配置区域 ==============
 # 自定义快照名称
-SNAPSHOT_NAME = "lambchat-medium"
+SNAPSHOT_NAME = "lambchat-medium-plus"
 
 # 基础镜像 (daytona-medium 使用 debian_slim)
 BASE_IMAGE = "debian_slim"
@@ -70,11 +70,14 @@ EXTRA_PIP_PACKAGES = [
     "python-jose",  # JWT 令牌
     "passlib",  # 密码哈希
     "bcrypt",  # bcrypt 哈希
+    # ========== SVG 转换 ==========
+    "cairosvg",  # SVG 转 PNG/PDF (依赖 libcairo2)
+    "svglib",  # SVG 解析 + reportlab 渲染
     # ========== 办公文档高级 ==========
     "pypandoc",  # Pandoc 包装 (需要系统安装 pandoc)
     "docx2txt",  # Word 文本提取
     "xhtml2pdf",  # HTML/CSS 转 PDF
-    "pdfminer",  # PDF 文本提取
+    "pdfminer.six",  # PDF 文本提取 (维护版)
     "pdfplumber",  # PDF 表格提取
     # ========== 日期时间 ==========
     "python-dateutil",  # 日期时间扩展
@@ -118,13 +121,18 @@ EXTRA_PIP_PACKAGES = [
 SNAPSHOT_RESOURCES = Resources(
     cpu=2,
     memory=4,
-    disk=8,
+    disk=6,
 )
 # ======================================
 
 # ============== 系统包安装 ==============
 # 安装系统依赖 (apt-get)
 SYSTEM_PACKAGES = [
+    # 常用工具
+    "git",  # Git 版本控制
+    "curl",  # 下载/HTTP 请求
+    "unzip",  # ZIP 解压
+    "p7zip-full",  # 7z/RAR 解压 (rarfile 可用 unar 作为替代)
     # 中文字体
     "fonts-noto-cjk",  # 思源黑体 (推荐)
     "fonts-wqy-zenhei",  # 义启黑体
@@ -141,6 +149,24 @@ SYSTEM_PACKAGES = [
     "libfreetype6-dev",  # FreeType 字体
     "libffi-dev",  # cffi 依赖
     "libssl-dev",  # openssl 开发库
+    # Playwright / Chromium 系统依赖
+    "libnss3",  # NSS 库 (Chromium 必需)
+    "libnspr4",  # NSPR 库 (Chromium 必需)
+    "libatk1.0-0",  # ATK 无障碍工具包
+    "libatk-bridge2.0-0",  # ATK 桥接
+    "libcups2",  # 打印支持
+    "libdrm2",  # DRM 库
+    "libxkbcommon0",  # 键盘处理
+    "libxcomposite1",  # X 合成扩展
+    "libxdamage1",  # X 损坏扩展
+    "libxfixes3",  # X 修复扩展
+    "libxrandr2",  # X 随机分辨率
+    "libgbm1",  # 图形缓冲管理
+    "libpango-1.0-0",  # Pango 文本渲染
+    "libcairo2",  # Cairo 2D 图形
+    "libasound2",  # ALSA 音频
+    "libatspi2.0-0",  # 辅助技术服务
+    "libwayland-client0",  # Wayland 客户端
 ]
 # ======================================
 
@@ -188,6 +214,9 @@ def main():
     # 添加额外的 pip 包
     if EXTRA_PIP_PACKAGES:
         image = image.pip_install(EXTRA_PIP_PACKAGES)
+
+    # 安装 Playwright 浏览器二进制 (Chromium)
+    image = image.run_commands("playwright install chromium --with-deps")
 
     # 创建快照参数
     params = CreateSnapshotParams(

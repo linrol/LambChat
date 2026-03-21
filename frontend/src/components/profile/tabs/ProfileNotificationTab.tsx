@@ -4,13 +4,8 @@ import { useBrowserNotification } from "../../../hooks/useBrowserNotification";
 
 export function ProfileNotificationTab() {
   const { t } = useTranslation();
-  const {
-    requestPermission,
-    isSupported,
-    permission,
-    isMobile,
-    isMobileNotificationSupported,
-  } = useBrowserNotification();
+  const { requestPermission, isSupported, permission } =
+    useBrowserNotification();
 
   return (
     <div className="space-y-3">
@@ -53,38 +48,6 @@ export function ProfileNotificationTab() {
           </p>
         )}
       </div>
-
-      {/* Mobile Notification Status */}
-      {isMobile && (
-        <div className="rounded-xl bg-gray-50 dark:bg-stone-700/50 p-3.5 sm:p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h4 className="font-medium text-sm text-gray-900 dark:text-stone-100">
-                {t("profile.mobileNotification")}
-              </h4>
-              <p className="text-xs text-gray-500 dark:text-stone-400 mt-1 leading-relaxed">
-                {t("profile.mobileNotificationDesc")}
-              </p>
-            </div>
-            <span
-              className={`shrink-0 text-xs flex items-center gap-1 mt-0.5 ${
-                isMobileNotificationSupported()
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-amber-600 dark:text-amber-400"
-              }`}
-            >
-              {isMobileNotificationSupported() ? (
-                <>
-                  <Check size={14} />
-                  {t("profile.supported")}
-                </>
-              ) : (
-                t("profile.limitedSupport")
-              )}
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* WebSocket Connection Status */}
       <div className="rounded-xl bg-gray-50 dark:bg-stone-700/50 p-3.5 sm:p-4">

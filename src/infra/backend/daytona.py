@@ -4,7 +4,10 @@
 使用 Daytona 原生 FS API 进行文件操作，避免通过 execute() 跑 python3 脚本。
 支持客户端侧强制超时，通过 DAYTONA_TIMEOUT 配置（settings > 环境变量 > 默认值）。
 
-注意：Daytona SDK 是同步的，所有方法都在线程中执行以避免阻塞事件循环。
+注意：
+- Daytona SDK process.exec() 的 timeout 仅作为命令参数发给服务端，不控制 HTTP 请求超时。
+- aexecute() 使用 asyncio.wait_for 在客户端侧兜底，确保超时一定能生效。
+- 所有同步 SDK 调用通过 asyncio.to_thread 在线程池中执行，避免阻塞事件循环。
 """
 
 import asyncio
@@ -106,8 +109,25 @@ class DaytonaBackend(BaseSandbox):
             )
 
     async def aexecute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
-        """异步执行命令（通过线程池，避免阻塞事件循环）"""
-        return await asyncio.to_thread(self.execute, command, timeout=timeout)
+        """异步执行命令（通过线程池 + asyncio.wait_for 超时保护）
+
+        SDK 的 process.exec() 只把 timeout 作为命令参数发给服务端，但没有设置 HTTP
+        请求级别的超时。当服务端未正确处理 timeout 时，客户端会无限等待。
+        这里用 asyncio.wait_for 在客户端侧兜底，确保超时一定能生效。
+        """
+        effective_timeout = min(timeout or self._timeout, self._timeout)
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(self.execute, command, timeout=timeout),
+                timeout=effective_timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Client-side timeout after {effective_timeout}s: {command[:100]}...")
+            return ExecuteResponse(
+                output=f"Command timed out after {effective_timeout} seconds",
+                exit_code=-1,
+                truncated=False,
+            )
 
     def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
         """Download files from the sandbox.

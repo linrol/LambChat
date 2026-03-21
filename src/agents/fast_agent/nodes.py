@@ -124,10 +124,10 @@ def _is_retryable_error(error: Exception) -> bool:
     error_type = type(error).__name__.lower()
 
     retryable_patterns = [
-        "429",
-        "503",
-        "502",
-        "504",
+        "429",  # rate limit
+        "503",  # service unavailable
+        "502",  # bad gateway
+        "504",  # gateway timeout
         "timeout",
         "connection",
         "network",
