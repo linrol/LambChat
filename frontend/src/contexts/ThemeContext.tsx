@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { authApi } from "../services/api";
 
 type Theme = "light" | "dark";
 
@@ -48,6 +49,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
     // Persist to localStorage
     localStorage.setItem(STORAGE_KEY, theme);
+    // Sync to backend (non-blocking)
+    authApi.updateMetadata({ theme }).catch(() => {});
   }, [theme]);
 
   // Listen for system preference changes
