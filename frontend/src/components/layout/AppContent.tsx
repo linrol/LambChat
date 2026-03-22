@@ -83,7 +83,7 @@ interface AppContentProps {
 }
 
 export function AppContent({ activeTab }: AppContentProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -705,13 +705,26 @@ export function AppContent({ activeTab }: AppContentProps) {
                     {/* Suggestion Cards */}
                     <div className="relative w-full max-w-xl sm:max-w-2xl px-2 sm:px-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-                        {(
-                          settings?.settings.frontend.find(
+                        {(() => {
+                          const rawValue = settings?.settings.frontend.find(
                             (s) => s.key === "WELCOME_SUGGESTIONS",
-                          )?.value as
+                          )?.value;
+                          // Support both new multi-language format and legacy flat array
+                          const currentLang =
+                            i18n.language?.split("-")[0] || "en";
+                          let suggestions:
                             | Array<{ icon: string; text: string }>
-                            | undefined
-                        )?.map((suggestion, i) => (
+                            | undefined;
+                          if (Array.isArray(rawValue)) {
+                            // Legacy flat array format
+                            suggestions = rawValue;
+                          } else if (rawValue && typeof rawValue === "object") {
+                            // Multi-language format: { en: [...], zh: [...], ... }
+                            suggestions =
+                              rawValue[currentLang] || rawValue["en"];
+                          }
+                          return suggestions;
+                        })()?.map((suggestion, i) => (
                           <button
                             key={suggestion.text}
                             onClick={() => sendMessage(suggestion.text)}
