@@ -89,20 +89,12 @@ English | [简体中文](README_CN.md)
 
 ### 🤖 Agent System
 - **deepagents Architecture** - Compiled graph with fine-grained state management
-- **Multi-Agent Types** - Core Agent (default), Fast Agent (optimized speed), Search Agent (web search)
+- **Multi-Agent Types** - Core Agent (default), Fast Agent (optimized speed), Search Agent (general-purpose search)
 - **Plugin System** - Register custom agents with `@register_agent("id")` decorator
 - **Streaming Output** - Native SSE (Server-Sent Events) support
 - **Sub-agents** - Multi-level agent nesting support
 - **Thinking Mode** - Extended thinking mode for Anthropic models
-- **Code Interpreter** - Built-in code execution with sandbox support
 - **Human-in-the-Loop** - Approval system for sensitive operations
-
-### 🔍 Web Search
-- **Web Search Agent** - Search the web with rich results (title, URL, summary, site icon)
-- **Domain Filtering** - Limit search results to specific domains
-- **Time Range Filter** - Filter by day/week/month/year
-- **Region Support** - Optimize for CN or US regions
-- **Content Size Control** - Balanced (400-600 words) or comprehensive (2500 words) summaries
 
 ### 🔌 MCP Integration
 - **System + User Level MCP** - Global and personal MCP server configs
@@ -244,6 +236,7 @@ src/
 ├── agents/          # Agent implementations (core, fast, search)
 ├── api/             # FastAPI routes and middleware
 ├── infra/           # Infrastructure services
+│   ├── agent/       # Agent config & event storage
 │   ├── auth/        # JWT authentication
 │   ├── backend/     # Backend management
 │   ├── channel/     # Multi-channel (Feishu, etc.)
@@ -251,21 +244,24 @@ src/
 │   ├── feedback/    # Feedback system
 │   ├── folder/      # Project management
 │   ├── llm/         # LLM integration
+│   ├── logging/     # Structured logging
 │   ├── memory/      # Memory & hindsight
 │   ├── mcp/         # MCP protocol
 │   ├── patches/     # Monkey patches and compat fixes
 │   ├── role/        # RBAC role management
 │   ├── sandbox/     # Sandbox execution
 │   ├── session/     # Session management (dual-write)
+│   ├── service/     # Base service classes
 │   ├── settings/    # Settings service
 │   ├── share/       # Session sharing
 │   ├── skill/       # Skills system
-│   ├── storage/     # File storage
+│   ├── storage/     # File storage (S3/OSS/MinIO)
 │   ├── task/        # Task management
 │   ├── tool/        # Tool registry & MCP client
 │   ├── tracing/     # LangSmith tracing
 │   ├── user/        # User management
-│   └── websocket/   # WebSocket support
+│   ├── websocket.py # WebSocket support
+│   └── writer/      # Response writer
 ├── kernel/          # Core schemas, config, types
 └── skills/          # Built-in skills (skill-creator)
 ```

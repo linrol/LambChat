@@ -89,20 +89,12 @@
 
 ### 🤖 Agent 系统
 - **deepagents 架构** - 编译图架构，支持细粒度状态管理
-- **多 Agent 类型** - 核心 Agent（默认）、快速 Agent（速度优化）、搜索 Agent（网络搜索）
+- **多 Agent 类型** - 核心 Agent（默认）、快速 Agent（速度优化）、搜索 Agent（通用搜索）
 - **插件系统** - 使用 `@register_agent("id")` 装饰器快速注册自定义 Agent
 - **流式输出** - 原生支持 SSE（Server-Sent Events）
 - **子 Agent** - 支持多层级 Agent 嵌套
 - **思考模式** - 支持 Anthropic 模型的扩展思考模式
-- **代码解释器** - 内置代码执行与沙箱支持
 - **人工审批** - 敏感操作的人工审批流程
-
-### 🔍 网络搜索
-- **搜索 Agent** - 搜索网页，返回标题、URL、摘要、网站图标等丰富结果
-- **域名过滤** - 限制搜索结果到指定域名
-- **时间范围过滤** - 按天/周/月/年过滤
-- **区域支持** - 针对中国或海外区域优化
-- **内容长度控制** - 平衡模式（400-600 字）或详细模式（2500 字）
 
 ### 🔌 MCP 集成
 - **系统级 + 用户级 MCP** - 支持全局和个人 MCP 服务器配置
@@ -244,6 +236,7 @@ src/
 ├── agents/          # Agent 实现（核心、快速、搜索）
 ├── api/             # FastAPI 路由和中间件
 ├── infra/           # 基础设施服务
+│   ├── agent/       # Agent 配置与事件存储
 │   ├── auth/        # JWT 认证
 │   ├── backend/     # 后端管理
 │   ├── channel/     # 多渠道（飞书等）
@@ -251,21 +244,24 @@ src/
 │   ├── feedback/    # 反馈系统
 │   ├── folder/      # 项目管理
 │   ├── llm/         # LLM 集成
+│   ├── logging/     # 结构化日志
 │   ├── memory/      # 记忆与 hindsight
 │   ├── mcp/         # MCP 协议
 │   ├── patches/     # 兼容补丁
 │   ├── role/        # RBAC 角色管理
 │   ├── sandbox/     # 沙箱执行
 │   ├── session/     # 会话管理（双写机制）
+│   ├── service/     # 基础服务类
 │   ├── settings/    # 设置服务
 │   ├── share/       # 会话分享
 │   ├── skill/       # 技能系统
-│   ├── storage/     # 文件存储
+│   ├── storage/     # 文件存储（S3/OSS/MinIO）
 │   ├── task/        # 任务管理
 │   ├── tool/        # 工具注册与 MCP 客户端
 │   ├── tracing/     # LangSmith 追踪
 │   ├── user/        # 用户管理
-│   └── websocket/   # WebSocket 支持
+│   ├── websocket.py # WebSocket 支持
+│   └── writer/      # 响应写入器
 ├── kernel/          # 核心模型、配置、类型定义
 └── skills/          # 内置技能（skill-creator）
 ```
