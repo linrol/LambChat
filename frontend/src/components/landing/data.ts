@@ -136,7 +136,6 @@ export const RESPONSIVE_SHOTS: ScreenshotItem[] = [
 export const STATS = [
   { num: "14", key: "settingCategories" },
   { num: "4", key: "agentTypes" },
-  { num: "5", key: "skillSlots" },
   { num: "4", key: "languages" },
   { num: "3+", key: "oauthProviders" },
   { num: "SSE", key: "streamingOutput" },

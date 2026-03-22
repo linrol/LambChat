@@ -132,8 +132,11 @@ class EmailService:
         return cls._instance
 
     def is_enabled(self) -> bool:
-        """Check if email service is enabled and configured."""
-        return self._enabled and bool(self._accounts_cache)
+        """Check if email service is enabled (config-level only).
+
+        Note: account availability is checked separately in _get_next_account().
+        """
+        return self._enabled
 
     def _get_from_address(self, account: dict[str, str]) -> str:
         """Get formatted sender address from account."""

@@ -60,16 +60,22 @@ class EmailTemplate:
         safe_icon_url = EmailTemplate._escape_url(icon_url)
 
         icon_html = (
-            f'<img src="{safe_icon_url}" alt="{safe_title}" width="48" height="48" '
-            f'style="display: block; border: 0; width: 48px; height: 48px; margin: 0 auto;" class="mobile-full">'
+            f'<div style="width: 72px; height: 72px; margin: 0 auto 20px auto; '
+            f"background: rgba(255,255,255,0.1); border-radius: 20px; "
+            f'text-align: center; line-height: 72px;">'
+            f'<img src="{safe_icon_url}" alt="{safe_title}" width="44" height="44" '
+            f'style="display: inline-block; border: 0; width: 44px; height: 44px; '
+            f'vertical-align: middle;" class="mobile-full"></div>'
             if safe_icon_url
             else ""
         )
 
         footer_html = (
-            f'<tr><td style="padding: 0 40px 36px 40px; text-align: center;">'
-            f'<p style="margin: 0; color: #78716c; font-size: 13px; line-height: 1.5;">{footer}</p>'
-            f"</td></tr>"
+            f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">'
+            f'<tr><td style="padding-bottom: 8px; font-size: 13px; line-height: 1.5; '
+            f'color: #78716c; text-align: center;">'
+            f"{footer}"
+            f"</td></tr></table>"
             if footer
             else ""
         )
@@ -78,28 +84,30 @@ class EmailTemplate:
             button_html = (
                 f'<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" '
                 f'xmlns:w="urn:schemas-microsoft-com:office:word" href="{safe_button_url}" '
-                f'style="height:48px;v-text-anchor:middle;width:280px;" arcsize="20%" '
-                f'strokecolor="#57534e" fillcolor="#57534e"><w:anchorlock/>'
+                f'style="height:50px;v-text-anchor:middle;width:260px;" arcsize="25%" '
+                f'strokecolor="#292524" fillcolor="#292524"><w:anchorlock/>'
                 f'<center style="color:#ffffff;font-family:Helvetica,Arial,sans-serif;'
-                f'font-size:15px;font-weight:bold;">{safe_button_text}</center></v:roundrect><![endif]-->'
+                f'font-size:15px;font-weight:600;">{safe_button_text}</center></v:roundrect><![endif]-->'
                 f'<table cellpadding="0" cellspacing="0" border="0" role="presentation" '
                 f'align="center" style="margin: 0 auto;" class="mobile-button-container">'
-                f'<tr><td align="center" style="border-radius: 8px; background-color: #57534e;" '
-                f'class="mobile-button-bg">'
+                f'<tr><td align="center" style="border-radius: 12px; '
+                f'background-color: #292524;" class="mobile-button-bg">'
                 f'<a href="{safe_button_url}" target="_blank" style="font-size: 15px; font-family: '
-                f"Helvetica, Arial, sans-serif; font-weight: bold; color: #ffffff; text-decoration: none; "
-                f"border-radius: 8px; padding: 14px 36px; border: 1px solid #57534e; display: inline-block; "
-                f'mso-padding-alt: 0; text-align: center;">{safe_button_text}</a>'
+                f"Helvetica, Arial, sans-serif; font-weight: 600; color: #ffffff; text-decoration: none; "
+                f"border-radius: 12px; padding: 16px 44px; border: 1px solid #292524; display: inline-block; "
+                f'mso-padding-alt: 0; text-align: center; letter-spacing: 0.2px;">{safe_button_text}</a>'
                 f"</td></tr></table>"
             )
         else:
             button_html = (
                 f'<table cellpadding="0" cellspacing="0" border="0" role="presentation" '
                 f'align="center" style="margin: 0 auto;">'
-                f'<tr><td align="center" style="border-radius: 8px; background-color: #57534e;">'
+                f'<tr><td align="center" style="border-radius: 12px; '
+                f'background-color: #292524;">'
                 f'<span style="font-size: 15px; font-family: Helvetica, Arial, sans-serif; '
-                f"font-weight: bold; color: #ffffff; border-radius: 8px; padding: 14px 36px; "
-                f'display: inline-block; text-align: center;">{safe_button_text}</span>'
+                f"font-weight: 600; color: #ffffff; border-radius: 12px; padding: 16px 44px; "
+                f'display: inline-block; text-align: center; letter-spacing: 0.2px;">'
+                f"{safe_button_text}</span>"
                 f"</td></tr></table>"
             )
 
@@ -148,25 +156,30 @@ class EmailTemplate:
   </div>
 
   <!-- Wrapper -->
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f5f5;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f5f4;">
     <tr>
-      <td align="center" style="padding: 32px 16px;">
+      <td align="center" style="padding: 48px 16px;">
 
         <!-- Main container 600px -->
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="mobile-full" style="max-width: 600px; width: 100%;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="mobile-full" style="max-width: 600px; width: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.06);">
 
           <!-- Header -->
           <tr>
-            <td style="background-color: #78716c; border-radius: 12px 12px 0 0; padding: 40px 40px 32px 40px; text-align: center;" class="mobile-padding">
+            <td style="background-color: #292524; border-radius: 16px 16px 0 0; padding: 48px 40px 40px 40px; text-align: center;" class="mobile-padding">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="padding-bottom: 16px;">
+                  <td>
                     {icon_html}
                   </td>
                 </tr>
                 <tr>
                   <td>
-                    <h1 style="margin: 0; padding: 0; font-size: 24px; font-weight: 700; line-height: 1.3; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{safe_title}</h1>
+                    <h1 style="margin: 0; padding: 0; font-size: 24px; font-weight: 700; line-height: 1.3; color: #fafaf9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; letter-spacing: -0.3px;">{safe_title}</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-top: 10px;">
+                    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #a8a29e; font-weight: 400;">{safe_heading}</p>
                   </td>
                 </tr>
               </table>
@@ -180,9 +193,13 @@ class EmailTemplate:
               <!-- Heading -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="padding-bottom: 24px;">
+                  <td style="padding-bottom: 8px;">
                     <h2 style="margin: 0; padding: 0; font-size: 20px; font-weight: 600; line-height: 1.4; color: #1c1917; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{safe_heading}</h2>
-                    <div style="margin-top: 16px; height: 3px; width: 48px; background-color: #78716c; border-radius: 2px;"></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom: 24px;">
+                    <div style="height: 3px; width: 36px; background-color: #78716c; border-radius: 2px;"></div>
                   </td>
                 </tr>
               </table>
@@ -199,7 +216,7 @@ class EmailTemplate:
               <!-- Content -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="padding-bottom: 32px; font-size: 15px; line-height: 1.7; color: #44403c;">
+                  <td style="padding-bottom: 36px; font-size: 15px; line-height: 1.7; color: #44403c;">
                     {content}
                   </td>
                 </tr>
@@ -217,7 +234,7 @@ class EmailTemplate:
               <!-- Fallback link -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="padding-bottom: 32px; text-align: center; font-size: 13px; line-height: 1.5; color: #78716c;">
+                  <td style="padding-bottom: 32px; text-align: center; font-size: 13px; line-height: 1.5; color: #a8a29e;">
                     {safe_button_url}
                   </td>
                 </tr>
@@ -233,7 +250,7 @@ class EmailTemplate:
             <td style="background-color: #ffffff; padding: 0 40px; border-left: 1px solid #e7e5e4; border-right: 1px solid #e7e5e4;" class="mobile-padding">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="border-top: 1px solid #e7e5e4; font-size: 1px; line-height: 1px;">&nbsp;</td>
+                  <td style="border-top: 1px solid #f5f5f4; font-size: 1px; line-height: 1px;">&nbsp;</td>
                 </tr>
               </table>
             </td>
@@ -241,8 +258,8 @@ class EmailTemplate:
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #ffffff; border-radius: 0 0 12px 12px; padding: 24px 40px 32px 40px; text-align: center; border-left: 1px solid #e7e5e4; border-right: 1px solid #e7e5e4; border-bottom: 1px solid #e7e5e4;" class="mobile-padding">
-              <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.5; color: #78716c;">
+            <td style="background-color: #ffffff; border-radius: 0 0 16px 16px; padding: 24px 40px 32px 40px; text-align: center; border-left: 1px solid #e7e5e4; border-right: 1px solid #e7e5e4; border-bottom: 1px solid #e7e5e4;" class="mobile-padding">
+              <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.5; color: #78716c; font-weight: 500;">
                 {safe_title}
               </p>
               <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #a8a29e;">

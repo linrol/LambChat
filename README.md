@@ -108,7 +108,6 @@ English | [简体中文](README_CN.md)
 - **Access Control** - User-level skill permissions
 - **GitHub Sync** - Sync custom skills from GitHub repositories
 - **Skill Creator** - Built-in skill creation toolkit with evaluation tools
-- **5 Skill Slots** - Enable up to 5 skills per session
 
 ### 💬 Feedback System
 - **Thumbs Rating** - Simple positive/negative feedback
