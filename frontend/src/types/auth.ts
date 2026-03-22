@@ -56,9 +56,14 @@ export interface User {
   username: string;
   email: string;
   avatar_url?: string;
-  roles: string[]; // 角色名称列表
-  permissions?: string[]; // 动态权限
+  roles: string[];
+  permissions?: string[];
   is_active: boolean;
+  metadata?: {
+    language?: string;
+    theme?: string;
+    [key: string]: unknown;
+  };
   created_at: string;
   updated_at: string;
 }
