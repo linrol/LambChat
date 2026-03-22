@@ -125,10 +125,17 @@ class Settings(BaseSettings):
     DAYTONA_SERVER_URL: str = ""
     DAYTONA_TIMEOUT: int = 180
     DAYTONA_IMAGE: str = ""
-    SANDBOX_AUTO_STOP_INTERVAL: int = 5
-    SANDBOX_AUTO_ARCHIVE_INTERVAL: int = 5
-    SANDBOX_AUTO_DELETE_INTERVAL: int = 1440
+    DAYTONA_AUTO_STOP_INTERVAL: int = 5
+    DAYTONA_AUTO_ARCHIVE_INTERVAL: int = 5
+    DAYTONA_AUTO_DELETE_INTERVAL: int = 1440
     MODAL_APP_NAME: str = ""
+
+    # E2B Settings
+    E2B_API_KEY: str = ""
+    E2B_TEMPLATE: str = "base"
+    E2B_TIMEOUT: int = 3600
+    E2B_AUTO_PAUSE: bool = True
+    E2B_AUTO_RESUME: bool = True
 
     # Skills Settings
     ENABLE_SKILLS: bool = True

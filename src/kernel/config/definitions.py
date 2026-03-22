@@ -203,13 +203,14 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "Sandbox platform to use",
         "default": "runloop",
         "depends_on": "ENABLE_SANDBOX",
-        "options": ["runloop", "daytona", "modal"],
+        "options": ["runloop", "daytona", "modal", "e2b"],
     },
     "RUNLOOP_API_KEY": {
         "type": SettingType.STRING,
         "category": SettingCategory.SANDBOX,
         "description": "Runloop API Key",
         "default": "",
+        "is_sensitive": True,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "runloop"},
     },
     "RUNLOOP_BASE_URL": {
@@ -224,6 +225,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.SANDBOX,
         "description": "Daytona API Key",
         "default": "",
+        "is_sensitive": True,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
     },
     "DAYTONA_SERVER_URL": {
@@ -247,26 +249,26 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "default": "",
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
     },
-    "SANDBOX_AUTO_STOP_INTERVAL": {
+    "DAYTONA_AUTO_STOP_INTERVAL": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SANDBOX,
-        "description": "Sandbox auto-stop interval in minutes",
+        "description": "Daytona sandbox auto-stop interval in minutes",
         "default": 5,
-        "depends_on": "ENABLE_SANDBOX",
+        "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
     },
-    "SANDBOX_AUTO_ARCHIVE_INTERVAL": {
+    "DAYTONA_AUTO_ARCHIVE_INTERVAL": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SANDBOX,
-        "description": "Sandbox auto-archive interval in minutes",
+        "description": "Daytona sandbox auto-archive interval in minutes",
         "default": 5,
-        "depends_on": "ENABLE_SANDBOX",
+        "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
     },
-    "SANDBOX_AUTO_DELETE_INTERVAL": {
+    "DAYTONA_AUTO_DELETE_INTERVAL": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SANDBOX,
-        "description": "Sandbox auto-delete interval in minutes after being archived",
+        "description": "Daytona sandbox auto-delete interval in minutes after being archived",
         "default": 1440,
-        "depends_on": "ENABLE_SANDBOX",
+        "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
     },
     "MODAL_APP_NAME": {
         "type": SettingType.STRING,
@@ -274,6 +276,42 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "Modal App Name",
         "default": "",
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "modal"},
+    },
+    "E2B_API_KEY": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.SANDBOX,
+        "description": "E2B API Key",
+        "default": "",
+        "is_sensitive": True,
+        "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
+    },
+    "E2B_TEMPLATE": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.SANDBOX,
+        "description": "E2B sandbox template name (e.g. 'base')",
+        "default": "base",
+        "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
+    },
+    "E2B_TIMEOUT": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.SANDBOX,
+        "description": "E2B sandbox timeout in seconds (max 3600 on Hobby, 86400 on Pro)",
+        "default": 3600,
+        "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
+    },
+    "E2B_AUTO_PAUSE": {
+        "type": SettingType.BOOLEAN,
+        "category": SettingCategory.SANDBOX,
+        "description": "Automatically pause sandbox on timeout instead of killing (preserves filesystem and memory state)",
+        "default": True,
+        "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
+    },
+    "E2B_AUTO_RESUME": {
+        "type": SettingType.BOOLEAN,
+        "category": SettingCategory.SANDBOX,
+        "description": "Automatically resume paused sandbox on next activity (requires E2B_AUTO_PAUSE)",
+        "default": True,
+        "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
     },
     # ============================================
     # Skills Settings
@@ -436,6 +474,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.S3,
         "description": "S3 access key",
         "default": "",
+        "is_sensitive": True,
         "depends_on": "S3_ENABLED",
     },
     "S3_SECRET_KEY": {
@@ -443,6 +482,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.S3,
         "description": "S3 secret key",
         "default": "",
+        "is_sensitive": True,
         "depends_on": "S3_ENABLED",
     },
     "S3_REGION": {
@@ -808,6 +848,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.MEMORY,
         "description": "Hindsight API key (optional, depends on server config)",
         "default": "",
+        "is_sensitive": True,
         "depends_on": {"key": "MEMORY_PERFORM", "value": "hindsight"},
     },
     "HINDSIGHT_MAX_CONCURRENT": {
@@ -826,6 +867,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "category": SettingCategory.MEMORY,
         "description": "memU API key (get from https://app.memu.so/quick-start)",
         "default": "",
+        "is_sensitive": True,
         "depends_on": {"key": "MEMORY_PERFORM", "value": "memu"},
     },
     "MEMU_BASE_URL": {
