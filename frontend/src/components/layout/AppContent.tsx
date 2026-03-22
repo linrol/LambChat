@@ -704,7 +704,7 @@ export function AppContent({ activeTab }: AppContentProps) {
 
                     {/* Suggestion Cards */}
                     <div className="relative w-full max-w-xl sm:max-w-2xl px-2 sm:px-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
                         {(() => {
                           const rawValue = settings?.settings.frontend.find(
                             (s) => s.key === "WELCOME_SUGGESTIONS",
