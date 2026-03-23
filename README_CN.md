@@ -122,12 +122,12 @@
 git clone https://github.com/Yanyutin753/LambChat.git
 cd LambChat
 
-cp .env.example .env   # 编辑填写配置
-
 # Docker 启动（推荐）
-docker-compose up -d
+cd deploy && cp .env.example .env   # 编辑填写配置
+docker compose up -d
 
 # 或本地运行
+cp .env.example .env   # 编辑填写配置
 make install && make dev
 ```
 

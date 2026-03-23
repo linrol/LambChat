@@ -122,12 +122,12 @@
 git clone https://github.com/Yanyutin753/LambChat.git
 cd LambChat
 
-cp .env.example .env   # Edit with your config
-
 # Docker (recommended)
-docker-compose up -d
+cd deploy && cp .env.example .env   # Edit with your config
+docker compose up -d
 
 # Or local development
+cp .env.example .env   # Edit with your config
 make install && make dev
 ```
 
