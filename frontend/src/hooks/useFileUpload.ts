@@ -152,12 +152,12 @@ export function useFileUpload({
             abortMapRef.current.delete(tempId);
             const finalAttachment: MessageAttachment = {
               id: crypto.randomUUID(),
-              key: check.key,
+              key: check.key ?? "",
               name: check.name || file.name,
               type: check.type as FileCategory,
-              mimeType: check.mimeType,
-              size: check.size,
-              url: `/api/upload/file/${check.key}`,
+              mimeType: check.mimeType ?? file.type,
+              size: check.size ?? file.size,
+              url: `/api/upload/file/${check.key ?? ""}`,
             };
             onAttachmentsChange((prev: MessageAttachment[]) =>
               prev.map((a) =>
