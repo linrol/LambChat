@@ -20,6 +20,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from pymongo.errors import DuplicateKeyError
 
 from src.api.deps import get_current_user_required, require_permissions
 from src.api.routes.file_type import (
@@ -57,6 +58,51 @@ def _parse_bool(value: Any) -> bool:
 
 
 router = APIRouter()
+
+
+async def _get_live_record_by_hash(file_hash: str, storage=None) -> dict | None:
+    """Return a dedupe record only if both metadata and the backing file still exist."""
+    record = await _file_record_storage.find_by_hash(file_hash)
+    if record is None:
+        return None
+
+    storage = storage or await get_or_init_storage()
+    if await storage.file_exists(record["key"]):
+        return record
+
+    logger.warning(
+        "Found stale file record for hash %s pointing to missing key %s",
+        file_hash,
+        record["key"],
+    )
+    await _file_record_storage.delete_by_hash(file_hash)
+    return None
+
+
+def _build_upload_response(
+    request: Request,
+    *,
+    key: str,
+    name: str,
+    file_type: str,
+    mime_type: str,
+    size: int,
+    exists: bool = False,
+) -> dict:
+    """Build a normalized upload response payload."""
+    base_url = str(request.base_url).rstrip("/")
+    proxy_url = f"{base_url}/api/upload/file/{key}"
+    payload = {
+        "key": key,
+        "url": proxy_url,
+        "name": name,
+        "type": file_type,
+        "mime_type": mime_type,
+        "size": size,
+    }
+    if exists:
+        payload["exists"] = True
+    return payload
 
 
 def get_s3_enabled() -> bool:
@@ -166,7 +212,8 @@ async def check_file_exists(
     body: FileCheckRequest,
     current_user: TokenPayload = Depends(get_current_user_required),
 ) -> dict:
-    record = await _file_record_storage.find_by_hash(body.hash)
+    storage = await get_or_init_storage()
+    record = await _get_live_record_by_hash(body.hash, storage)
     if record is None:
         return {"exists": False}
     return {
@@ -262,19 +309,17 @@ async def upload_file(
         file_hash = hashlib.sha256(file_data).hexdigest()
 
         # Check if hash already exists (race condition guard)
-        existing = await _file_record_storage.find_by_hash(file_hash)
+        existing = await _get_live_record_by_hash(file_hash, storage)
         if existing:
-            base_url = str(request.base_url).rstrip("/")
-            proxy_url = f"{base_url}/api/upload/file/{existing['key']}"
-            return {
-                "key": existing["key"],
-                "url": proxy_url,
-                "name": existing["name"],
-                "type": existing["category"],
-                "mime_type": existing["mime_type"],
-                "size": existing["size"],
-                "exists": True,
-            }
+            return _build_upload_response(
+                request,
+                key=existing["key"],
+                name=existing["name"],
+                file_type=existing["category"],
+                mime_type=existing["mime_type"],
+                size=existing["size"],
+                exists=True,
+            )
 
         # Upload with short key organized by category and user
         short_id = uuid.uuid4().hex[:16]
@@ -303,17 +348,39 @@ async def upload_file(
             uploaded_by=current_user.sub,
         )
 
-        base_url = str(request.base_url).rstrip("/")
-        proxy_url = f"{base_url}/api/upload/file/{storage_key}"
+        return _build_upload_response(
+            request,
+            key=storage_key,
+            name=file.filename or "unknown",
+            file_type=category.value,
+            mime_type=file.content_type or "application/octet-stream",
+            size=len(file_data),
+        )
+    except DuplicateKeyError:
+        logger.info("Duplicate upload detected for hash %s, reusing existing file", file_hash)
 
-        return {
-            "key": storage_key,
-            "url": proxy_url,
-            "name": file.filename,
-            "type": category.value,
-            "mime_type": file.content_type,
-            "size": len(file_data),
-        }
+        existing = await _get_live_record_by_hash(file_hash, storage)
+        if existing:
+            try:
+                await storage.delete_file(storage_key)
+            except Exception as cleanup_error:
+                logger.warning(
+                    "Failed to delete duplicate uploaded object %s after dedupe race: %s",
+                    storage_key,
+                    cleanup_error,
+                )
+
+            return _build_upload_response(
+                request,
+                key=existing["key"],
+                name=existing["name"],
+                file_type=existing["category"],
+                mime_type=existing["mime_type"],
+                size=existing["size"],
+                exists=True,
+            )
+
+        raise HTTPException(status_code=500, detail="Upload failed: duplicate record conflict")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
@@ -466,6 +533,20 @@ async def delete_file(
         Deletion status
     """
     storage = await get_or_init_storage()
+
+    record = await _file_record_storage.find_by_key(key)
+    if record is not None:
+        if record.get("reference_count", 0) <= 0:
+            await storage.delete_file(key)
+            await _file_record_storage.delete_by_key(key)
+            logger.info("Deleted unreferenced file %s", key)
+            return {"deleted": True, "key": key, "status": "deleted"}
+
+        logger.info(
+            "Preserving tracked file %s during delete request to avoid breaking deduplicated references",
+            key,
+        )
+        return {"deleted": False, "key": key, "status": "preserved"}
 
     # Async delete - return immediately, delete in background
     async def background_delete():

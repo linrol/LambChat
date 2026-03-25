@@ -189,7 +189,7 @@ export function SessionSidebar({
         uncategorizedList.prependSession(newSession);
       }
     }
-  }, [newSession, getProjectRef, uncategorizedList.prependSession]);
+  }, [newSession, getProjectRef, uncategorizedList]);
 
   // ─── Keyboard shortcuts ──────────────────────────────────────────
 

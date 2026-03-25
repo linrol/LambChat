@@ -164,7 +164,7 @@ export function ChatView({
     [sessionId, sessionName, currentRunId, messages.length],
   );
 
-  const suggestions = (() => {
+  const suggestions = useMemo(() => {
     const rawValue = settings?.settings?.frontend?.find(
       (s) => s.key === "WELCOME_SUGGESTIONS",
     )?.value;
@@ -181,7 +181,7 @@ export function ChatView({
     if (!list) return undefined;
     const shuffled = [...list].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 4);
-  })();
+  }, [settings, i18n.language]);
 
   return (
     <>

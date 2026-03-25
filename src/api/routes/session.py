@@ -425,9 +425,8 @@ async def clear_session_messages(
 
     verify_session_ownership(session, user)
 
-    # TODO: 实现消息清空
-    # 目前只返回成功
-    return {"status": "cleared"}
+    released_attachments = await manager.clear_session_messages(session_id)
+    return {"status": "cleared", "released_attachments": released_attachments}
 
 
 @router.patch("/{session_id}")
