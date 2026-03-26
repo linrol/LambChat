@@ -18,25 +18,10 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { exportProjectZip } from "../../../utils/exportProjectZip";
-
-// Sandpack 支持的模板类型（精简版）
-type SandpackTemplate =
-  | "react"
-  | "vue"
-  | "vanilla"
-  | "angular"
-  | "svelte"
-  | "solid"
-  | "node"
-  | "nextjs";
-
-// 项目模板映射
-const TEMPLATE_MAP: Record<string, SandpackTemplate> = {
-  react: "react",
-  vue: "vue",
-  vanilla: "vanilla",
-  static: "vanilla",
-};
+import {
+  resolveEntryFile,
+  resolveSandpackTemplate,
+} from "./projectPreviewUtils";
 
 interface ProjectPreviewProps {
   name: string;
@@ -142,22 +127,14 @@ export default function ProjectPreview({
 
   // 获取入口文件
   const entryFile = useMemo(() => {
-    if (entry) return entry;
-    if (sandpackFiles["/index.html"]) return "/index.html";
-    if (sandpackFiles["/App.jsx"]) return "/App.jsx";
-    if (sandpackFiles["/App.tsx"]) return "/App.tsx";
-    if (sandpackFiles["/main.js"]) return "/main.js";
-    return Object.keys(sandpackFiles)[0] || "/index.js";
+    return resolveEntryFile(sandpackFiles, entry);
   }, [entry, sandpackFiles]);
 
   // 获取 Sandpack 模板 - 如果入口是 HTML 用 static，否则用传入的模板
   const sandpackTemplate = useMemo(() => {
-    // 如果入口是 HTML 文件，使用 static 模板
-    if (entryFile?.endsWith(".html") || template === "static") {
-      return "static";
-    }
-    return TEMPLATE_MAP[template] || "vanilla";
-  }, [template, entryFile]);
+    return resolveSandpackTemplate(template, sandpackFiles);
+  }, [template, sandpackFiles]);
+  const resolvedTemplateLabel = sandpackTemplate;
 
   // 文件数量
   const fileCount = Object.keys(sandpackFiles).length;
@@ -198,7 +175,8 @@ export default function ProjectPreview({
                 {t("project.fileCount", "{{count}} 个文件", {
                   count: fileCount,
                 })}
-                {template !== "static" && ` · ${template}`}
+                {resolvedTemplateLabel !== "static" &&
+                  ` · ${resolvedTemplateLabel}`}
               </p>
             </div>
           </div>
@@ -345,14 +323,11 @@ export function ProjectPreviewCompact({
 }) {
   const { t } = useTranslation();
   const fileCount = Object.keys(files).length;
-  const sandpackTemplate = TEMPLATE_MAP[template] || "vanilla";
+  const sandpackTemplate = resolveSandpackTemplate(template, files);
+  const resolvedTemplateLabel = sandpackTemplate;
 
   // 获取入口文件
-  const entryFile = files["/index.html"]
-    ? "/index.html"
-    : files["/App.jsx"]
-      ? "/App.jsx"
-      : Object.keys(files)[0] || "/index.js";
+  const entryFile = resolveEntryFile(files);
 
   return (
     <div className="my-2 sm:my-3">
@@ -371,6 +346,8 @@ export function ProjectPreviewCompact({
                 {t("project.fileCount", "{{count}} 个文件", {
                   count: fileCount,
                 })}
+                {resolvedTemplateLabel !== "static" &&
+                  ` · ${resolvedTemplateLabel}`}
               </p>
             </div>
           </div>

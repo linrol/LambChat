@@ -6,13 +6,22 @@ import { LoadingSpinner } from "../../../common";
 import ProjectPreview from "../../../documents/previews/ProjectPreview";
 import { exportProjectZip } from "../../../../utils/exportProjectZip";
 import { getFullUrl } from "../../../../services/api/config";
+import { rewriteProjectTextFiles } from "./projectRevealAssetUtils";
 
 // v1 格式（旧后端）
 interface ProjectRevealResultV1 {
   type: "project_reveal";
   name: string;
   description?: string;
-  template: "react" | "vue" | "vanilla" | "static";
+  template:
+    | "react"
+    | "vue"
+    | "vanilla"
+    | "static"
+    | "angular"
+    | "svelte"
+    | "solid"
+    | "nextjs";
   files: Record<string, string>;
   entry?: string;
   path?: string;
@@ -34,7 +43,15 @@ interface ProjectRevealResultV2 {
   version: 2;
   name: string;
   description?: string;
-  template: "react" | "vue" | "vanilla" | "static";
+  template:
+    | "react"
+    | "vue"
+    | "vanilla"
+    | "static"
+    | "angular"
+    | "svelte"
+    | "solid"
+    | "nextjs";
   files: Record<string, FileManifestEntry>;
   entry?: string;
   path?: string;
@@ -52,50 +69,6 @@ function isV2(result: ProjectRevealResult): result is ProjectRevealResultV2 {
   return (
     typeof firstFile === "object" && firstFile !== null && "url" in firstFile
   );
-}
-
-/**
- * 转义正则特殊字符
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * 从 /icon.png 生成多种可能的引用形式:
- *   "/icon.png", "icon.png", "./icon.png"
- */
-function getPathVariants(relPath: string): string[] {
-  const bare = relPath.startsWith("/") ? relPath.slice(1) : relPath;
-  return [relPath, bare, `./${bare}`];
-}
-
-/**
- * 替换文本内容中对二进制文件的引用为 OSS URL
- */
-function replaceBinaryRefs(
-  content: string,
-  binaryUrlMap: Record<string, string>,
-): string {
-  let result = content;
-  for (const [relPath, fullUrl] of Object.entries(binaryUrlMap)) {
-    const variants = getPathVariants(relPath);
-    for (const variant of variants) {
-      const escaped = escapeRegex(variant);
-      const patterns = [
-        // url("./logo.png"), url('../fonts/a.woff'), url(img.png)
-        new RegExp(`(url\\(['"]?)${escaped}(['"]?\\))`, "g"),
-        // src="./img.png", src="img.png"
-        new RegExp(`(src=['"])${escaped}(['"])`, "g"),
-        // href="style.css" (less common for binary but safe)
-        new RegExp(`(href=['"])${escaped}(['"])`, "g"),
-      ];
-      for (const pattern of patterns) {
-        result = result.replace(pattern, `$1${fullUrl}$2`);
-      }
-    }
-  }
-  return result;
 }
 
 /**
@@ -146,7 +119,15 @@ export function ProjectRevealItem({
   const [showFullPreview, setShowFullPreview] = useState(false);
 
   let projectName = "";
-  let template: "react" | "vue" | "vanilla" | "static" = "vanilla";
+  let template:
+    | "react"
+    | "vue"
+    | "vanilla"
+    | "static"
+    | "angular"
+    | "svelte"
+    | "solid"
+    | "nextjs" = "vanilla";
   let error = "";
   let fileCount = 0;
   let parsed: ProjectRevealResult | null = null;
@@ -203,12 +184,7 @@ export function ProjectRevealItem({
 
       try {
         const rawFiles = await fetchTextFiles(textEntries);
-
-        // 对文本内容中引用二进制文件的路径做替换
-        const resolved: Record<string, string> = {};
-        for (const [path, content] of Object.entries(rawFiles)) {
-          resolved[path] = replaceBinaryRefs(content, binMap);
-        }
+        const resolved = rewriteProjectTextFiles(rawFiles, binMap);
 
         if (!cancelled) {
           setLoadedFiles(resolved);

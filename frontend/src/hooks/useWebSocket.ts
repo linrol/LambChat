@@ -1,5 +1,10 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { getAccessToken } from "../services/api";
+import {
+  getValidAccessToken,
+  refreshAccessToken,
+  redirectToLogin,
+} from "../services/api/tokenManager";
+import { getRefreshToken } from "../services/api";
 
 export interface TaskCompleteNotification {
   type: "task:complete";
@@ -93,7 +98,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     isConnectingRef.current = true;
 
     try {
-      const token = await getAccessToken();
+      const token = await getValidAccessToken();
       if (!token) {
         console.warn("[WebSocket] No auth token, skipping connection");
         return;
@@ -154,6 +159,20 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         // Don't reconnect on auth failure - token is invalid/expired
         // 4001: server explicitly rejects auth; reason may also indicate Unauthorized
         if (event.code === 4001 || event.reason === "Unauthorized") {
+          if (getRefreshToken()) {
+            void (async () => {
+              try {
+                await refreshAccessToken();
+                authFailureCountRef.current = 0;
+                if (enabled && !wasManualDisconnect) {
+                  connect();
+                }
+              } catch {
+                redirectToLogin();
+              }
+            })();
+            return;
+          }
           authFailureCountRef.current++;
           if (authFailureCountRef.current >= MAX_AUTH_FAILURES) {
             // Switch to long-interval polling instead of permanently disabling

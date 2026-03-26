@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { getAccessToken } from "../services/api";
 import { authApi } from "../services/api";
+import { authenticatedRequest } from "../services/api/authenticatedRequest";
 import type {
   ToolInfo,
   ToolState,
@@ -48,16 +48,10 @@ export function useTools() {
         // 先从 metadata 同步
         syncFromMetadata(metadata);
 
-        const token = getAccessToken();
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-
-        const response = await fetch(`${API_BASE}/tools`, {
-          headers,
+        const response = await authenticatedRequest(`${API_BASE}/tools`, {
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
 
         if (!response.ok) {

@@ -9,7 +9,6 @@ import type {
 } from "../../types";
 import { API_BASE } from "./config";
 import { authFetch } from "./fetch";
-import { getAccessToken } from "./token";
 
 // Backend Session type (matches backend Session schema)
 export interface BackendSession {
@@ -153,31 +152,6 @@ export const sessionApi = {
         method: "POST",
       },
     );
-  },
-
-  /**
-   * Get session stream URL for SSE
-   */
-  getStreamUrl(sessionId: string, runId: string) {
-    const token = getAccessToken();
-    const params = new URLSearchParams();
-    params.set("run_id", runId);
-    if (token) {
-      params.set("token", token);
-    }
-    return `${API_BASE}/api/chat/sessions/${sessionId}/stream?${params.toString()}`;
-  },
-
-  /**
-   * Get sandbox init stream URL for SSE
-   */
-  getSandboxInitUrl(sessionId: string) {
-    const token = getAccessToken();
-    const params = new URLSearchParams();
-    if (token) {
-      params.set("token", token);
-    }
-    return `${API_BASE}/api/sessions/${sessionId}/sandbox/init?${params.toString()}`;
   },
 
   /**

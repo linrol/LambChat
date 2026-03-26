@@ -13,11 +13,8 @@ import type {
   ConnectionStatus,
   MessageAttachment,
 } from "../types";
-import {
-  sessionApi,
-  getAccessToken,
-  type BackendSession,
-} from "../services/api";
+import { sessionApi, type BackendSession } from "../services/api";
+import { authenticatedRequest } from "../services/api/authenticatedRequest";
 import { feedbackApi } from "../services/api/feedback";
 import { useAuth } from "../hooks/useAuth";
 import { Permission } from "../types/auth";
@@ -151,14 +148,11 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
   const fetchAgents = useCallback(async () => {
     setAgentsLoading(true);
     try {
-      const token = getAccessToken();
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      const response = await fetch(`${API_BASE}/agents`, { headers });
+      const response = await authenticatedRequest(`${API_BASE}/agents`, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
       if (!response.ok) throw new Error("Failed to fetch agents");
       const data: AgentListResponse = await response.json();
       setAgents(data.agents || []);
@@ -201,14 +195,11 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
       // Fetch fresh agents data
       setAgentsLoading(true);
       try {
-        const token = getAccessToken();
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-        const response = await fetch(`${API_BASE}/agents`, { headers });
+        const response = await authenticatedRequest(`${API_BASE}/agents`, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
         if (!response.ok) throw new Error("Failed to fetch agents");
         const data: AgentListResponse = await response.json();
 
@@ -472,14 +463,6 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
       setError(null);
 
       try {
-        const token = getAccessToken();
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-
         const submitData = (await sessionApi.submitChat(
           currentAgent,
           content,

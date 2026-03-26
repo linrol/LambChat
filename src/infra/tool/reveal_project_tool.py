@@ -15,7 +15,7 @@ Reveal Project 工具
     "type": "project_reveal",
     "version": 2,
     "name": "项目名称",
-    "template": "react" | "vue" | "vanilla" | "static",
+    "template": "react" | "vue" | "vanilla" | "static" | "angular" | "svelte" | "solid" | "nextjs",
     "files": {
         "/App.js": {"url": "/api/upload/file/...", "is_binary": false, "size": 123},
         "/logo.png": {"url": "/api/upload/file/...", "is_binary": true, "size": 4567, "content_type": "image/png"},
@@ -39,7 +39,9 @@ from src.infra.tool.backend_utils import get_backend_from_runtime
 
 logger = get_logger(__name__)
 
-ProjectTemplate = Literal["react", "vue", "vanilla", "static"]
+ProjectTemplate = Literal[
+    "react", "vue", "vanilla", "static", "angular", "svelte", "solid", "nextjs"
+]
 
 # 上传并发数
 UPLOAD_CONCURRENCY = 10
@@ -163,13 +165,26 @@ IGNORE_FILES = {
 
 # 入口文件候选顺序
 ENTRY_CANDIDATES = [
+    "/pages/index.tsx",
+    "/pages/index.jsx",
+    "/pages/_app.tsx",
+    "/pages/_app.jsx",
     "/index.html",
     "/src/index.html",
     "/public/index.html",
+    "/src/main.ts",
+    "/src/index.ts",
     "/src/index.tsx",
     "/src/index.jsx",
     "/src/main.tsx",
     "/src/main.jsx",
+    "/src/main.js",
+    "/src/main.vue",
+    "/src/App.svelte",
+    "/main.ts",
+    "/index.ts",
+    "/index.js",
+    "/main.js",
     "/index.tsx",
     "/index.jsx",
     "/App.tsx",
@@ -177,20 +192,100 @@ ENTRY_CANDIDATES = [
 ]
 
 
-def detect_template(package_json_content: str) -> ProjectTemplate:
-    """根据 package.json 内容检测项目模板类型"""
+def _has_any_file(file_keys: set[str], candidates: tuple[str, ...]) -> bool:
+    return any(path in file_keys for path in candidates)
+
+
+def detect_template(
+    package_json_content: str, file_keys: Optional[set[str]] = None
+) -> ProjectTemplate:
+    """根据 package.json 内容和文件结构检测项目模板类型"""
+    normalized_file_keys = file_keys or set()
+
     try:
         package = json.loads(package_json_content)
         deps = {
             **package.get("dependencies", {}),
             **package.get("devDependencies", {}),
         }
+        if "next" in deps:
+            return "nextjs"
+        if "solid-js" in deps:
+            return "solid"
+        if "svelte" in deps:
+            return "svelte"
+        if any(name.startswith("@angular/") for name in deps):
+            return "angular"
         if "react" in deps:
             return "react"
         if "vue" in deps:
             return "vue"
     except (json.JSONDecodeError, AttributeError):
         pass
+
+    if _has_any_file(
+        normalized_file_keys,
+        (
+            "/pages/index.tsx",
+            "/pages/index.jsx",
+            "/pages/_app.tsx",
+            "/pages/_app.jsx",
+        ),
+    ):
+        return "nextjs"
+
+    if _has_any_file(
+        normalized_file_keys,
+        (
+            "/src/App.svelte",
+            "/App.svelte",
+            "/src/main.svelte",
+            "/main.svelte",
+        ),
+    ):
+        return "svelte"
+
+    if "/angular.json" in normalized_file_keys and _has_any_file(
+        normalized_file_keys,
+        (
+            "/src/main.ts",
+            "/src/main.js",
+            "/main.ts",
+            "/main.js",
+        ),
+    ):
+        return "angular"
+
+    if _has_any_file(
+        normalized_file_keys,
+        (
+            "/src/main.jsx",
+            "/src/main.tsx",
+            "/src/index.jsx",
+            "/src/index.tsx",
+            "/main.jsx",
+            "/main.tsx",
+            "/index.jsx",
+            "/index.tsx",
+            "/App.jsx",
+            "/App.tsx",
+        ),
+    ):
+        return "react"
+
+    if _has_any_file(
+        normalized_file_keys,
+        (
+            "/src/main.vue",
+            "/src/App.vue",
+            "/App.vue",
+        ),
+    ):
+        return "vue"
+
+    if "/index.html" in normalized_file_keys:
+        return "static"
+
     return "vanilla"
 
 
@@ -425,7 +520,7 @@ async def reveal_project(
         project_path: 项目目录路径（包含 index.html 或 package.json 的目录）
         name: 项目名称（可选，默认使用目录名）
         description: 项目描述（可选）
-        template: 项目模板类型（可选，自动检测：react/vue/vanilla/static）
+        template: 项目模板类型（可选，自动检测：react/vue/vanilla/static/angular/svelte/solid/nextjs）
         runtime: 工具运行时（自动注入）
 
     Returns:
@@ -517,14 +612,10 @@ async def reveal_project(
         task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
 
         # 检测模板
+        file_keys = set(files_manifest.keys())
         detected_template = template
         if not detected_template:
-            if package_json_content:
-                detected_template = detect_template(package_json_content)
-            elif "/index.html" in files_manifest:
-                detected_template = "vanilla"
-            else:
-                detected_template = "static"
+            detected_template = detect_template(package_json_content or "{}", file_keys)
 
         result = {
             "type": "project_reveal",
@@ -533,7 +624,7 @@ async def reveal_project(
             "description": description or "",
             "template": detected_template,
             "files": files_manifest,
-            "entry": _find_entry(set(files_manifest.keys())),
+            "entry": _find_entry(file_keys),
             "path": project_path,
             "file_count": len(files_manifest),
         }
