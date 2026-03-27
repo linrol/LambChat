@@ -35,7 +35,15 @@ class BackendWithRecursiveLsInfo:
 
     async def aexecute(self, command: str):
         return _ExecuteResult(
-            "/home/user/personal-blog/index.html\n/home/user/personal-blog/SPEC.md"
+            "\n".join(
+                [
+                    "/home/user/personal-blog/index.html",
+                    "/home/user/personal-blog/package.json",
+                    "/home/user/personal-blog/src/main.jsx",
+                    "/home/user/personal-blog/src/App.jsx",
+                    "/home/user/personal-blog/src/pages/Home.jsx",
+                ]
+            )
         )
 
 
@@ -86,11 +94,12 @@ class StorageStub:
 
 
 @pytest.mark.asyncio
-async def test_list_project_files_prefers_backend_file_api_over_partial_find_output():
+async def test_list_project_files_merges_find_and_api_results():
     backend = BackendWithRecursiveLsInfo()
 
     files = await _list_project_files(backend, "/home/user/personal-blog")
 
+    # find returns all 5 files, API also returns 5, merged and deduplicated
     assert files == [
         "/home/user/personal-blog/index.html",
         "/home/user/personal-blog/package.json",
@@ -101,11 +110,13 @@ async def test_list_project_files_prefers_backend_file_api_over_partial_find_out
 
 
 @pytest.mark.asyncio
-async def test_list_project_files_falls_back_to_find_when_backend_listing_is_partial():
+async def test_list_project_files_uses_find_when_api_is_partial():
     backend = BackendWithPartialLsInfo()
 
     files = await _list_project_files(backend, "/home/user/personal-blog")
 
+    # find returns 3 files, API only returns 1 (index.html, src raises error)
+    # merged and deduplicated
     assert files == [
         "/home/user/personal-blog/index.html",
         "/home/user/personal-blog/package.json",

@@ -419,25 +419,27 @@ async def _list_project_files_via_backend_api(
 
 
 async def _list_project_files(backend: Any, project_path: str) -> list[str]:
-    """递归列出项目目录下的所有文件，优先使用原生文件 API，shell find 作为兜底。"""
-    api_files, api_had_errors = await _list_project_files_via_backend_api(backend, project_path)
-    if api_files and not api_had_errors:
-        return api_files
-
+    """递归列出项目目录下的所有文件，shell find 为主，原生文件 API 补充。"""
+    # 先用 shell find 作为基础（最可靠）
     output = await _execute_command(
         backend,
         f'LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 find "{project_path}" -type f 2>/dev/null | head -200',
     )
-    if not output:
-        return []
+    files: list[str] = []
+    if output:
+        for line in output.strip().split("\n"):
+            line = line.strip()
+            if line and not line.startswith("find:"):
+                files.append(line)
 
-    files = []
-    for line in output.strip().split("\n"):
-        line = line.strip()
-        if line and not line.startswith("find:"):
-            files.append(line)
+    # 再用原生 API 补充（处理 find 可能遗漏的情况）
+    api_files, _ = await _list_project_files_via_backend_api(backend, project_path)
     if api_files:
         files.extend(api_files)
+
+    logger.debug(
+        f"_list_project_files({project_path}): find={len(files) - len(api_files)}, api={len(api_files)}, total={len(set(files))}"
+    )
     return sorted(set(files))
 
 
