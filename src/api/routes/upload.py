@@ -151,7 +151,8 @@ async def get_or_init_storage():
         # Auto-enable local storage when S3 is not configured
         storage = get_storage_service()
         if storage._backend is None:
-            config = S3Config(provider=S3Provider.LOCAL, storage_path="./uploads")
+            storage_path = getattr(settings, "LOCAL_STORAGE_PATH", "./uploads") or "./uploads"
+            config = S3Config(provider=S3Provider.LOCAL, storage_path=storage_path)
             await init_storage(config)
     return get_storage_service()
 
