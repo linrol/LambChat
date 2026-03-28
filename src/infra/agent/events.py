@@ -75,7 +75,11 @@ class AgentEventProcessor:
     def __init__(self, presenter: Presenter, base_url: str = ""):
         self.presenter = presenter
         self.checkpoint_to_agent: dict[str, tuple[str, str]] = {}
-        self._base_url = base_url or getattr(settings, "APP_BASE_URL", "").rstrip("/")
+        if not base_url:
+            from src.kernel.config import settings
+
+            base_url = getattr(settings, "APP_BASE_URL", "").rstrip("/")
+        self._base_url = base_url
         self.thinking_ids: dict[str | None, str | None] = {}
         # 使用 StringIO 避免 O(n²) 字符串拼接
         self._output_buffer = StringIO()
@@ -588,7 +592,11 @@ class AgentEventProcessor:
                     content_type=mime_type,
                 )
 
-                proxy_url = f"{self._base_url}/api/upload/file/{upload_result.key}" if self._base_url else f"/api/upload/file/{upload_result.key}"
+                proxy_url = (
+                    f"{self._base_url}/api/upload/file/{upload_result.key}"
+                    if self._base_url
+                    else f"/api/upload/file/{upload_result.key}"
+                )
                 block.pop("base64", None)
                 block["url"] = proxy_url
                 logger.info(
