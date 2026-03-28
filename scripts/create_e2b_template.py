@@ -105,6 +105,9 @@ EXTRA_PIP_PACKAGES = [
     # ========== 实用工具 ==========
     "python-dotenv",
     "orjson",
+    # ========== 视频配音 ==========
+    "moviepy",
+    "pydub",
 ]
 
 # ============== 系统依赖 ==============
@@ -118,6 +121,8 @@ SYSTEM_PACKAGES = [
     "fonts-noto-cjk",
     "fonts-wqy-zenhei",
     "fonts-wqy-microhei",
+    # 视频处理
+    "ffmpeg",
     # PDF 相关
     "poppler-utils",
     "pandoc",

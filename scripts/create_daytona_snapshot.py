@@ -114,6 +114,9 @@ EXTRA_PIP_PACKAGES = [
     # ========== 实用工具 ==========
     "python-dotenv",  # .env 加载
     "orjson",  # 快速 JSON
+    # ========== 视频配音 ==========
+    "moviepy",  # 视频编辑
+    "pydub",  # 音频处理
 ]
 
 # ============== 资源配额 ==============
@@ -137,6 +140,8 @@ SYSTEM_PACKAGES = [
     "fonts-noto-cjk",  # 思源黑体 (推荐)
     "fonts-wqy-zenhei",  # 义启黑体
     "fonts-wqy-microhei",  # 思源黑体精简版
+    # 视频处理
+    "ffmpeg",  # 音视频处理
     # PDF 相关
     "wkhtmltopdf",  # HTML 转 PDF
     "poppler-utils",  # PDF 工具
