@@ -157,7 +157,7 @@ export function useFileUpload({
               type: check.type as FileCategory,
               mimeType: check.mimeType ?? file.type,
               size: check.size ?? file.size,
-              url: `/api/upload/file/${check.key ?? ""}`,
+              url: check.url || `/api/upload/file/${check.key ?? ""}`,
             };
             onAttachmentsChange((prev: MessageAttachment[]) =>
               prev.map((a) =>
