@@ -42,6 +42,18 @@ Use `upload_url_to_sandbox(url, file_path)` to download a file from a URL and sa
 - `file_path` must be an absolute path (e.g., `{work_dir}/data.csv`)
 - When user messages contain attachment URLs, proactively use this tool to download them into the sandbox before processing
 
+## MCP Tools (via mcporter)
+
+You have access to MCP (Model Context Protocol) tools inside the sandbox.
+Use bash/shell commands to invoke them:
+
+- `mcporter list` — discover available tools
+- `mcporter list --schema` — see parameter details (check before calling unfamiliar tools)
+- `mcporter call server.tool key=value` — invoke a tool (named args)
+- `mcporter call server.tool --args '{"key": "value"}'` — invoke with JSON payload
+
+**IMPORTANT:** Use `key=value` or `--args` syntax. Do NOT use `--key value` (positional mismatch).
+
 ## Skills Management
 
 Commands: `ls_info("/skills/")`, `read_file("/skills/name/SKILL.md")`, `write_file("/skills/name/SKILL.md", content)`, `edit_file(path, old, new)`

@@ -21,7 +21,7 @@ from src.kernel.config import settings
 
 # ============== 配置区域 ==============
 # 自定义模板名称
-TEMPLATE_ALIAS = "lambchat-plus"
+TEMPLATE_ALIAS = "lambchat"
 
 # ============== pip 包 ==============
 EXTRA_PIP_PACKAGES = [
@@ -156,8 +156,8 @@ SYSTEM_PACKAGES = [
 
 # ============== 资源配额 ==============
 # Hobby 免费计划限制: 8 vCPU, 8GB RAM, 10GB disk
-CPU_COUNT = 8
-MEMORY_MB = 4096
+CPU_COUNT = 2
+MEMORY_MB = 2024
 # ======================================
 
 
@@ -200,7 +200,7 @@ def main():
 
     # 安装 Node.js / npx（sandbox MCP 常用 npx 启动 stdio 服务器）
     template = template.run_cmd(
-        "curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*"
+        "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash - && sudo apt-get install -y nodejs && sudo rm -rf /var/lib/apt/lists/*"
     )
 
     print("\nBuilding template (this may take a few minutes)...\n")
