@@ -22,6 +22,7 @@ from deepagents.backends import CompositeBackend
 from src.infra.backend.daytona import DaytonaBackend
 from src.infra.backend.skills_store import create_skills_backend
 from src.infra.logging import get_logger
+from src.infra.tool.sandbox_mcp_rebuild import ensure_sandbox_mcp
 from src.kernel.config import settings
 
 logger = get_logger(__name__)
@@ -105,7 +106,9 @@ class E2BSandboxAdapter:
 
         return E2BSandbox
 
-    def create_sandbox(self, user_id: str | None = None) -> tuple[object, str]:
+    def create_sandbox(
+        self, user_id: str | None = None, envs: dict[str, str] | None = None
+    ) -> tuple[object, str]:
         """创建沙箱，支持 lifecycle 配置和 metadata"""
         self._sync_from_settings()
         e2b_class = self._get_e2b_class()
@@ -126,6 +129,10 @@ class E2BSandboxAdapter:
         # Metadata 用于可观测性
         if user_id:
             kwargs["metadata"] = {"user_id": user_id}
+
+        # 用户环境变量注入
+        if envs:
+            kwargs["envs"] = envs
 
         sandbox = e2b_class.create(**kwargs)
         return sandbox, "/home/user"
@@ -372,6 +379,7 @@ class SessionSandboxManager:
                 try:
                     work_dir = await self._get_work_dir(sandbox_id)
                     await self._save_binding(user_id, sandbox_id, "running")
+                    await ensure_sandbox_mcp(backend, user_id)
                     return backend, work_dir
                 except Exception as e:
                     logger.warning(
@@ -408,6 +416,7 @@ class SessionSandboxManager:
                         self._evict_if_needed()
                         await self._save_binding(user_id, sandbox_id, "running")
                         work_dir = await self._get_work_dir(sandbox_id)
+                        await ensure_sandbox_mcp(backend, user_id)
                         return backend, work_dir
                     except Exception as e:
                         logger.warning(
@@ -424,6 +433,7 @@ class SessionSandboxManager:
                         self._evict_if_needed()
                         await self._save_binding(user_id, sandbox_id, "running")
                         work_dir = await self._get_work_dir(sandbox_id)
+                        await ensure_sandbox_mcp(backend, user_id)
                         return backend, work_dir
                     except Exception as e:
                         logger.warning(
@@ -615,6 +625,9 @@ class SessionSandboxManager:
         """
         from daytona import CreateSandboxFromSnapshotParams
 
+        # 加载用户环境变量
+        user_envs = await self._get_user_env_vars(user_id)
+
         def _sync_create():
             client = self._get_daytona_client()
             params = CreateSandboxFromSnapshotParams(
@@ -623,6 +636,7 @@ class SessionSandboxManager:
                 auto_archive_interval=settings.DAYTONA_AUTO_ARCHIVE_INTERVAL,
                 language="python",
                 snapshot=settings.DAYTONA_IMAGE if settings.DAYTONA_IMAGE else None,
+                env_vars=user_envs if user_envs else None,
             )
             sandbox = client.create(params)
             daytona_backend = DaytonaBackend(sandbox=sandbox)
@@ -665,7 +679,21 @@ class SessionSandboxManager:
             f"[SessionSandboxManager] Created sandbox {sandbox_id} for user {user_id} (session={session_id})"
         )
 
+        await ensure_sandbox_mcp(backend, user_id)
         return backend, work_dir
+
+    async def _get_user_env_vars(self, user_id: str) -> dict[str, str]:
+        """加载用户的环境变量（解密后）"""
+        try:
+            from src.infra.envvar.storage import EnvVarStorage
+
+            storage = EnvVarStorage()
+            return await storage.get_decrypted_vars(user_id)
+        except Exception as e:
+            logger.warning(
+                f"[SessionSandboxManager] Failed to load env vars for user {user_id}: {e}"
+            )
+            return {}
 
     def _delete_sandbox(self, sandbox_id: str) -> None:
         """删除沙箱（同步，用于 to_thread）"""
@@ -689,6 +717,7 @@ class SessionSandboxManager:
                     if self._e2b_adapter.sandbox_is_running(provider_obj):
                         self._e2b_adapter.extend_timeout(provider_obj, settings.E2B_TIMEOUT)
                         await self._save_binding(user_id, sandbox_id, "running")
+                        await ensure_sandbox_mcp(backend, user_id)
                         return backend, self._e2b_adapter.get_work_dir(provider_obj)
                 except Exception as e:
                     logger.warning(f"[E2B] Cache hit but sandbox {sandbox_id} unhealthy: {e}")
@@ -711,6 +740,7 @@ class SessionSandboxManager:
                         await self._save_binding(
                             user_id, metadata_sandbox_id, info.get("state", "running")
                         )
+                        await ensure_sandbox_mcp(backend, user_id)
                         return backend, self._e2b_adapter.get_work_dir(provider_obj)
                     except Exception as e:
                         logger.warning(f"[E2B] Failed to reconnect {metadata_sandbox_id}: {e}")
@@ -724,8 +754,13 @@ class SessionSandboxManager:
         adapter = self._e2b_adapter
         from src.infra.backend.e2b import E2BBackend
 
+        # 加载用户环境变量
+        user_envs = await self._get_user_env_vars(user_id)
+
         def _sync_create():
-            sandbox, work_dir = adapter.create_sandbox(user_id=user_id)
+            sandbox, work_dir = adapter.create_sandbox(
+                user_id=user_id, envs=user_envs if user_envs else None
+            )
             e2b_backend = E2BBackend(sandbox=sandbox)
             skills_backend = create_skills_backend(user_id=user_id)
             composite = CompositeBackend(default=e2b_backend, routes={"/skills/": skills_backend})
@@ -744,6 +779,8 @@ class SessionSandboxManager:
         self._cache[user_id] = (sandbox_id, backend, provider_obj)
         self._evict_if_needed()
         logger.info(f"[E2B] Created sandbox {sandbox_id} for user {user_id} (session={session_id})")
+
+        await ensure_sandbox_mcp(backend, user_id)
         return backend, work_dir
 
     def _build_composite_backend(self, provider_obj: object, user_id: str) -> CompositeBackend:

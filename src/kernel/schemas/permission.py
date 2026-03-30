@@ -115,10 +115,6 @@ PERMISSION_METADATA: dict[str, dict[str, str]] = {
         "label": "读取MCP配置",
         "description": "查看MCP服务配置",
     },
-    Permission.MCP_WRITE_STDIO.value: {
-        "label": "创建STDIO类型MCP",
-        "description": "创建stdio传输类型的MCP服务",
-    },
     Permission.MCP_WRITE_SSE.value: {
         "label": "创建SSE类型MCP",
         "description": "创建SSE传输类型的MCP服务",
@@ -126,6 +122,10 @@ PERMISSION_METADATA: dict[str, dict[str, str]] = {
     Permission.MCP_WRITE_HTTP.value: {
         "label": "创建HTTP类型MCP",
         "description": "创建HTTP/streamable_http传输类型的MCP服务",
+    },
+    Permission.MCP_WRITE_SANDBOX.value: {
+        "label": "创建Sandbox类型MCP",
+        "description": "创建Sandbox传输类型的MCP服务（在沙箱内运行）",
     },
     Permission.MCP_DELETE.value: {
         "label": "删除MCP配置",
@@ -209,6 +209,19 @@ PERMISSION_METADATA: dict[str, dict[str, str]] = {
         "label": "管理商店",
         "description": "管理技能商店（激活/停用/删除任意技能）",
     },
+    # Environment Variables
+    Permission.ENVVAR_READ.value: {
+        "label": "读取环境变量",
+        "description": "查看用户环境变量",
+    },
+    Permission.ENVVAR_WRITE.value: {
+        "label": "管理环境变量",
+        "description": "创建和更新用户环境变量",
+    },
+    Permission.ENVVAR_DELETE.value: {
+        "label": "删除环境变量",
+        "description": "删除用户环境变量",
+    },
 }
 
 # 权限分组配置
@@ -263,9 +276,9 @@ PERMISSION_GROUPS_CONFIG: list[PermissionGroupConfig] = [
         "name": "MCP服务",
         "permissions": [
             Permission.MCP_READ.value,
-            Permission.MCP_WRITE_STDIO.value,
             Permission.MCP_WRITE_SSE.value,
             Permission.MCP_WRITE_HTTP.value,
+            Permission.MCP_WRITE_SANDBOX.value,
             Permission.MCP_DELETE.value,
             Permission.MCP_ADMIN.value,
         ],
@@ -315,6 +328,14 @@ PERMISSION_GROUPS_CONFIG: list[PermissionGroupConfig] = [
             Permission.MARKETPLACE_READ.value,
             Permission.MARKETPLACE_PUBLISH.value,
             Permission.MARKETPLACE_ADMIN.value,
+        ],
+    },
+    {
+        "name": "环境变量",
+        "permissions": [
+            Permission.ENVVAR_READ.value,
+            Permission.ENVVAR_WRITE.value,
+            Permission.ENVVAR_DELETE.value,
         ],
     },
 ]

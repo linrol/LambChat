@@ -51,7 +51,6 @@ def _has_permission_for_transport(user: TokenPayload, transport: str) -> bool:
     - mcp:admin: can create any transport type
     - mcp:write_sse: can create SSE transport
     - mcp:write_http: can create HTTP/streamable_http transport
-    - mcp:write_stdio: can create stdio transport (should be admin only)
     """
     if _is_admin(user):
         return True
@@ -62,8 +61,8 @@ def _has_permission_for_transport(user: TokenPayload, transport: str) -> bool:
         return "mcp:write_sse" in permissions
     elif transport in ("streamable_http", "http"):
         return "mcp:write_http" in permissions
-    elif transport == "stdio":
-        return "mcp:write_stdio" in permissions
+    elif transport == "sandbox":
+        return "mcp:write_sandbox" in permissions
 
     return False
 
@@ -116,11 +115,10 @@ async def create_server(
         name=server.name,
         transport=server.transport,
         enabled=server.enabled,
-        command=server.command,
-        args=server.args,
-        env=server.env,
         url=server.url,
         headers=server.headers,
+        command=server.command,
+        env_keys=server.env_keys,
         is_system=False,
         can_edit=True,
         created_at=server.created_at,
@@ -138,7 +136,7 @@ async def import_servers(
     # Check permissions for each server's transport type
     servers = data.get_servers()
     for server_name, server_config in servers.items():
-        transport = server_config.get("transport", "stdio")
+        transport = server_config.get("transport", "streamable_http")
         if not _has_permission_for_transport(user, transport):
             raise HTTPException(
                 status_code=403,
@@ -189,11 +187,10 @@ async def get_server(
             name=server.name,
             transport=server.transport,
             enabled=server.enabled,
-            command=server.command,
-            args=server.args,
-            env=server.env,
             url=server.url,
             headers=server.headers,
+            command=server.command,
+            env_keys=server.env_keys,
             is_system=False,
             can_edit=True,
             created_at=server.created_at,
@@ -209,8 +206,7 @@ async def get_server(
             transport=system_server.transport,
             enabled=system_server.enabled,
             command=system_server.command,
-            args=system_server.args,
-            env=system_server.env,
+            env_keys=system_server.env_keys,
             url=system_server.url,
             headers=system_server.headers,
             is_system=True,
@@ -249,11 +245,10 @@ async def update_server(
         name=server.name,
         transport=server.transport,
         enabled=server.enabled,
-        command=server.command,
-        args=server.args,
-        env=server.env,
         url=server.url,
         headers=server.headers,
+        command=server.command,
+        env_keys=server.env_keys,
         is_system=False,
         can_edit=True,
         created_at=server.created_at,
@@ -397,11 +392,10 @@ async def admin_create_server(
         name=server.name,
         transport=server.transport,
         enabled=server.enabled,
-        command=server.command,
-        args=server.args,
-        env=server.env,
         url=server.url,
         headers=server.headers,
+        command=server.command,
+        env_keys=server.env_keys,
         is_system=True,
         can_edit=True,
         created_at=server.created_at,
@@ -440,11 +434,10 @@ async def admin_get_server(
         name=server.name,
         transport=server.transport,
         enabled=server.enabled,
-        command=server.command,
-        args=server.args,
-        env=server.env,
         url=server.url,
         headers=server.headers,
+        command=server.command,
+        env_keys=server.env_keys,
         is_system=True,
         can_edit=True,
         created_at=server.created_at,
@@ -477,11 +470,10 @@ async def admin_update_server(
         name=server.name,
         transport=server.transport,
         enabled=server.enabled,
-        command=server.command,
-        args=server.args,
-        env=server.env,
         url=server.url,
         headers=server.headers,
+        command=server.command,
+        env_keys=server.env_keys,
         is_system=True,
         can_edit=True,
         created_at=server.created_at,
@@ -585,11 +577,10 @@ async def promote_server(
             name=server.name,
             transport=server.transport,
             enabled=server.enabled,
-            command=server.command,
-            args=server.args,
-            env=server.env,
             url=server.url,
             headers=server.headers,
+            command=server.command,
+            env_keys=server.env_keys,
             is_system=True,
             can_edit=True,
             created_at=server.created_at,
@@ -641,11 +632,10 @@ async def demote_server(
             name=server.name,
             transport=server.transport,
             enabled=server.enabled,
-            command=server.command,
-            args=server.args,
-            env=server.env,
             url=server.url,
             headers=server.headers,
+            command=server.command,
+            env_keys=server.env_keys,
             is_system=False,
             can_edit=True,
             created_at=server.created_at,

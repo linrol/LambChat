@@ -134,11 +134,10 @@ class MCPStorage:
             "name": server.name,
             "transport": server.transport.value,
             "enabled": server.enabled,
-            "command": server.command,
-            "args": server.args,
-            "env": server.env,
             "url": server.url,
             "headers": server.headers,
+            "command": server.command,
+            "env_keys": server.env_keys,
             "is_system": True,
             "created_at": now,
             "updated_at": now,
@@ -174,18 +173,16 @@ class MCPStorage:
             update_data["transport"] = updates.transport.value
         if updates.enabled is not None:
             update_data["enabled"] = updates.enabled
-        if updates.command is not None:
-            update_data["command"] = updates.command
-        if updates.args is not None:
-            update_data["args"] = updates.args
-        if updates.env is not None:
-            update_data["env"] = encrypt_value(updates.env) if updates.env else updates.env
         if updates.url is not None:
             update_data["url"] = updates.url
         if updates.headers is not None:
             update_data["headers"] = (
                 encrypt_value(updates.headers) if updates.headers else updates.headers
             )
+        if updates.command is not None:
+            update_data["command"] = updates.command
+        if updates.env_keys is not None:
+            update_data["env_keys"] = updates.env_keys
 
         await collection.update_one({"name": name}, {"$set": update_data})
 
@@ -235,11 +232,10 @@ class MCPStorage:
             "name": server.name,
             "transport": server.transport.value,
             "enabled": server.enabled,
-            "command": server.command,
-            "args": server.args,
-            "env": server.env,
             "url": server.url,
             "headers": server.headers,
+            "command": server.command,
+            "env_keys": server.env_keys,
             "user_id": user_id,
             "is_system": False,
             "created_at": now,
@@ -272,18 +268,16 @@ class MCPStorage:
             update_data["transport"] = updates.transport.value
         if updates.enabled is not None:
             update_data["enabled"] = updates.enabled
-        if updates.command is not None:
-            update_data["command"] = updates.command
-        if updates.args is not None:
-            update_data["args"] = updates.args
-        if updates.env is not None:
-            update_data["env"] = encrypt_value(updates.env) if updates.env else updates.env
         if updates.url is not None:
             update_data["url"] = updates.url
         if updates.headers is not None:
             update_data["headers"] = (
                 encrypt_value(updates.headers) if updates.headers else updates.headers
             )
+        if updates.command is not None:
+            update_data["command"] = updates.command
+        if updates.env_keys is not None:
+            update_data["env_keys"] = updates.env_keys
 
         await collection.update_one({"name": name, "user_id": user_id}, {"$set": update_data})
 
@@ -334,11 +328,10 @@ class MCPStorage:
             "name": user_server.name,
             "transport": user_server.transport.value,
             "enabled": user_server.enabled,
-            "command": user_server.command,
-            "args": user_server.args,
-            "env": user_server.env,
             "url": user_server.url,
             "headers": user_server.headers,
+            "command": user_server.command,
+            "env_keys": user_server.env_keys,
             "is_system": True,
             "created_at": user_server.created_at or now,
             "updated_at": now,
@@ -385,11 +378,10 @@ class MCPStorage:
             "name": system_server.name,
             "transport": system_server.transport.value,
             "enabled": system_server.enabled,
-            "command": system_server.command,
-            "args": system_server.args,
-            "env": system_server.env,
             "url": system_server.url,
             "headers": system_server.headers,
+            "command": system_server.command,
+            "env_keys": system_server.env_keys,
             "user_id": target_user_id,
             "is_system": False,
             "created_at": system_server.created_at or now,
@@ -526,18 +518,10 @@ class MCPStorage:
     def _server_to_config_dict_static(self, server) -> dict[str, Any]:
         """Convert a server object to config dict (static method style)"""
         result = {"transport": server.transport.value}
-        if server.transport.value == "stdio":
-            if server.command:
-                result["command"] = server.command
-            if server.args:
-                result["args"] = server.args
-            if server.env:
-                result["env"] = server.env
-        else:
-            if server.url:
-                result["url"] = server.url
-            if server.headers:
-                result["headers"] = server.headers
+        if server.url:
+            result["url"] = server.url
+        if server.headers:
+            result["headers"] = server.headers
         return result
 
     async def get_tool_preferences(self, user_id: str) -> dict[str, bool]:
@@ -595,6 +579,40 @@ class MCPStorage:
     # ==========================================
     # Combined Operations (for runtime)
     # ==========================================
+
+    async def get_sandbox_servers(self, user_id: str) -> list[dict[str, Any]]:
+        """Get all enabled sandbox-transport MCP servers for a user (system + user).
+
+        Used during sandbox rebuild to re-register mcporter configs.
+        Returns list of config dicts with name, command, env_keys.
+        """
+        servers = []
+
+        # System sandbox servers
+        system_collection = self._get_system_collection()
+        async for doc in system_collection.find({"transport": "sandbox", "enabled": True}):
+            servers.append(
+                {
+                    "name": doc.get("name", ""),
+                    "command": doc.get("command", ""),
+                    "env_keys": doc.get("env_keys", []),
+                }
+            )
+
+        # User sandbox servers
+        user_collection = self._get_user_collection()
+        async for doc in user_collection.find(
+            {"user_id": user_id, "transport": "sandbox", "enabled": True}
+        ):
+            servers.append(
+                {
+                    "name": doc.get("name", ""),
+                    "command": doc.get("command", ""),
+                    "env_keys": doc.get("env_keys", []),
+                }
+            )
+
+        return servers
 
     async def get_effective_config(self, user_id: str) -> dict[str, Any]:
         """
@@ -781,12 +799,10 @@ class MCPStorage:
                 # Auto-detect transport if not specified (studio format compatibility)
                 transport_str = config.get("transport")
                 if not transport_str:
-                    if config.get("command"):
-                        transport_str = "stdio"
-                    elif config.get("url"):
+                    if config.get("url"):
                         transport_str = "streamable_http"
                     else:
-                        transport_str = "stdio"
+                        transport_str = "sse"
                 try:
                     transport = MCPTransport(transport_str)
                 except ValueError:
@@ -798,11 +814,10 @@ class MCPStorage:
                     name=name,
                     transport=transport,
                     enabled=config.get("enabled", True),
-                    command=config.get("command"),
-                    args=config.get("args"),
-                    env=config.get("env"),
                     url=config.get("url"),
                     headers=config.get("headers"),
+                    command=config.get("command"),
+                    env_keys=config.get("env_keys"),
                 )
 
                 # Check if exists
@@ -824,11 +839,10 @@ class MCPStorage:
                             MCPServerUpdate(
                                 transport=transport,
                                 enabled=server.enabled,
-                                command=server.command,
-                                args=server.args,
-                                env=server.env,
                                 url=server.url,
                                 headers=server.headers,
+                                command=server.command,
+                                env_keys=server.env_keys,
                             ),
                             user_id,
                         )
@@ -841,11 +855,10 @@ class MCPStorage:
                             MCPServerUpdate(
                                 transport=transport,
                                 enabled=server.enabled,
-                                command=server.command,
-                                args=server.args,
-                                env=server.env,
                                 url=server.url,
                                 headers=server.headers,
+                                command=server.command,
+                                env_keys=server.env_keys,
                             ),
                             user_id,
                         )
@@ -903,13 +916,15 @@ class MCPStorage:
 
         return SystemMCPServer(
             name=doc["name"],
-            transport=MCPTransport(doc.get("transport", "stdio")),
+            transport=MCPTransport._value2member_map_.get(
+                doc.get("transport", "streamable_http"),
+                MCPTransport.STREAMABLE_HTTP,
+            ),
             enabled=doc.get("enabled", True),
-            command=doc.get("command"),
-            args=doc.get("args"),
-            env=doc.get("env"),
             url=doc.get("url"),
             headers=doc.get("headers"),
+            command=doc.get("command"),
+            env_keys=doc.get("env_keys"),
             is_system=True,
             created_at=created_at,
             updated_at=updated_at,
@@ -931,13 +946,15 @@ class MCPStorage:
 
         return UserMCPServer(
             name=doc["name"],
-            transport=MCPTransport(doc.get("transport", "stdio")),
+            transport=MCPTransport._value2member_map_.get(
+                doc.get("transport", "streamable_http"),
+                MCPTransport.STREAMABLE_HTTP,
+            ),
             enabled=doc.get("enabled", True),
-            command=doc.get("command"),
-            args=doc.get("args"),
-            env=doc.get("env"),
             url=doc.get("url"),
             headers=doc.get("headers"),
+            command=doc.get("command"),
+            env_keys=doc.get("env_keys"),
             user_id=doc["user_id"],
             is_system=False,
             created_at=created_at,
@@ -968,13 +985,15 @@ class MCPStorage:
 
         return MCPServerResponse(
             name=doc_copy["name"],
-            transport=MCPTransport(doc_copy.get("transport", "stdio")),
+            transport=MCPTransport._value2member_map_.get(
+                doc_copy.get("transport", "streamable_http"),
+                MCPTransport.STREAMABLE_HTTP,
+            ),
             enabled=doc_copy.get("enabled", True),
-            command=doc_copy.get("command"),
-            args=doc_copy.get("args"),
-            env=doc_copy.get("env"),
             url=doc_copy.get("url"),
             headers=doc_copy.get("headers"),
+            command=doc_copy.get("command"),
+            env_keys=doc_copy.get("env_keys"),
             is_system=is_system,
             can_edit=can_edit,
             created_at=created_at,
@@ -986,21 +1005,18 @@ class MCPStorage:
         # 先解密敏感字段
         doc = decrypt_server_secrets(doc)
 
-        transport = doc.get("transport", "stdio")
+        transport = doc.get("transport", "streamable_http")
         result = {"transport": transport}
 
-        if transport == "stdio":
-            if doc.get("command"):
-                result["command"] = doc["command"]
-            if doc.get("args"):
-                result["args"] = doc["args"]
-            if doc.get("env"):
-                result["env"] = doc["env"]
-        else:  # sse or streamable_http
-            if doc.get("url"):
-                result["url"] = doc["url"]
-            if doc.get("headers"):
-                result["headers"] = doc["headers"]
+        if doc.get("url"):
+            result["url"] = doc["url"]
+        if doc.get("headers"):
+            result["headers"] = doc["headers"]
+        # Sandbox transport fields
+        if doc.get("command"):
+            result["command"] = doc["command"]
+        if doc.get("env_keys"):
+            result["env_keys"] = doc["env_keys"]
 
         return result
 

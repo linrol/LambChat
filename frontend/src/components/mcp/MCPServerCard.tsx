@@ -25,16 +25,17 @@ interface MCPServerCardProps {
 }
 
 const TRANSPORT_LABELS: Record<string, string> = {
-  stdio: "STDIO",
   sse: "SSE",
   streamable_http: "HTTP",
+  sandbox: "Sandbox",
 };
 
 const TRANSPORT_COLORS: Record<string, string> = {
-  stdio: "bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300",
   sse: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
   streamable_http:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300",
+  sandbox:
+    "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
 };
 
 const DEFAULT_TRANSPORT_COLOR =
@@ -122,7 +123,8 @@ export function MCPServerCard({
       try {
         // Use the same disabled_tools metadata as ToolSelector
         const user = await authApi.getCurrentUser();
-        const currentDisabled: string[] = (user.metadata?.disabled_tools as string[]) || [];
+        const currentDisabled: string[] =
+          (user.metadata?.disabled_tools as string[]) || [];
         const updatedDisabled = newEnabled
           ? currentDisabled.filter((n) => n !== qualifiedName)
           : [...new Set([...currentDisabled, qualifiedName])];
@@ -148,7 +150,8 @@ export function MCPServerCard({
 
   const enabledToolCount =
     tools.length > 0
-      ? tools.filter((t) => !disabledTools.has(`${server.name}:${t.name}`)).length
+      ? tools.filter((t) => !disabledTools.has(`${server.name}:${t.name}`))
+          .length
       : 0;
 
   return (
@@ -190,34 +193,32 @@ export function MCPServerCard({
 
           {/* Transport-specific details */}
           <div className="mt-2 text-sm text-stone-600 dark:text-stone-400">
-            {server.transport === "stdio" && server.command && (
-              <div className="font-mono text-xs bg-stone-50 dark:bg-stone-800 rounded px-2 py-1 truncate">
-                <span className="text-stone-500 dark:text-stone-500">$</span>{" "}
-                {server.command}
-                {server.args &&
-                  server.args.length > 0 &&
-                  ` ${server.args.join(" ")}`}
-              </div>
-            )}
-            {server.transport !== "stdio" && server.url && (
+            {server.url && (
               <div className="font-mono text-xs bg-stone-50 dark:bg-stone-800 rounded px-2 py-1 truncate">
                 {server.url}
               </div>
             )}
+            {server.command && (
+              <div className="font-mono text-xs bg-stone-50 dark:bg-stone-800 rounded px-2 py-1 truncate">
+                {server.command}
+              </div>
+            )}
           </div>
 
-          {/* Environment variables or headers info */}
-          {server.env && Object.keys(server.env).length > 0 && (
-            <div className="mt-1 text-xs text-stone-500 dark:text-stone-500">
-              {t("mcp.card.envVarsCount", {
-                count: Object.keys(server.env).length,
-              })}
-            </div>
-          )}
+          {/* Headers info */}
           {server.headers && Object.keys(server.headers).length > 0 && (
             <div className="mt-1 text-xs text-stone-500 dark:text-stone-500">
               {t("mcp.card.headersCount", {
                 count: Object.keys(server.headers).length,
+              })}
+            </div>
+          )}
+
+          {/* Env keys info (sandbox transport) */}
+          {server.env_keys && server.env_keys.length > 0 && (
+            <div className="mt-1 text-xs text-stone-500 dark:text-stone-500">
+              {t("mcp.card.envVarsCount", {
+                count: server.env_keys.length,
               })}
             </div>
           )}
@@ -271,8 +272,8 @@ export function MCPServerCard({
         </div>
       </div>
 
-      {/* Tools Discovery Section */}
-      {server.enabled && (
+      {/* Tools Discovery Section - not shown for sandbox (tools are injected at runtime, not discoverable via MCP protocol) */}
+      {server.enabled && server.transport !== "sandbox" && (
         <div className="mt-3 border-t border-stone-100 dark:border-stone-700/50 pt-2">
           <button
             onClick={handleToggleTools}

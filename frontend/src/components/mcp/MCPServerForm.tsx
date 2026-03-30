@@ -7,13 +7,14 @@ import type {
   MCPServerCreate,
   MCPTransport,
 } from "../../types";
+import { EnvKeysSelector } from "./EnvKeysSelector";
 
 interface MCPServerFormProps {
   server?: MCPServerResponse | null;
   onSave: (data: MCPServerCreate) => Promise<boolean>;
   onCancel: () => void;
   isLoading?: boolean;
-  allowedTransports?: Permission[]; // Permissions for allowed transport types
+  allowedTransports?: Permission[];
 }
 
 interface KeyValuePair {
@@ -28,25 +29,19 @@ export function MCPServerForm({
   isLoading = false,
   allowedTransports = [
     Permission.MCP_ADMIN,
-    Permission.MCP_WRITE_STDIO,
     Permission.MCP_WRITE_SSE,
     Permission.MCP_WRITE_HTTP,
+    Permission.MCP_WRITE_SANDBOX,
   ],
 }: MCPServerFormProps) {
   const { t } = useTranslation();
   const isEditing = !!server;
 
-  // Determine available transport types based on permissions
   const allTransports: {
     value: MCPTransport;
     label: string;
     permission: Permission;
   }[] = [
-    {
-      value: "stdio" as MCPTransport,
-      label: t("mcp.form.transportStdio"),
-      permission: Permission.MCP_WRITE_STDIO,
-    },
     {
       value: "sse" as MCPTransport,
       label: t("mcp.form.transportSse"),
@@ -57,9 +52,14 @@ export function MCPServerForm({
       label: t("mcp.form.transportHttp"),
       permission: Permission.MCP_WRITE_HTTP,
     },
+    {
+      value: "sandbox" as MCPTransport,
+      label: t("mcp.form.transportSandbox"),
+      permission: Permission.MCP_WRITE_SANDBOX,
+    },
   ];
-  const availableTransports = allTransports.filter((t) =>
-    allowedTransports.includes(t.permission),
+  const availableTransports = allTransports.filter((tr) =>
+    allowedTransports.includes(tr.permission),
   );
 
   const defaultTransport = availableTransports[0]?.value ?? "sse";
@@ -68,19 +68,8 @@ export function MCPServerForm({
   const [transport, setTransport] = useState<MCPTransport>(
     server?.transport ?? defaultTransport,
   );
+  const isSandbox = transport === "sandbox";
   const [enabled, setEnabled] = useState(server?.enabled ?? true);
-
-  // STDIO fields
-  const [command, setCommand] = useState(server?.command ?? "");
-  const [args, setArgs] = useState(server?.args?.join(", ") ?? "");
-  const [envVars, setEnvVars] = useState<KeyValuePair[]>(
-    server?.env
-      ? Object.entries(server.env).map(([key, value]) => ({
-          key,
-          value: String(value),
-        }))
-      : [],
-  );
 
   // HTTP fields
   const [url, setUrl] = useState(server?.url ?? "");
@@ -93,6 +82,10 @@ export function MCPServerForm({
       : [],
   );
 
+  // Sandbox fields
+  const [command, setCommand] = useState(server?.command ?? "");
+  const [envKeys, setEnvKeys] = useState<string[]>(server?.env_keys ?? []);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Update form when server changes
@@ -101,16 +94,6 @@ export function MCPServerForm({
       setName(server.name);
       setTransport(server.transport);
       setEnabled(server.enabled);
-      setCommand(server.command ?? "");
-      setArgs(server.args?.join(", ") ?? "");
-      setEnvVars(
-        server.env
-          ? Object.entries(server.env).map(([key, value]) => ({
-              key,
-              value: String(value),
-            }))
-          : [],
-      );
       setUrl(server.url ?? "");
       setHeaders(
         server.headers
@@ -120,15 +103,16 @@ export function MCPServerForm({
             }))
           : [],
       );
+      setCommand(server.command ?? "");
+      setEnvKeys(server.env_keys ?? []);
     } else {
       setName("");
-      setTransport("stdio");
+      setTransport("sse");
       setEnabled(true);
-      setCommand("");
-      setArgs("");
-      setEnvVars([]);
       setUrl("");
       setHeaders([]);
+      setCommand("");
+      setEnvKeys([]);
     }
     setErrors({});
   }, [server]);
@@ -140,12 +124,14 @@ export function MCPServerForm({
       newErrors.name = t("mcp.form.validation.nameRequired");
     }
 
-    if (transport === "stdio" && !command.trim()) {
-      newErrors.command = t("mcp.form.validation.commandRequired");
-    }
-
-    if (transport !== "stdio" && !url.trim()) {
-      newErrors.url = t("mcp.form.validation.urlRequired");
+    if (isSandbox) {
+      if (!command.trim()) {
+        newErrors.command = t("mcp.form.validation.commandRequired");
+      }
+    } else {
+      if (!url.trim()) {
+        newErrors.url = t("mcp.form.validation.urlRequired");
+      }
     }
 
     setErrors(newErrors);
@@ -163,24 +149,10 @@ export function MCPServerForm({
       enabled,
     };
 
-    if (transport === "stdio") {
+    if (isSandbox) {
       data.command = command.trim();
-      if (args.trim()) {
-        data.args = args
-          .split(",")
-          .map((a: string) => a.trim())
-          .filter((a: string) => a);
-      }
-      if (envVars.length > 0) {
-        data.env = envVars.reduce(
-          (acc, { key, value }) => {
-            if (key.trim()) {
-              acc[key.trim()] = value;
-            }
-            return acc;
-          },
-          {} as Record<string, string>,
-        );
+      if (envKeys.length > 0) {
+        data.env_keys = envKeys;
       }
     } else {
       data.url = url.trim();
@@ -198,24 +170,6 @@ export function MCPServerForm({
     }
 
     await onSave(data);
-  };
-
-  const addEnvVar = () => {
-    setEnvVars([...envVars, { key: "", value: "" }]);
-  };
-
-  const updateEnvVar = (
-    index: number,
-    field: "key" | "value",
-    value: string,
-  ) => {
-    const newEnvVars = [...envVars];
-    newEnvVars[index][field] = value;
-    setEnvVars(newEnvVars);
-  };
-
-  const removeEnvVar = (index: number) => {
-    setEnvVars(envVars.filter((_, i) => i !== index));
   };
 
   const addHeader = () => {
@@ -279,9 +233,9 @@ export function MCPServerForm({
             disabled={isEditing}
             className="w-full appearance-none rounded-lg border border-stone-200 bg-white pl-3 pr-9 py-2 text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
           >
-            {availableTransports.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+            {availableTransports.map((tr) => (
+              <option key={tr.value} value={tr.value}>
+                {tr.label}
               </option>
             ))}
           </select>
@@ -314,9 +268,10 @@ export function MCPServerForm({
         </label>
       </div>
 
-      {/* STDIO-specific fields */}
-      {transport === "stdio" && (
+      {/* ── Sandbox-specific fields ── */}
+      {isSandbox && (
         <>
+          {/* Command */}
           <div>
             <label className="mb-1 block text-sm font-medium text-stone-700 dark:text-stone-300">
               {t("mcp.form.command")}
@@ -339,74 +294,23 @@ export function MCPServerForm({
             )}
           </div>
 
+          {/* Env Keys Selector */}
           <div>
             <label className="mb-1 block text-sm font-medium text-stone-700 dark:text-stone-300">
-              {t("mcp.form.args")}
+              {t("mcp.form.envKeys")}
             </label>
-            <input
-              type="text"
-              value={args}
-              onChange={(e) => setArgs(e.target.value)}
-              placeholder={t("mcp.form.argsPlaceholder")}
-              className="w-full rounded-lg border border-stone-200 px-3 py-2 font-mono text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
-            />
-          </div>
-
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-                {t("mcp.form.envVars")}
-              </label>
-              <button
-                type="button"
-                onClick={addEnvVar}
-                className="flex items-center gap-1 rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
-              >
-                <Plus size={12} />
-                {t("mcp.form.add")}
-              </button>
-            </div>
-            <div className="space-y-2">
-              {envVars.map((env, index) => (
-                <div key={index} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={env.key}
-                    onChange={(e) => updateEnvVar(index, "key", e.target.value)}
-                    placeholder={t("mcp.form.keyPlaceholder")}
-                    className="flex-1 rounded-lg border border-stone-200 px-3 py-2 font-mono text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
-                  />
-                  <input
-                    type="text"
-                    value={env.value}
-                    onChange={(e) =>
-                      updateEnvVar(index, "value", e.target.value)
-                    }
-                    placeholder={t("mcp.form.valuePlaceholder")}
-                    className="flex-1 rounded-lg border border-stone-200 px-3 py-2 font-mono text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeEnvVar(index)}
-                    className="rounded-lg p-2 text-stone-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              ))}
-              {envVars.length === 0 && (
-                <p className="text-sm text-stone-500 dark:text-stone-500 italic">
-                  {t("mcp.form.noEnvVars")}
-                </p>
-              )}
-            </div>
+            <p className="mb-2 text-xs text-stone-500 dark:text-stone-400">
+              {t("mcp.form.envKeysDescription")}
+            </p>
+            <EnvKeysSelector selectedKeys={envKeys} onChange={setEnvKeys} />
           </div>
         </>
       )}
 
-      {/* HTTP-specific fields */}
-      {transport !== "stdio" && (
+      {/* ── HTTP/SSE-specific fields ── */}
+      {!isSandbox && (
         <>
+          {/* URL field */}
           <div>
             <label className="mb-1 block text-sm font-medium text-stone-700 dark:text-stone-300">
               {t("mcp.form.url")}
@@ -429,6 +333,7 @@ export function MCPServerForm({
             )}
           </div>
 
+          {/* HTTP Headers */}
           <div>
             <div className="mb-2 flex items-center justify-between">
               <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">

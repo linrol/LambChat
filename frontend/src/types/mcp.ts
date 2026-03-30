@@ -3,18 +3,17 @@
 // ============================================
 
 // MCP Transport Type
-export type MCPTransport = "stdio" | "sse" | "streamable_http";
+export type MCPTransport = "sse" | "streamable_http" | "sandbox";
 
 // MCP Server Base
 export interface MCPServerBase {
   name: string;
   transport: MCPTransport;
   enabled: boolean;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
   url?: string;
   headers?: Record<string, string>;
+  command?: string;
+  env_keys?: string[];
 }
 
 // MCP Server Response (from API)
@@ -35,22 +34,20 @@ export interface MCPServerCreate {
   name: string;
   transport: MCPTransport;
   enabled?: boolean;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
   url?: string;
   headers?: Record<string, string>;
+  command?: string;
+  env_keys?: string[];
 }
 
 // MCP Server Update Request
 export interface MCPServerUpdate {
   transport?: MCPTransport;
   enabled?: boolean;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
   url?: string;
   headers?: Record<string, string>;
+  command?: string;
+  env_keys?: string[];
 }
 
 // MCP Toggle Response
