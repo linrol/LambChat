@@ -53,8 +53,12 @@ export function AppContent({ activeTab }: AppContentProps) {
   // (e.g. when user toggles a tool in MCPServerCard)
   // Use sorted JSON string as dependency so only actual content changes trigger refetch
   const disabledToolsVersion = useMemo(
-    () => JSON.stringify(((user?.metadata?.disabled_tools as string[] | undefined) ?? []).slice().sort()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () =>
+      JSON.stringify(
+        ((user?.metadata?.disabled_tools as string[] | undefined) ?? [])
+          .slice()
+          .sort(),
+      ),
     [user?.metadata?.disabled_tools],
   );
 
@@ -185,7 +189,10 @@ export function AppContent({ activeTab }: AppContentProps) {
   });
 
   // Stable callbacks to prevent child re-renders
-  const handleCloseProfileModal = useCallback(() => setShowProfileModal(false), []);
+  const handleCloseProfileModal = useCallback(
+    () => setShowProfileModal(false),
+    [],
+  );
   const handleShowProfile = useCallback(() => setShowProfileModal(true), []);
   const handleMobileClose = useCallback(() => setMobileSidebarOpen(false), []);
   const handleSelectSessionAndClose = useCallback(

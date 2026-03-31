@@ -44,6 +44,10 @@ class FeishuChannel(BaseChannel):
     HEALTH_CHECK_INTERVAL = 30.0  # Check connection health every 30 seconds
     CONNECTION_TIMEOUT = 180.0  # Consider connection dead if no response for 3 minutes
 
+    # Override SDK defaults for faster reconnection
+    _SDK_RECONNECT_INTERVAL = 10  # SDK retry interval (default 120s, too slow)
+    _SDK_RECONNECT_NONCE = 5  # SDK first-reconnect jitter (default 30s, too much)
+
     # Processing status emojis (cycled while agent is working)
     PROCESSING_EMOJIS = [
         "StatusInFlight",
@@ -61,6 +65,7 @@ class FeishuChannel(BaseChannel):
         self._ws_client: Any = None
         self._ws_thread: threading.Thread | None = None
         self._health_check_thread: threading.Thread | None = None
+        self._ws_loop_ref: asyncio.AbstractEventLoop | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._processed_message_ids: OrderedDict[str, None] = OrderedDict()
         self._chat_mode_cache: OrderedDict[str, str] = (
@@ -304,6 +309,10 @@ class FeishuChannel(BaseChannel):
 
         self._client, self._ws_client = await self._loop.run_in_executor(None, _build_clients)
 
+        # Override SDK reconnect defaults for faster recovery
+        self._ws_client._reconnect_interval = self._SDK_RECONNECT_INTERVAL
+        self._ws_client._reconnect_nonce = self._SDK_RECONNECT_NONCE
+
         # Start WebSocket client in a separate thread
         def run_ws():
             import lark_oapi.ws.client as _lark_ws_client
@@ -311,6 +320,7 @@ class FeishuChannel(BaseChannel):
             ws_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(ws_loop)
             _lark_ws_client.loop = ws_loop
+            self._ws_loop_ref = ws_loop
 
             try:
                 while self._running:
@@ -321,10 +331,8 @@ class FeishuChannel(BaseChannel):
                             f"(attempt {self._reconnect_attempts + 1})"
                         )
                         self._ws_client.start()
-                        # If start() returns normally, connection was established and then closed
-                        # Set to CONNECTED while the connection is active
+                        # start() blocks until disconnect; reset state for next cycle
                         self._set_connection_state(ConnectionState.CONNECTED)
-                        # When start() returns, connection has ended
                         if self._running:
                             self._set_connection_state(ConnectionState.RECONNECTING)
                             delay = self._get_reconnect_delay()
@@ -362,7 +370,7 @@ class FeishuChannel(BaseChannel):
         return True
 
     def _health_check_loop(self) -> None:
-        """Health check loop to detect zombie connections."""
+        """Health check loop to detect and force-reconnect zombie connections."""
         while self._running:
             time.sleep(self.HEALTH_CHECK_INTERVAL)
             if not self._running:
@@ -374,10 +382,19 @@ class FeishuChannel(BaseChannel):
                     logger.warning(
                         f"Feishu connection appears dead for user {self.config.user_id} "
                         f"(no activity for {time.time() - self._last_activity_time:.0f}s), "
-                        "will attempt reconnect"
+                        "force-closing to trigger reconnect"
                     )
-                    # The SDK should handle reconnection, but we log the issue
                     self._set_connection_state(ConnectionState.RECONNECTING)
+                    # Force-close the underlying connection so the SDK detects
+                    # the disconnect and triggers its reconnection loop.
+                    try:
+                        if self._ws_loop_ref is None:
+                            continue
+                        asyncio.run_coroutine_threadsafe(
+                            self._ws_client._disconnect(), self._ws_loop_ref
+                        ).result(timeout=5)
+                    except Exception:
+                        pass
                 else:
                     logger.debug(f"Feishu connection healthy for user {self.config.user_id}")
 

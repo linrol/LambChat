@@ -73,3 +73,5 @@ node_modules/
 docs/superpowers/
 .worktrees/
 docs/
+frontend/src/components/common/DynamicIcon.tsx
+.codex

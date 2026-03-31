@@ -1,11 +1,12 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
+import { startVirtuosoScrollToBottom } from "./messageScrollUtils";
 
 interface UseMessageScrollReturn {
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
-  messagesEndRef: React.RefObject<HTMLDivElement | null>;
   virtuosoRef: React.RefObject<VirtuosoHandle | null>;
   virtuosoScrollerRef: React.RefObject<HTMLDivElement | null>;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
   isNearBottom: boolean;
   showScrollTop: boolean;
   handleVirtuosoAtBottomChange: (atBottom: boolean) => void;
@@ -17,31 +18,18 @@ export function useMessageScroll(
   messages: { id: string }[],
   sessionId?: string | null,
 ): UseMessageScrollReturn {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const virtuosoScrollerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const rafRef = useRef<number>(0);
+  const scrollCleanupRef = useRef<(() => void) | null>(null);
 
-  // Whether the user has manually scrolled up (away from bottom)
   const userScrolledUpRef = useRef(false);
 
-  // Track previous message count to detect new messages
-  const prevMessagesCountRef = useRef(0);
-
-  // Track previous sessionId to detect session changes
-  const prevSessionIdRef = useRef<string | null | undefined>(sessionId);
-
-  // Track if we've done initial scroll (for page refresh case)
-  const initialScrollDoneRef = useRef(false);
-
-  // Track scroll polling interval for cleanup on unmount
-  const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Called by Virtuoso's atBottomStateChange
   const handleVirtuosoAtBottomChange = useCallback((atBottom: boolean) => {
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
@@ -53,44 +41,15 @@ export function useMessageScroll(
     });
   }, []);
 
+  // Scroll the Footer sentinel into view — it's always in the DOM (not virtualized)
   const scrollToBottom = useCallback(() => {
     userScrolledUpRef.current = false;
-
-    // Clear any existing scroll polling interval
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
-    }
-
-    const scroller = virtuosoScrollerRef.current;
-    if (!scroller || !virtuosoRef.current) return;
-
-    // Virtuoso uses virtual rendering — not all items are measured at once,
-    // so a single scrollTo may not reach the true bottom.
-    // Poll until scrollTop + clientHeight >= scrollHeight (within 1px).
-    let attempts = 0;
-    const doScroll = () => {
-      virtuosoRef.current?.scrollTo({
-        top: Number.MAX_SAFE_INTEGER,
-        behavior: "auto",
-      });
-    };
-    doScroll();
-    scrollIntervalRef.current = setInterval(() => {
-      if (
-        scroller.scrollTop + scroller.clientHeight >=
-        scroller.scrollHeight - 1
-      ) {
-        clearInterval(scrollIntervalRef.current!);
-        scrollIntervalRef.current = null;
-        return;
-      }
-      doScroll();
-      if (++attempts > 20) {
-        clearInterval(scrollIntervalRef.current!);
-        scrollIntervalRef.current = null;
-      }
-    }, 30);
+    scrollCleanupRef.current?.();
+    scrollCleanupRef.current = startVirtuosoScrollToBottom({
+      virtuoso: virtuosoRef.current,
+      scroller: virtuosoScrollerRef.current,
+      footer: messagesEndRef.current,
+    });
   }, []);
 
   const scrollToTop = useCallback(() => {
@@ -115,7 +74,7 @@ export function useMessageScroll(
       const now = Date.now();
       const scrollTop = scroller.scrollTop;
       const dt = now - lastScrollTime.value;
-      const dScroll = lastScrollTop.value - scrollTop; // positive = scrolling up
+      const dScroll = lastScrollTop.value - scrollTop;
 
       if (dt < 300 && dScroll > 30 && scrollTop > 200) {
         setShowScrollTop(true);
@@ -134,40 +93,41 @@ export function useMessageScroll(
     return () => {
       scroller.removeEventListener("scroll", handleScroll);
       if (timer) clearTimeout(timer);
-      if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
     };
   }, [messages.length]);
 
-  // Auto-scroll to bottom when new messages arrive AND user hasn't scrolled up
-  // OR when session changes
+  // Scroll to bottom on session change (after messages load)
+  const pendingScrollRef = useRef(false);
   useEffect(() => {
-    const prevCount = prevMessagesCountRef.current;
-    const newCount = messages.length;
-    const prevSession = prevSessionIdRef.current;
-    const sessionChanged = prevSession !== sessionId;
+    if (sessionId) pendingScrollRef.current = true;
+  }, [sessionId]);
 
-    if (sessionChanged && sessionId) {
-      // Session changed - always scroll to bottom and reset user scroll state
-      userScrolledUpRef.current = false;
-      scrollToBottom();
-      prevSessionIdRef.current = sessionId;
-    } else if (newCount > prevCount && !userScrolledUpRef.current) {
-      // New message added - use scrollToBottom for reliable scrolling
-      scrollToBottom();
-    } else if (newCount > 0 && !initialScrollDoneRef.current) {
-      // Initial load or page refresh - scroll to bottom
-      scrollToBottom();
-      initialScrollDoneRef.current = true;
+  useEffect(() => {
+    if (messages.length > 0 && pendingScrollRef.current) {
+      const timer = setTimeout(() => {
+        pendingScrollRef.current = false;
+        scrollToBottom();
+      }, 50);
+      return () => {
+        clearTimeout(timer);
+        scrollCleanupRef.current?.();
+        scrollCleanupRef.current = null;
+      };
     }
+  }, [messages, scrollToBottom]);
 
-    prevMessagesCountRef.current = newCount;
-  }, [messages, sessionId, scrollToBottom]);
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      scrollCleanupRef.current?.();
+    };
+  }, []);
 
   return {
     messagesContainerRef,
-    messagesEndRef,
     virtuosoRef,
     virtuosoScrollerRef,
+    messagesEndRef,
     isNearBottom,
     showScrollTop,
     handleVirtuosoAtBottomChange,

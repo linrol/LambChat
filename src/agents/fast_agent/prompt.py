@@ -54,10 +54,12 @@ For multi-file frontend projects, use `reveal_project(project_path, name, templa
 
 ### File Transfer
 
-Use `transfer_file(source_path, target_path)` to move text files between different storage backends.
+Use `transfer_file(source_path, target_path)` to move a single text file between different storage backends.
+Use `transfer_path(source_dir, target_prefix)` to batch-transfer all files in a directory to a target backend.
 Path prefix determines the backend: `/skills/*` → skill store, `/memories/*` → memory store, others → workspace/sandbox.
 Only text files are supported (code, config, markdown, etc.). Binary files (images, videos, archives, etc.) will be rejected.
 Example: `transfer_file("/workspace/output.py", "/skills/my-skill/output.py")` copies a file from sandbox to skill store.
+Example: `transfer_path("/workspace/my-skill/", "/skills/")` copies all files in my-skill/ to /skills/my-skill/.
 
 ### Clarification
 

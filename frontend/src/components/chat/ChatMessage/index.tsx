@@ -241,14 +241,14 @@ export function ChatMessage({
         <div className="min-w-0 min-h-0">
           {/* Header: Avatar + Role label + Stop button */}
           <div className="mb-3 flex items-center gap-2">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-stone-100 text-amber-400 dark:bg-stone-800 dark:text-amber-400">
+            <div className="flex size-6 sm:size-7 shrink-0 items-center justify-center rounded-full bg-stone-100 text-amber-400 dark:bg-stone-800 dark:text-amber-400">
               <Bot size={15} />
             </div>
             <span className="text-base sm:text-lg font-semibold text-stone-800 dark:text-stone-100 tracking-tight font-serif">
               {t("chat.message.assistant")}
             </span>
             {message.timestamp && (
-              <span className="text-xs text-stone-400 dark:text-stone-500 ml-1.5 tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <span className="text-xs text-stone-400 dark:text-stone-500 ml-2 mt-0.5 tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 {new Date(message.timestamp).toLocaleString([], {
                   year: "numeric",
                   month: "2-digit",
