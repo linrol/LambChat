@@ -23,9 +23,8 @@ from src.agents.core.subagent_prompts import SUBAGENT_PROMPT
 from src.agents.search_agent.context import SearchAgentContext
 from src.agents.search_agent.prompt import (
     DEFAULT_SYSTEM_PROMPT,
-    EMPTY_MEMORY_SECTION,
-    HINDSIGHT_MEMORY_SECTION,
     SANDBOX_SYSTEM_PROMPT,
+    get_memory_guide,
 )
 from src.infra.agent import AgentEventProcessor
 from src.infra.agent.middleware import (
@@ -114,7 +113,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             logger.warning(f"Failed to build skills prompt: {e}")
 
     # 构建记忆系统提示
-    memory_guide = HINDSIGHT_MEMORY_SECTION if settings.ENABLE_MEMORY else EMPTY_MEMORY_SECTION
+    memory_guide = get_memory_guide(settings.MEMORY_PERFORM) if settings.ENABLE_MEMORY else ""
 
     # 过滤工具（懒加载 MCP 工具）
     filtered_tools = None
@@ -145,16 +144,37 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
         }
     ]
 
-    # 构建中间件栈：retry → binary upload → app prompt (skills/memory) → sandbox MCP
+    # 构建中间件栈：retry → binary upload → app prompt (skills/memory) → memory index → sandbox MCP
     user_middleware = create_retry_middleware()
     user_middleware.append(ToolResultBinaryMiddleware(base_url=search_base_url))
     user_middleware.append(
         AppPromptMiddleware(skills_prompt=skills_prompt, memory_guide=memory_guide)
     )
+    if (
+        settings.ENABLE_MEMORY
+        and settings.MEMORY_PERFORM == "native"
+        and settings.NATIVE_MEMORY_INDEX_ENABLED
+        and context.user_id
+    ):
+        from src.infra.agent.middleware import MemoryIndexMiddleware
+
+        user_middleware.append(MemoryIndexMiddleware(user_id=context.user_id))
     if sandbox_backend:
         user_middleware.append(
             SandboxMCPMiddleware(backend=sandbox_backend, user_id=context.user_id or "default")
         )
+
+    # 延迟工具搜索中间件（当 MCP 工具被延迟时启用）
+    if context.deferred_manager is not None:
+        from src.infra.agent.middleware import ToolSearchMiddleware
+
+        user_middleware.append(
+            ToolSearchMiddleware(
+                deferred_manager=context.deferred_manager,
+                search_limit=settings.DEFERRED_TOOL_SEARCH_LIMIT,
+            )
+        )
+        logger.info("[SearchAgent] Tool search middleware enabled (deferred MCP loading)")
 
     inner_graph = create_deep_agent(
         model=llm,
@@ -210,7 +230,22 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     final_messages = inner_state.values.get("messages", [])
 
     # 自动记忆存储（异步，不阻塞响应）
-    schedule_auto_retain(user_input, event_processor.output_text, context.user_id)
+    session_id = state.get("session_id", "")
+    schedule_auto_retain(
+        user_input, event_processor.output_text, context.user_id, session_id=session_id
+    )
+
+    # 持久化已发现的延迟工具名（跨 turn 恢复，分布式安全）
+    if context.deferred_manager is not None and context.deferred_manager.discovered_count > 0:
+        try:
+            from src.infra.tool.deferred_manager import persist_discovered_tools
+
+            await persist_discovered_tools(
+                session_id,
+                context.deferred_manager.discovered_names,
+            )
+        except Exception:
+            pass  # 非关键路径，失败静默
 
     return {
         "output": event_processor.output_text,

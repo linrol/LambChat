@@ -21,9 +21,8 @@ from src.agents.core.node_utils import (
 from src.agents.core.subagent_prompts import SUBAGENT_PROMPT
 from src.agents.fast_agent.context import FastAgentContext
 from src.agents.fast_agent.prompt import (
-    EMPTY_MEMORY_SECTION,
     FAST_SYSTEM_PROMPT,
-    HINDSIGHT_MEMORY_SECTION,
+    get_memory_guide,
 )
 from src.infra.agent import AgentEventProcessor
 from src.infra.agent.middleware import (
@@ -99,7 +98,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
             logger.warning(f"Failed to build skills prompt: {e}")
 
     # 构建记忆系统提示
-    memory_guide = HINDSIGHT_MEMORY_SECTION if settings.ENABLE_MEMORY else EMPTY_MEMORY_SECTION
+    memory_guide = get_memory_guide(settings.MEMORY_PERFORM) if settings.ENABLE_MEMORY else ""
 
     # 构建系统提示（skills/memory_guide 由 AppPromptMiddleware 在请求时注入）
     system_prompt = FAST_SYSTEM_PROMPT
@@ -144,12 +143,21 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
         }
     ]
 
-    # 构建中间件栈：retry → binary upload → app prompt (skills/memory)
+    # 构建中间件栈：retry → binary upload → app prompt (skills/memory) → memory index
     user_middleware = create_retry_middleware()
     user_middleware.append(ToolResultBinaryMiddleware(base_url=subagent_base_url))
     user_middleware.append(
         AppPromptMiddleware(skills_prompt=skills_prompt, memory_guide=memory_guide)
     )
+    if (
+        settings.ENABLE_MEMORY
+        and settings.MEMORY_PERFORM == "native"
+        and settings.NATIVE_MEMORY_INDEX_ENABLED
+        and context.user_id
+    ):
+        from src.infra.agent.middleware import MemoryIndexMiddleware
+
+        user_middleware.append(MemoryIndexMiddleware(user_id=context.user_id))
 
     inner_graph = create_deep_agent(
         model=llm,
@@ -206,7 +214,10 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     final_messages = inner_state.values.get("messages", [])
 
     # 自动记忆存储（异步，不阻塞响应）
-    schedule_auto_retain(user_input, event_processor.output_text, context.user_id)
+    session_id = state.get("session_id")
+    schedule_auto_retain(
+        user_input, event_processor.output_text, context.user_id, session_id=session_id
+    )
 
     return {
         "output": event_processor.output_text,
