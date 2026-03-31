@@ -9,6 +9,7 @@ import { ApprovalPanel } from "../../panels/ApprovalPanel";
 import { Loading } from "../../common";
 import { useMessageScroll } from "./useMessageScroll";
 import { APP_NAME } from "../../../constants";
+import { Sparkles } from "lucide-react";
 import type {
   Message,
   PendingApproval,
@@ -109,26 +110,16 @@ export function ChatView({
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  const greeting = useMemo(() => {
+  const getGreetingKey = () => {
     const h = new Date().getHours();
-    const timeGreeting =
-      h < 6 ? "晚上好" : h < 12 ? "早上好" : h < 18 ? "下午好" : "晚上好";
-    const lang = i18n.language;
-    if (lang === "zh" || lang === "ja" || lang === "ko") {
-      return user?.username
-        ? `${timeGreeting}，${user.username}`
-        : timeGreeting;
-    }
-    const timeEn =
-      h < 6
-        ? "Good evening"
-        : h < 12
-          ? "Good morning"
-          : h < 18
-            ? "Good afternoon"
-            : "Good evening";
-    return user?.username ? `${timeEn}, ${user.username}` : timeEn;
-  }, [i18n.language, user?.username]);
+    if (h < 6) return "chat.goodEvening";
+    if (h < 12) return "chat.goodMorning";
+    if (h < 18) return "chat.goodAfternoon";
+    return "chat.goodEvening";
+  };
+  const greeting = user?.username
+    ? t(getGreetingKey(), { name: user.username })
+    : t(getGreetingKey());
 
   const {
     messagesContainerRef,
@@ -219,16 +210,27 @@ export function ChatView({
         )}
         {messages.length === 0 ? (
           <div className="relative flex h-full flex-col items-center justify-center px-4 py-6 sm:py-8 welcome-grain">
-            <div className="relative flex flex-col items-center mb-6 sm:mb-8">
-              <div className="relative mb-5 sm:mb-6">
-                <div className="absolute -inset-3 rounded-[1.75rem] bg-gradient-to-br from-amber-300/30 to-rose-300/20 dark:from-amber-500/10 dark:to-rose-500/5 blur-xl" />
+            <div className="relative flex flex-col items-center mb-8 sm:mb-10 w-full max-w-[90vw]">
+              {/* Logo & App Name */}
+              <div className="relative flex items-center gap-2.5 mb-4 sm:mb-5 whitespace-nowrap opacity-80">
+                <img
+                  src="/icons/icon.svg"
+                  alt={APP_NAME}
+                  className="size-7 sm:size-8 shrink-0 rounded-full"
+                  draggable={false}
+                />
+                <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-stone-800 via-stone-600 to-stone-800 dark:from-stone-50 dark:via-stone-200 dark:to-stone-50 bg-clip-text text-transparent font-serif tracking-tight">
+                  {APP_NAME}
+                </span>
               </div>
-              <p className="text-base sm:text-lg text-stone-400 dark:text-stone-500 mb-2 sm:mb-4">
+              {/* Greeting */}
+              <h1 className="max-w-[90vw] welcome-title text-3xl sm:text-4xl font-bold bg-gradient-to-r from-stone-900 via-stone-600 to-stone-900 dark:from-stone-50 dark:via-stone-200 dark:to-stone-50 bg-clip-text text-transparent font-serif tracking-tight mb-3 sm:mb-4 whitespace-nowrap overflow-hidden text-ellipsis">
                 {greeting}
-              </p>
-              <h1 className="welcome-title text-4xl sm:text-5xl font-bold bg-gradient-to-r from-stone-800 via-stone-600 to-stone-800 dark:from-stone-50 dark:via-stone-200 dark:to-stone-50 bg-clip-text text-transparent font-serif tracking-tight mb-1 sm:mb-6">
-                {APP_NAME}
               </h1>
+              {/* Subtitle */}
+              <p className="text-sm sm:text-base text-stone-500 dark:text-stone-400 font-medium tracking-wide">
+                ✦ {t("chat.welcomeSubtitle") ?? "How can I help you today?"}
+              </p>
             </div>
 
             <div className="relative w-full max-w-xl sm:max-w-2xl px-2 sm:px-4 sm:block hidden">
@@ -345,10 +347,10 @@ export function ChatView({
                 }
                 onSendMessage(suggestion.text);
               }}
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-stone-200/70 dark:border-stone-700/40 bg-white/60 dark:bg-stone-800/30 px-3 py-1.5 text-[13px] text-stone-500 dark:text-stone-400 active:bg-stone-100 dark:active:bg-stone-700/40 transition-colors"
+              className="shrink-0 inline-flex items-center gap-1 rounded-full border border-stone-200/70 dark:border-stone-700/40 bg-white/60 dark:bg-stone-800/30 px-3 py-1.5 text-[13px] text-stone-500 dark:text-stone-400 active:bg-stone-100 dark:active:bg-stone-700/40 transition-colors"
             >
               {suggestion.icon}
-              {suggestion.text}
+              <span className="ml-1">{suggestion.text}</span>
             </button>
           ))}
         </div>
