@@ -10,6 +10,20 @@ def test_search_agent_subagents_enable_activity_logging():
     assert "SubagentActivityMiddleware" in source
 
 
+def test_search_agent_subagents_enable_tool_search_middleware():
+    source = Path("src/agents/search_agent/nodes.py").read_text()
+
+    assert "subagent_middleware.append(" in source
+    assert "ToolSearchMiddleware(" in source
+
+
+def test_fast_agent_subagents_enable_tool_search_middleware():
+    source = Path("src/agents/fast_agent/nodes.py").read_text()
+
+    assert "subagent_middleware.append(" in source
+    assert "ToolSearchMiddleware(" in source
+
+
 def test_subagent_activity_logging_externalizes_large_payloads_with_unique_paths():
     source = Path("src/infra/agent/middleware.py").read_text()
 

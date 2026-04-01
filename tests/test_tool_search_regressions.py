@@ -1,7 +1,15 @@
+import os
 from types import SimpleNamespace
 
-import pytest
+os.environ["DEBUG"] = "false"
 
+import pytest
+from langchain.agents.middleware.types import ModelRequest
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
+from langchain_core.messages import SystemMessage
+from langchain_core.tools import tool
+
+from src.infra.agent.middleware import ToolSearchMiddleware
 from src.infra.tool.tool_search import search_tools_with_keywords
 from src.infra.tool.tool_search_tool import ToolSearchTool
 
@@ -33,6 +41,9 @@ class _StubManager:
                 remaining.append(tool)
         self._undiscovered = remaining
         return newly_discovered
+
+    def get_deferred_stubs_string(self):
+        return "## MCP Tools (Deferred)\n- web_search_prime: Search web information."
 
 
 def test_search_tools_plus_term_matches_underscored_tool_names():
@@ -108,3 +119,32 @@ async def test_tool_search_prioritizes_newly_loaded_matches_when_limit_is_small(
     assert "Found 1 tool(s) (1 tools loaded)" in result
     assert "web_search_prime" in result
     assert "search_doc" not in result
+
+
+@tool
+def search_doc(query: str) -> str:
+    """Search documentation."""
+    return query
+
+
+@pytest.mark.asyncio
+async def test_tool_search_middleware_injects_search_tool_and_discovered_tools():
+    manager = _StubManager(discovered=[search_doc], undiscovered=[])
+    middleware = ToolSearchMiddleware(deferred_manager=manager, search_limit=10)
+    request = ModelRequest(
+        model=FakeListChatModel(responses=["ok"]),
+        messages=[],
+        system_message=SystemMessage(content="system"),
+        tools=[],
+    )
+    captured = {}
+
+    async def handler(req):
+        captured["request"] = req
+        return req
+
+    await middleware.awrap_model_call(request, handler)
+
+    tool_names = [tool.name for tool in captured["request"].tools]
+    assert "search_tools" in tool_names
+    assert "search_doc" in tool_names

@@ -450,16 +450,16 @@ class ToolSearchMiddleware(AgentMiddleware):
             new_system_message = append_to_system_message(request.system_message, prompt_section)
             request = request.override(system_message=new_system_message)
 
-        # 2. 收集需要注入的已发现工具（search_tools 已在 nodes.py 注册到 ToolNode）
+        # 2. 注入 search_tools 本身和已发现工具，确保子代理与主代理走同一动态加载链路。
+        search_tool = self._get_search_tool()
         discovered = self._deferred_manager.get_discovered_tools()
-        if not discovered:
-            return await handler(request)
-
-        # 3. 合并到 request.tools（去重）
         existing_names = {
             t.name if hasattr(t, "name") else t.get("name", "") for t in request.tools
         }
-        new_tools = [t for t in discovered if t.name not in existing_names]
+        new_tools = []
+        if search_tool.name not in existing_names:
+            new_tools.append(search_tool)
+        new_tools.extend(t for t in discovered if t.name not in existing_names)
         if new_tools:
             combined = list(request.tools) + new_tools
             request = request.override(tools=combined)

@@ -142,16 +142,27 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
 
     # 自定义子代理配置 - 强制将所有中间信息保存到文件
     search_base_url = configurable.get("base_url", "")
+    subagent_middleware = [
+        *create_retry_middleware(),
+        ToolResultBinaryMiddleware(base_url=search_base_url),
+        SubagentActivityMiddleware(backend=backend_factory),
+    ]
+    if context.deferred_manager is not None:
+        from src.infra.agent.middleware import ToolSearchMiddleware
+
+        subagent_middleware.append(
+            ToolSearchMiddleware(
+                deferred_manager=context.deferred_manager,
+                search_limit=settings.DEFERRED_TOOL_SEARCH_LIMIT,
+            )
+        )
+
     custom_subagents: list[SubAgent | CompiledSubAgent] = [
         {
             "name": "general-purpose",
             "description": "General-purpose agent for researching complex questions, searching for files and content, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. This agent has access to all tools as the main agent.",
             "system_prompt": SUBAGENT_PROMPT,
-            "middleware": [
-                *create_retry_middleware(),
-                ToolResultBinaryMiddleware(base_url=search_base_url),
-                SubagentActivityMiddleware(backend=backend_factory),
-            ],
+            "middleware": subagent_middleware,
         }
     ]
 
