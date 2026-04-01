@@ -117,9 +117,7 @@ async def build_skills_prompt(skills: list[dict]) -> str:
     skills_list_str = "\n".join(skills_lines)
 
     # Build full prompt matching SkillsMiddleware.SKILLS_SYSTEM_PROMPT format
-    prompt = f"""
-
-## Skills System
+    prompt = f"""## Skills System
 
 You have access to a skills library that provides specialized capabilities and domain knowledge.
 

@@ -75,11 +75,11 @@ async def memory_retain(
     runtime: ToolRuntime = None,  # type: ignore[assignment]
 ) -> str:
     """
-    Store a memory for cross-session persistence.
-
-    Use this tool to remember important information that should persist across
-    different conversation sessions. Examples: user preferences, important facts,
-    project details, user background, etc.
+    Store a memory for cross-session persistence. STRICT: only genuinely useful,
+    non-temporary information is accepted. Content that is too short, looks like a
+    question, resembles code/commands, or duplicates an existing recent memory will
+    be rejected. Prefer storing high-signal facts like user preferences, project
+    context, feedback, or external references.
     """
     user_id = get_user_id_from_runtime(runtime)
     if not user_id:

@@ -179,14 +179,14 @@ export function SessionSidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
-  // Handle new session from parent — prepend to the correct list
+  // Handle new session from parent — prepend or update in the correct list
   useEffect(() => {
     if (newSession && newSession.id) {
       const projectId = newSession.metadata?.project_id as string | undefined;
-      if (projectId) {
-        getProjectRef(projectId)?.prependSession(newSession);
-      } else {
-        uncategorizedList.prependSession(newSession);
+      const list = projectId ? getProjectRef(projectId) : uncategorizedList;
+      if (list) {
+        list.prependSession(newSession);
+        list.updateSession(newSession);
       }
     }
   }, [newSession, getProjectRef, uncategorizedList]);

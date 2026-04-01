@@ -39,12 +39,32 @@ _STOPWORDS = frozenset(
     "other some such only own same than too most".split()
 )
 
+# Chinese stopwords for tag extraction
+_CJK_STOPWORDS = frozenset(
+    "的 了 是 在 和 与 也 都 就 要 会 能 有 这 那 一 不 个 吧 啊 呢 吗 呀 "
+    "把 被 让 给 对 从 到 向 比 用 以 为 所 之 其 着 过 地 得 很 已 还 "
+    "再 又 却 并 因为 所以 如果 但是 而且 或者 虽然 不过".split()
+)
+
 
 def _ensure_aware(dt: datetime) -> datetime:
     """Make a datetime timezone-aware (UTC) if it is naive."""
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+def _has_cjk(text: str) -> bool:
+    """Check if text contains CJK characters."""
+    return any("\u4e00" <= c <= "\u9fff" for c in text)
+
+
+def _char_ngrams(text: str, n: int = 2) -> set[str]:
+    """Extract character n-grams from text, useful for Chinese similarity."""
+    cleaned = re.sub(r"\s+", "", text)
+    if len(cleaned) < n:
+        return set()
+    return {cleaned[i : i + n] for i in range(len(cleaned) - n + 1)}
 
 
 # ============================================================================
@@ -143,9 +163,35 @@ class NativeMemoryBackend(MemoryBackend):
         content: str,
         context: Optional[str] = None,
     ) -> dict[str, Any]:
+        # --- Validation (relaxed for manual retention — trust user intent) ---
+        if len(content.strip()) < 5:
+            return {
+                "success": False,
+                "error": "Content too short (minimum 10 characters)",
+            }
+
+        # Noise filter: reject code patterns, file paths, error traces
+        for pat in EXCLUDED_CONTENT_PATTERNS:
+            if re.search(pat, content, re.IGNORECASE):
+                return {
+                    "success": False,
+                    "error": "Content rejected: appears to be code, commands, or technical noise",
+                }
+
+        # Deduplication: reject if too similar to existing recent memory
+        summary = self._build_summary(content)
+        dup_candidates = [{"content": content, "summary": summary}]
+        deduped = await self._deduplicate_against_existing(user_id, dup_candidates)
+        if not deduped:
+            return {
+                "success": False,
+                "error": "Content rejected: too similar to an existing recent memory",
+            }
+
         memory_type = self._classify_type(content, context)
         tags = self._extract_tags(content)
-        summary = self._build_summary(content)
+        title = await self._llm_build_title(content)
+        summary = await self._llm_build_summary(content)
         memory_id = uuid.uuid4().hex
         now = datetime.now(timezone.utc)
 
@@ -153,6 +199,7 @@ class NativeMemoryBackend(MemoryBackend):
             "memory_id": memory_id,
             "user_id": user_id,
             "content": content[:5000],
+            "title": title,
             "summary": summary,
             "memory_type": memory_type,
             "context": context,
@@ -249,6 +296,7 @@ class NativeMemoryBackend(MemoryBackend):
                     "$set": {
                         "content": summary_text[:5000],
                         "summary": summary[:100],
+                        "title": f"Session {session_id[:8]}",
                         "updated_at": now,
                     }
                 },
@@ -260,6 +308,7 @@ class NativeMemoryBackend(MemoryBackend):
                     "user_id": user_id,
                     "content": summary_text[:5000],
                     "summary": summary[:100],
+                    "title": f"Session {session_id[:8]}",
                     "memory_type": "reference",
                     "context": f"session:{session_id}",
                     "tags": self._extract_tags(summary),
@@ -284,10 +333,8 @@ class NativeMemoryBackend(MemoryBackend):
         conversation_summary: str,
         context: Optional[str] = None,
     ) -> None:
-        # Try LLM-based extraction first, fall back to rule-based
+        # Only use LLM-based extraction — rule-based fallback is too permissive
         memories = await self._llm_extract_memories(user_id, conversation_summary)
-        if not memories:
-            memories = self._smart_filter_and_classify(conversation_summary)
         if not memories:
             return
 
@@ -298,12 +345,13 @@ class NativeMemoryBackend(MemoryBackend):
 
         now = datetime.now(timezone.utc)
         docs = []
-        for mem in memories[:3]:
+        for mem in memories[:2]:
             doc = {
                 "memory_id": uuid.uuid4().hex,
                 "user_id": user_id,
                 "content": mem["content"][:5000],
                 "summary": mem["summary"],
+                "title": mem.get("title", ""),
                 "memory_type": mem["memory_type"],
                 "context": context or "auto_retained",
                 "tags": mem.get("tags", []),
@@ -605,7 +653,8 @@ class NativeMemoryBackend(MemoryBackend):
                 "4. Each output memory should be ONE focused fact or observation\n"
                 "5. When merging, preserve all unique details from all source memories\n"
                 '6. Keep memory type as: "{type}"\n\n'
-                'Return ONLY a JSON array: [{"content": "...", "summary": "..."}]\n'
+                'Return ONLY a JSON array: [{"content": "...", "summary": "...", "title": "..."}]\n'
+                "title should be max 25 chars, a short label for this memory.\n"
                 "Memories to delete should simply be OMITTED from the array.\n\n"
                 f"Input memories (oldest first):\n{items_text}"
             ).format(type=expected_type)
@@ -652,13 +701,19 @@ class NativeMemoryBackend(MemoryBackend):
                 content = item.get("content", "").strip()
                 if not content or len(content) < 10:
                     continue
-                summary = item.get("summary", self._build_summary(content))
+                summary = item.get("summary", "")
+                if not summary:
+                    summary = await self._llm_build_summary(content)
+                title = item.get("title", "").strip()
+                if not title:
+                    title = await self._llm_build_title(content)
                 docs.append(
                     {
                         "memory_id": uuid.uuid4().hex,
                         "user_id": memories[0]["user_id"],
                         "content": content[:5000],
                         "summary": summary[:100],
+                        "title": title[:25],
                         "memory_type": expected_type,
                         "context": "consolidated",
                         "tags": self._extract_tags(content),
@@ -759,7 +814,9 @@ class NativeMemoryBackend(MemoryBackend):
                     "_id": "$memory_type",
                     "items": {
                         "$push": {
+                            "title": "$title",
                             "summary": "$summary",
+                            "memory_id": "$memory_id",
                             "updated_at": "$updated_at",
                         }
                     },
@@ -797,18 +854,26 @@ class NativeMemoryBackend(MemoryBackend):
             lines.append(f"\n## [{mtype}]")
             for item in group["items"]:
                 age_days = (now - _ensure_aware(item["updated_at"])).days
-                # Human-readable staleness like Claude Code's memoryAge()
+                # Human-readable staleness
                 if age_days == 0:
                     age_str = ""
                 elif age_days == 1:
-                    age_str = " (yesterday)"
+                    age_str = "yesterday"
                 elif age_days <= 7:
-                    age_str = f" ({age_days}d ago)"
+                    age_str = f"{age_days}d ago"
                 elif age_days > staleness_days:
-                    age_str = f" (stale: {age_days}d — verify before using)"
+                    age_str = f"stale:{age_days}d"
                 else:
-                    age_str = f" ({age_days}d ago)"
-                lines.append(f"- {item['summary']}{age_str}")
+                    age_str = f"{age_days}d ago"
+                # Display: title + short_id (fallback to summary[:30] for old memories)
+                display_title = item.get("title") or ""
+                if not display_title:
+                    display_title = (item.get("summary") or "")[:30]
+                short_id = (item.get("memory_id") or "")[:6]
+                if short_id:
+                    lines.append(f"- {display_title} ({short_id}, {age_str})" if age_str else f"- {display_title} ({short_id})")
+                else:
+                    lines.append(f"- {display_title} ({age_str})" if age_str else f"- {display_title}")
 
         lines.append("\n</memory_index>")
         result = "\n".join(lines)
@@ -992,70 +1057,6 @@ class NativeMemoryBackend(MemoryBackend):
     # Smart auto-retain filtering
     # ------------------------------------------------------------------
 
-    def _smart_filter_and_classify(self, summary: str) -> list[dict]:
-        """Multi-layer filter: noise, dedup, classify."""
-        stripped = summary.strip()
-
-        # Layer 1: length filter
-        if len(stripped) < 20:
-            return []
-
-        # Layer 2: generic pattern filter
-        first_line = stripped.split("\n")[0].lower()
-        generic_starts = (
-            "hello",
-            "hi ",
-            "hey",
-            "thanks",
-            "thank you",
-            "ok",
-            "okay",
-            "sure",
-            "yes",
-            "no",
-            "bye",
-            "great",
-        )
-        if any(first_line.startswith(p) for p in generic_starts) and len(stripped) < 100:
-            return []
-
-        # Layer 3: noise filter (code patterns, file paths, etc.)
-        for pat in EXCLUDED_CONTENT_PATTERNS:
-            if re.search(pat, stripped, re.IGNORECASE):
-                return []
-
-        # Layer 4: signal matching — only retain if high-signal pattern matched
-        has_signal = False
-        for patterns in HIGH_SIGNAL_PATTERNS.values():
-            for pat in patterns:
-                if re.search(pat, stripped, re.IGNORECASE):
-                    has_signal = True
-                    break
-            if has_signal:
-                break
-
-        if not has_signal:
-            return []
-
-        # Split into chunks (paragraphs)
-        chunks = [p.strip() for p in stripped.split("\n\n") if len(p.strip()) > 30]
-        if not chunks:
-            chunks = [stripped]
-
-        memories = []
-        for chunk in chunks:
-            mtype = self._classify_type(chunk)
-            memories.append(
-                {
-                    "content": chunk,
-                    "summary": self._build_summary(chunk),
-                    "memory_type": mtype,
-                    "tags": self._extract_tags(chunk),
-                }
-            )
-
-        return memories[:3]
-
     async def _llm_extract_memories(self, user_id: str, conversation: str) -> list[dict]:
         """Use a lightweight LLM call to extract structured memories from a conversation turn.
 
@@ -1083,37 +1084,61 @@ class NativeMemoryBackend(MemoryBackend):
                 existing_hint = f"\n\nExisting memories (do NOT duplicate):\n{existing_index}"
 
             prompt = (
-                "You are a STRICT memory extraction filter. Your job is to decide if anything "
-                "in this conversation is worth remembering PERMANENTLY across sessions.\n\n"
+                "You are an EXTREMELY STRICT memory extraction filter. Your job is to decide if "
+                "anything in this conversation is worth remembering PERMANENTLY across sessions.\n\n"
+                "You must be CONSERVATIVE: when in any doubt, return []. Most conversations "
+                "contain NOTHING worth remembering. Only extract genuine, durable, non-obvious facts.\n\n"
                 "Return a JSON array of objects with 'content', 'type' "
-                "(one of: user, feedback, project, reference), and 'summary' (max 80 chars).\n\n"
-                "STRICT Rules — extract ONLY if ALL conditions are met:\n"
-                "- The content is a FACTUAL STATEMENT (not a question, not a request)\n"
-                "- The content reveals something NON-OBVIOUS about the user's identity, "
-                "preferences, work context, or goals\n"
-                "- The content would still be useful weeks from now\n"
-                "- The content contains SPECIFIC information (names, tools, decisions, constraints)\n\n"
-                "REJECT (return empty []):\n"
+                "(one of: user, feedback, project, reference), 'summary' (max 80 chars), "
+                "and 'title' (max 25 chars, a short label for this memory). "
+                "Return at most 2 items.\n\n"
+                "EXTRACT only if ALL of these are true:\n"
+                "- The content is a FACTUAL STATEMENT (never a question or request)\n"
+                "- The content reveals something SPECIFIC and NON-OBVIOUS about the user: "
+                "a concrete preference with reason, a named tool/framework they use, a role with "
+                "context, a hard constraint, a named project with goal, or explicit positive/negative "
+                "feedback on a specific approach\n"
+                "- The content would still be useful MONTHS from now (not just today)\n"
+                "- The content contains at least one SPECIFIC entity: a name, a tool name, "
+                "a date, a number, a framework, a project name, or a concrete decision\n\n"
+                "ALWAYS REJECT (return []):\n"
                 "- Questions of any kind (who/what/why/where/when/how/多少/什么/为什么/怎么/哪个)\n"
-                "- Greetings, farewells, thanks, acknowledgments\n"
-                "- Requests for the AI to do something (no 'help me', 'show me', 'check')\n"
-                "- Self-introductions with no substantive information (e.g. 'I am a developer')\n"
+                "- Greetings, farewells, thanks, acknowledgments, small talk\n"
+                "- Requests for the AI to do something ('help me', 'show me', 'check', 'please')\n"
+                "- Vague self-introductions without specifics ('I am a developer', 'I like coding')\n"
                 "- Meta-commentary about the conversation itself\n"
-                "- Code snippets, file paths, git commands, error traces\n"
-                "- Any content that is obvious, generic, or universally true\n"
+                "- Code snippets, file paths, git commands, error traces, terminal output\n"
+                "- Anything obvious, generic, or universally true\n"
                 "- Assistant boilerplate, greetings, or identity statements\n"
-                "- Content shorter than 20 characters\n\n"
+                "- Content shorter than 30 characters\n"
+                "- Temporary/ephemeral state ('currently looking at X', 'right now I'm doing Y')\n"
+                "  unless it includes a specific deadline, constraint, or named deliverable\n"
+                "- Mild preferences without rationale ('I prefer X') — only keep if a reason is given\n"
+                "- Activity logs, summaries, or recaps — extract only the surprising/non-obvious kernel\n\n"
                 "TYPE rules:\n"
-                "- user: identity, role, expertise level, name, preferences (include specific details)\n"
-                "- feedback: BOTH corrections AND positive confirmations. If the user says\n"
-                "  'yes exactly' or 'perfect keep doing that', capture what was validated and WHY.\n"
-                "  If you only save corrections, you'll drift away from validated approaches.\n"
-                "- project: specific work items with dates/deadlines/constraints\n"
-                "- reference: external system URLs, identifiers, access patterns\n\n"
+                "- user: concrete identity (name+role), expertise level with years, specific preferences "
+                "WITH reasoning, named tools/frameworks they use daily\n"
+                "- feedback: BOTH corrections AND positive confirmations. Must include the SPECIFIC "
+                "approach that was validated/rejected and the WHY. 'yes exactly' alone is not enough — "
+                "capture WHAT was confirmed and WHY it matters.\n"
+                "- project: specific work items with concrete deadlines, constraints, or stakeholders\n"
+                "- reference: external system URLs with their purpose, named identifiers\n\n"
+                "EXAMPLES of GOOD memories:\n"
+                "- 'User is a backend engineer with 8 years Go experience, new to React — explain "
+                "frontend concepts using backend analogies'\n"
+                "- 'User prefers raw SQL over ORMs because a past ORM migration silently corrupted "
+                "production data'\n"
+                "- 'User confirmed the single-bundle PR approach for this area — avoids churn from "
+                "splitting interdependent changes'\n\n"
+                "EXAMPLES of BAD memories (do NOT extract):\n"
+                "- 'User is a developer'\n"
+                "- 'User asked about authentication'\n"
+                "- 'User prefers TypeScript'\n"
+                "- 'Working on the login feature'\n\n"
                 f"{existing_hint}\n\n"
                 "Conversation:\n"
                 f"{conversation[:2000]}\n\n"
-                'Return ONLY valid JSON: [{"content": "...", "type": "user", "summary": "..."}] '
+                'Return ONLY valid JSON: [{"content": "...", "type": "user", "summary": "...", "title": "..."}] '
                 "or [] if nothing is worth remembering."
             )
 
@@ -1149,7 +1174,7 @@ class NativeMemoryBackend(MemoryBackend):
                 return []
 
             memories = []
-            for item in parsed[:3]:
+            for item in parsed[:2]:
                 content = item.get("content", "").strip()
                 mem_type = item.get("type", "user")
                 summary = item.get("summary", "")
@@ -1158,14 +1183,21 @@ class NativeMemoryBackend(MemoryBackend):
                 # Post-extraction validation: reject low-quality candidates
                 if not self._is_valid_memory_content(content):
                     continue
+                # Noise post-check: reject code patterns / file paths
+                if any(re.search(pat, content, re.IGNORECASE) for pat in EXCLUDED_CONTENT_PATTERNS):
+                    continue
                 if mem_type not in ("user", "feedback", "project", "reference"):
                     mem_type = "user"
                 if not summary:
-                    summary = self._build_summary(content)
+                    summary = await self._llm_build_summary(content)
+                title = item.get("title", "").strip()
+                if not title:
+                    title = await self._llm_build_title(content)
                 memories.append(
                     {
                         "content": content[:5000],
                         "summary": summary[:100],
+                        "title": title[:25],
                         "memory_type": mem_type,
                         "tags": self._extract_tags(content),
                     }
@@ -1213,7 +1245,10 @@ class NativeMemoryBackend(MemoryBackend):
             if not summary:
                 filtered.append(mem)
                 continue
-            if any(self._word_similarity(summary, rs) > 0.7 for rs in recent_summaries):
+            if any(
+                self._word_similarity(summary, rs) > (0.55 if _has_cjk(summary + rs) else 0.7)
+                for rs in recent_summaries
+            ):
                 continue  # too similar, skip
             filtered.append(mem)
 
@@ -1221,9 +1256,13 @@ class NativeMemoryBackend(MemoryBackend):
 
     @staticmethod
     def _word_similarity(a: str, b: str) -> float:
-        """Jaccard similarity on word sets."""
-        set_a = set(a.lower().split())
-        set_b = set(b.lower().split())
+        """Jaccard similarity — uses character n-grams for CJK, word sets for English."""
+        if _has_cjk(a) or _has_cjk(b):
+            set_a = _char_ngrams(a, 2)
+            set_b = _char_ngrams(b, 2)
+        else:
+            set_a = set(a.lower().split())
+            set_b = set(b.lower().split())
         if not set_a or not set_b:
             return 0.0
         return len(set_a & set_b) / len(set_a | set_b)
@@ -1236,17 +1275,28 @@ class NativeMemoryBackend(MemoryBackend):
         re.IGNORECASE,
     )
 
+    # Patterns that indicate assistant internal monologue (should never be stored as memory)
+    _ASSISTANT_MONOLOGUE_STARTS = (
+        "让我", "我来", "我来帮", "让我来", "让我检查", "让我看看", "让我搜",
+        "搜索一下", "查找一下", "我来分析", "我来搜索",
+        "正在搜索", "正在查找", "正在检查", "正在分析", "正在读取", "正在执行",
+        "我来读", "让我读", "我来查看", "好的，我来", "好的，让我",
+    )
+
     @classmethod
     def _is_valid_memory_content(cls, content: str) -> bool:
         """Post-extraction validation: reject questions, noise, and low-signal content."""
         stripped = content.strip()
-        if len(stripped) < 20:
+        if len(stripped) < 30:
             return False
         # Reject questions (ending with ? or ？)
         if stripped.endswith("?") or stripped.endswith("？"):
             return False
         # Reject content starting with question words
         if cls._QUESTION_PATTERNS.match(stripped):
+            return False
+        # Reject assistant internal monologue
+        if any(stripped.startswith(p) for p in cls._ASSISTANT_MONOLOGUE_STARTS):
             return False
         # Reject pure question patterns anywhere in short content
         question_markers = ("我叫啥", "你叫啥", "我是谁", "你是谁", "什么意思", "怎么回事")
@@ -1261,25 +1311,143 @@ class NativeMemoryBackend(MemoryBackend):
         return True
 
     def _extract_tags(self, content: str) -> list[str]:
-        words = content.lower().split()
+        """Extract keyword tags. Supports both English (whitespace split) and Chinese (segment-based)."""
         tags: list[str] = []
         seen: set[str] = set()
-        for w in words:
-            clean = w.strip(".,!?;:()[]{}\"'").lower()
-            if len(clean) >= 3 and clean not in _STOPWORDS and clean not in seen:
-                tags.append(clean)
-                seen.add(clean)
+
+        if _has_cjk(content):
+            # Chinese: split on punctuation/whitespace, then extract 2-4 char segments
+            # Filter out segments containing stopwords
+            chunks = []
+            current = []
+            for c in content:
+                if c in "，。！？、；：""''【】（）《》\t\n\r ":
+                    if current:
+                        chunks.append("".join(current))
+                        current = []
+                else:
+                    current.append(c)
+            if current:
+                chunks.append("".join(current))
+
+            for chunk in chunks:
+                chunk = chunk.strip()
+                if not chunk:
+                    continue
+                # Skip chunks that are just a single stopword
+                if chunk in _CJK_STOPWORDS:
+                    continue
+                # For chunks of 2-4 chars, use directly as tag
+                if 2 <= len(chunk) <= 4:
+                    if chunk not in seen:
+                        tags.append(chunk)
+                        seen.add(chunk)
+                # For longer chunks, slide a 3-char window
+                elif len(chunk) > 4:
+                    for i in range(len(chunk) - 2):
+                        seg = chunk[i : i + 3]
+                        # Skip segments dominated by stopwords
+                        if any(sw in seg for sw in ("的", "了", "是", "在")):
+                            continue
+                        if seg not in seen:
+                            tags.append(seg)
+                            seen.add(seg)
+        else:
+            # English: original whitespace-split logic
+            for w in content.lower().split():
+                clean = w.strip(".,!?;:()[]{}\"'").lower()
+                if len(clean) >= 3 and clean not in _STOPWORDS and clean not in seen:
+                    tags.append(clean)
+                    seen.add(clean)
+
         return tags[:5]
 
     def _build_summary(self, content: str, max_len: int = 100) -> str:
-        # Take first sentence or truncate
+        """Take the first sentence from content, supporting both CJK and English."""
         flat = content.replace("\n", " ").strip()
-        sentences = flat.split(". ")
-        if sentences and len(sentences[0]) <= max_len:
-            return sentences[0].strip()
-        if len(flat) > max_len:
+
+        # Split on common sentence-ending markers (both CJK and English)
+        # without regex: find the earliest sentence boundary
+        best_pos = len(flat)
+        for marker in ("。", "！", "？", ". ", "! ", "? ", "；", "; "):
+            pos = flat.find(marker)
+            if pos != -1 and pos < best_pos:
+                best_pos = pos + len(marker)
+
+        first_sentence = flat[:best_pos].strip()
+        if first_sentence and len(first_sentence) <= max_len:
+            return first_sentence
+
+        # No good sentence boundary found — truncate at max_len
+        if len(flat) <= max_len:
+            return flat
+        # For CJK: truncate at exact char boundary
+        if _has_cjk(flat):
             return flat[:max_len].strip() + "..."
-        return flat
+        # For English: try to break at last space within max_len
+        truncated = flat[:max_len]
+        last_space = truncated.rfind(" ")
+        if last_space > max_len // 2:
+            return truncated[:last_space].strip() + "..."
+        return truncated.strip() + "..."
+
+    async def _llm_build_summary(self, content: str) -> str:
+        """Use LLM to generate a concise summary (max 80 chars). Falls back to _build_summary."""
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            model = self._get_memory_model()
+            response = await model.ainvoke(
+                [
+                    SystemMessage(content="Summarize in at most 80 characters. Output ONLY the summary, nothing else."),
+                    HumanMessage(
+                        content=f"Summarize this memory in at most 80 characters (Chinese or English):\n\n{content[:500]}"
+                    ),
+                ],
+            )
+            text = response.content
+            if isinstance(text, list):
+                for item in text:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        text = item.get("text", "")
+                        break
+                else:
+                    return self._build_summary(content)
+            summary = str(text).strip().strip("\"'")
+            if summary and len(summary) <= 120:
+                return summary[:100]
+        except Exception as e:
+            logger.debug("[NativeMemory] LLM summary failed, using rule-based: %s", e)
+        return self._build_summary(content)
+
+    async def _llm_build_title(self, content: str) -> str:
+        """Use LLM to generate a short title (max 25 chars). Falls back to summary truncation."""
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            model = self._get_memory_model()
+            response = await model.ainvoke(
+                [
+                    SystemMessage(content="Generate a short title in at most 25 characters. Output ONLY the title."),
+                    HumanMessage(
+                        content=f"Give this memory a concise title (max 25 chars, Chinese or English):\n\n{content[:300]}"
+                    ),
+                ],
+            )
+            text = response.content
+            if isinstance(text, list):
+                for item in text:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        text = item.get("text", "")
+                        break
+                else:
+                    return self._build_summary(content, 25)
+            title = str(text).strip().strip("\"'")
+            if title and len(title) <= 40:
+                return title[:25]
+        except Exception as e:
+            logger.debug("[NativeMemory] LLM title failed, using fallback: %s", e)
+        return self._build_summary(content, 25)
 
     @staticmethod
     def _format_memory(doc: dict, score: float) -> dict:
@@ -1291,6 +1459,7 @@ class NativeMemoryBackend(MemoryBackend):
             "memory_id": doc["memory_id"],
             "text": doc["content"],
             "summary": doc["summary"],
+            "title": doc.get("title", ""),
             "type": doc["memory_type"],
             "source": doc.get("source", "manual"),
             "created_at": doc["created_at"].isoformat()
