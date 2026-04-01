@@ -12,6 +12,7 @@
 
 import asyncio
 import os
+import shlex
 import uuid
 from typing import Literal
 
@@ -82,6 +83,13 @@ class DaytonaBackend(BaseSandbox):
         if not hasattr(self, "_work_dir"):
             self._work_dir = self._sandbox.get_work_dir()
         return self._work_dir
+
+    def _ensure_parent_dir(self, file_path: str) -> None:
+        """Ensure the parent directory exists before uploading a file."""
+        parent = os.path.dirname(file_path)
+        if not parent:
+            return
+        self.execute(f"mkdir -p {shlex.quote(parent)}")
 
     def execute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
         effective_timeout = min(timeout or self._timeout, self._timeout)
@@ -239,6 +247,10 @@ class DaytonaBackend(BaseSandbox):
         对含中文的路径：先通过 SDK 上传到 ASCII 临时路径，再用 shell mv 到中文路径。
         纯 ASCII 路径直接走 SDK，不做任何额外处理。
         """
+        for path, _content in files:
+            if path.startswith("/"):
+                self._ensure_parent_dir(path)
+
         # 原始路径 -> 临时路径的映射（仅中文路径）
         bridge_map: dict[str, str] = {}
         # 最终传给 SDK 的请求
@@ -276,7 +288,9 @@ class DaytonaBackend(BaseSandbox):
                 continue
             # 确保父目录存在
             parent = os.path.dirname(original)
-            result = self.execute(f'mkdir -p "{parent}" && mv "{tmp}" "{original}"')
+            result = self.execute(
+                f"mkdir -p {shlex.quote(parent)} && mv {shlex.quote(tmp)} {shlex.quote(original)}"
+            )
             if result.exit_code != 0:
                 rename_errors[original] = f"rename failed: {result.output}"
                 logger.warning(f"Failed to rename {tmp} -> {original}: {result.output}")

@@ -63,7 +63,7 @@ class ToolSearchTool(BaseTool):
 
     # 注入的依赖（非 Pydantic 字段）
     _manager: Optional["DeferredToolManager"] = None
-    _search_limit: int = 10
+    _search_limit: int = 25
 
     class Config:
         arbitrary_types_allowed = True
@@ -71,7 +71,7 @@ class ToolSearchTool(BaseTool):
     def __init__(
         self,
         manager: "DeferredToolManager",
-        search_limit: int = 10,
+        search_limit: int = 25,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -90,17 +90,29 @@ class ToolSearchTool(BaseTool):
         if not self._manager:
             return "Error: search_tools is not configured properly."
 
-        # 只搜索尚未发现的工具
+        discovered = self._manager.get_discovered_tools()
         undiscovered = self._manager.get_undiscovered_tools()
-        if not undiscovered:
-            return "All available tools have already been loaded. No deferred tools remaining."
+        all_tools = discovered + undiscovered
+        if not all_tools:
+            return "No deferred tools are available for search."
 
-        # 搜索
-        results = search_tools_with_keywords(
+        # 优先返回未加载工具，避免较小的 result limit 被已可用工具占满。
+        undiscovered_results = search_tools_with_keywords(
             query=query,
             tools=undiscovered,
             max_results=self._search_limit,
         )
+        remaining_slots = max(self._search_limit - len(undiscovered_results), 0)
+        discovered_results = (
+            search_tools_with_keywords(
+                query=query,
+                tools=discovered,
+                max_results=remaining_slots,
+            )
+            if remaining_slots > 0
+            else []
+        )
+        results = undiscovered_results + discovered_results
 
         if not results:
             return (
@@ -111,6 +123,8 @@ class ToolSearchTool(BaseTool):
         # 提升匹配的工具
         matched_names = [r.name for r in results]
         newly_discovered = self._manager.discover_tools(matched_names)
+        newly_discovered_names = {tool.name for tool in newly_discovered}
+        already_available_count = len(results) - len(newly_discovered)
 
         # 构建返回内容
         parts: list[str] = []
@@ -136,15 +150,21 @@ class ToolSearchTool(BaseTool):
 
             parts.append(
                 f"## {result.name} (score: {result.score:.1f})\n"
+                f"Status: {'newly loaded' if result.name in newly_discovered_names else 'already available'}\n"
                 f"Description: {result.description[:300]}\n"
                 f"Parameters:\n```json\n{schema_str}\n```"
             )
 
         status = ""
-        if len(newly_discovered) < len(results):
-            status = f" ({len(newly_discovered)} newly loaded, {len(results) - len(newly_discovered)} already available)"
-        else:
-            status = f" ({len(results)} tools loaded)"
+        if newly_discovered and already_available_count:
+            status = (
+                f" ({len(newly_discovered)} newly loaded, "
+                f"{already_available_count} already available)"
+            )
+        elif newly_discovered:
+            status = f" ({len(newly_discovered)} tools loaded)"
+        elif already_available_count:
+            status = f" ({already_available_count} already available)"
 
         header = f"Found {len(results)} tool(s){status}. These tools are now available for use:\n\n"
         return header + "\n\n---\n\n".join(parts)

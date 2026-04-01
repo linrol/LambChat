@@ -27,6 +27,11 @@ logger = get_logger(__name__)
 _parse_cache: dict[int, _ParsedTool] = {}
 
 
+def _normalize_search_text(value: str) -> str:
+    """Normalize separators so `web_search`, `web-search`, and `web search` match alike."""
+    return re.sub(r"[_:\-\s]+", " ", value).strip().lower()
+
+
 @dataclass
 class ToolSearchResult:
     """搜索结果"""
@@ -43,6 +48,7 @@ class _ParsedTool:
 
     name: str
     full: str
+    normalized_full: str
     parts: list[str]
     hint: str
     desc: str
@@ -62,6 +68,7 @@ def _parse_tool(tool: "BaseTool") -> _ParsedTool:
     pt = _ParsedTool(
         name=name,
         full=name.lower(),
+        normalized_full=_normalize_search_text(name),
         parts=name.replace("_", " ").replace("-", " ").replace(":", " ").lower().split(),
         hint=hint.lower(),
         desc=desc.lower(),
@@ -76,7 +83,7 @@ def _compile_term_patterns(terms: list[str]) -> list[tuple[str, str, re.Pattern[
     """编译搜索词为 (原始词, 小写词, 词边界正则) 列表"""
     patterns: list[tuple[str, str, re.Pattern[str]]] = []
     for term in terms:
-        term_lower = term.lower()
+        term_lower = _normalize_search_text(term)
         try:
             patterns.append(
                 (term, term_lower, re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE))
@@ -133,7 +140,7 @@ def search_tools_with_keywords(
     search_terms: list[str] = []
     for term in raw_terms:
         if term.startswith("+"):
-            required_terms.append(term[1:].lower())
+            required_terms.append(term[1:])
             search_terms.append(term[1:])
         else:
             search_terms.append(term)
@@ -157,7 +164,8 @@ def search_tools_with_keywords(
         all_match = True
         for _term, _tl, pattern in required_compiled:
             if (
-                not pattern.search(pt.full)
+                _tl not in pt.normalized_full
+                and not pattern.search(pt.full)
                 and not pattern.search(pt.hint)
                 and not pattern.search(pt.desc)
             ):
@@ -180,7 +188,7 @@ def search_tools_with_keywords(
                 score += 6 if pt.is_mcp else 5
 
             # 全名回退（低权重）
-            if score == 0 and term_lower in pt.full:
+            if score == 0 and (term_lower in pt.normalized_full or term_lower in pt.full):
                 score += 3
 
             # hint 匹配（词边界）

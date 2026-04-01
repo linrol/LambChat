@@ -13,6 +13,7 @@
 
 import asyncio
 import os
+import shlex
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from deepagents.backends.protocol import (
@@ -65,6 +66,13 @@ class E2BBackend(BaseSandbox):
     @property
     def work_dir(self) -> str:
         return "/home/user"
+
+    def _ensure_parent_dir(self, file_path: str) -> None:
+        """Ensure the parent directory exists before writing a file."""
+        parent = os.path.dirname(file_path)
+        if not parent:
+            return
+        self.execute(f"mkdir -p {shlex.quote(parent)}")
 
     # =========================================================================
     # Command execution
@@ -234,6 +242,7 @@ class E2BBackend(BaseSandbox):
     def write(self, file_path: str, content: str) -> WriteResult:
         """使用 E2B 原生 files.write() 写入文件"""
         try:
+            self._ensure_parent_dir(file_path)
             self._sandbox.files.write(path=file_path, data=content)
             return WriteResult(path=file_path)
         except Exception as e:
@@ -303,6 +312,7 @@ class E2BBackend(BaseSandbox):
                 responses.append(FileUploadResponse(path=path, error="invalid_path"))
                 continue
             try:
+                self._ensure_parent_dir(path)
                 self._sandbox.files.write(path=path, data=content)
                 responses.append(FileUploadResponse(path=path, error=None))
             except Exception as e:

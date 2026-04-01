@@ -337,7 +337,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "type": SettingType.NUMBER,
         "category": SettingCategory.TOOLS,
         "description": "Maximum number of results returned by tool search",
-        "default": 10,
+        "default": 25,
         "depends_on": "ENABLE_DEFERRED_TOOL_LOADING",
     },
     # ============================================

@@ -40,6 +40,7 @@ from src.api.routes import (
 from src.api.routes import settings as settings_router
 from src.api.routes.agent import config as agent_config
 from src.frontend_resolution import resolve_frontend_target
+from src.infra.local_filesystem import ensure_local_filesystem_dirs
 from src.infra.logging import get_logger, setup_logging
 from src.kernel.config import initialize_settings, settings
 
@@ -89,6 +90,9 @@ async def lifespan(app: FastAPI):
     # 从数据库初始化设置
     await initialize_settings()
     logger.info("Settings initialized from database")
+
+    # 初始化本地文件系统目录（使用数据库覆盖后的最终配置）
+    ensure_local_filesystem_dirs(settings)
 
     # 发现并注册所有 Agent
     from src.agents import discover_agents

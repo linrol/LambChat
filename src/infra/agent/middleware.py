@@ -1036,7 +1036,10 @@ class SubagentActivityMiddleware(AgentMiddleware):
             await self._persist_log(request.runtime)
 
             # Inject log path into AI response
-            log_ref = f"\n\n[Activity log saved to: {self._log_path}]"
+            log_ref = (
+                f"\n\n[Activity log saved to: {self._log_path}] "
+                "For more details, check this file."
+            )
             original_text = ai_message.text or ""
 
             new_content: str | list
