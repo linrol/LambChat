@@ -4,7 +4,6 @@ os.environ["DEBUG"] = "false"
 
 from pathlib import Path
 
-
 def test_search_agent_subagents_enable_activity_logging():
     source = Path("src/agents/search_agent/nodes.py").read_text()
 

@@ -1,8 +1,12 @@
+import os
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from src.infra.local_filesystem import ensure_local_filesystem_dirs
+
+os.environ["DEBUG"] = "false"
 
 
 def test_ensure_local_filesystem_dirs_creates_workspace_and_uploads(tmp_path):
@@ -20,18 +24,34 @@ def test_ensure_local_filesystem_dirs_creates_workspace_and_uploads(tmp_path):
     assert (uploads_dir / "revealed_projects").is_dir()
 
 
+def test_ensure_local_filesystem_dirs_skips_workspace_dirs_by_default(tmp_path):
+    clean_cwd = tmp_path / "clean-cwd"
+    clean_cwd.mkdir()
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(clean_cwd)
+        uploads_dir = tmp_path / "uploads"
+        settings = SimpleNamespace(LOCAL_STORAGE_PATH=str(uploads_dir))
+
+        ensure_local_filesystem_dirs(settings)
+
+        assert uploads_dir.is_dir()
+        assert (uploads_dir / "revealed_files").is_dir()
+        assert (uploads_dir / "revealed_projects").is_dir()
+        assert not (clean_cwd / "workspace").exists()
+    finally:
+        os.chdir(original_cwd)
+
+
 def test_ensure_local_filesystem_dirs_uses_default_upload_path_when_blank(tmp_path):
-    workspace_dir = tmp_path / "workspace"
     default_uploads_dir = tmp_path / "uploads"
     settings = SimpleNamespace(LOCAL_STORAGE_PATH="")
 
     ensure_local_filesystem_dirs(
         settings,
-        workspace_dir=workspace_dir,
         default_upload_dir=default_uploads_dir,
     )
 
-    assert workspace_dir.is_dir()
     assert default_uploads_dir.is_dir()
     assert (default_uploads_dir / "revealed_files").is_dir()
     assert (default_uploads_dir / "revealed_projects").is_dir()
