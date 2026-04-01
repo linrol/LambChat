@@ -756,10 +756,7 @@ class SubagentActivityMiddleware(AgentMiddleware):
         """Build a stable, unique payload path for this subagent run."""
         self._payload_counter += 1
         safe_label = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or kind
-        return (
-            f"{self._payload_dir}/"
-            f"{self._payload_counter:04d}_{kind}_{safe_label}.{extension}"
-        )
+        return f"{self._payload_dir}/{self._payload_counter:04d}_{kind}_{safe_label}.{extension}"
 
     async def _write_payload(
         self,
@@ -1037,8 +1034,7 @@ class SubagentActivityMiddleware(AgentMiddleware):
 
             # Inject log path into AI response
             log_ref = (
-                f"\n\n[Activity log saved to: {self._log_path}] "
-                "For more details, check this file."
+                f"\n\n[Activity log saved to: {self._log_path}] For more details, check this file."
             )
             original_text = ai_message.text or ""
 
