@@ -120,6 +120,15 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
         await context.get_tools()
         filtered_tools = context.filter_tools() or None
 
+        if context.deferred_manager is not None and filtered_tools is not None:
+            from src.infra.tool.tool_search_tool import ToolSearchTool
+
+            search_tool = ToolSearchTool(
+                manager=context.deferred_manager,
+                search_limit=settings.DEFERRED_TOOL_SEARCH_LIMIT,
+            )
+            filtered_tools.append(search_tool)
+
     # 创建内层 graph (deep agent)
     checkpointer_start = time.time()
     inner_checkpointer = await get_async_checkpointer()
@@ -130,20 +139,31 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
 
     # 自定义子代理配置 - 强制将所有中间信息保存到文件
     subagent_base_url = configurable.get("base_url", "")
+    subagent_middleware = [
+        *create_retry_middleware(),
+        ToolResultBinaryMiddleware(base_url=subagent_base_url),
+        SubagentActivityMiddleware(backend=backend_factory),
+    ]
+    if context.deferred_manager is not None:
+        from src.infra.agent.middleware import ToolSearchMiddleware
+
+        subagent_middleware.append(
+            ToolSearchMiddleware(
+                deferred_manager=context.deferred_manager,
+                search_limit=settings.DEFERRED_TOOL_SEARCH_LIMIT,
+            )
+        )
+
     custom_subagents: list[SubAgent | CompiledSubAgent] = [
         {
             "name": "general-purpose",
             "description": "General-purpose agent for researching complex questions, searching for files and content, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. This agent has access to all tools as the main agent.",
             "system_prompt": SUBAGENT_PROMPT,
-            "middleware": [
-                *create_retry_middleware(),
-                ToolResultBinaryMiddleware(base_url=subagent_base_url),
-                SubagentActivityMiddleware(backend=backend_factory),
-            ],
+            "middleware": subagent_middleware,
         }
     ]
 
-    # 构建中间件栈：retry → binary upload → app prompt (skills/memory) → memory index → cache tag
+    # 构建中间件栈：retry → binary upload → app prompt (skills/memory) → memory index → tool search → cache tag
     user_middleware = create_retry_middleware()
     user_middleware.append(ToolResultBinaryMiddleware(base_url=subagent_base_url))
     user_middleware.append(
@@ -158,6 +178,16 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
         from src.infra.agent.middleware import MemoryIndexMiddleware
 
         user_middleware.append(MemoryIndexMiddleware(user_id=context.user_id))
+
+    if context.deferred_manager is not None:
+        from src.infra.agent.middleware import ToolSearchMiddleware
+
+        user_middleware.append(
+            ToolSearchMiddleware(
+                deferred_manager=context.deferred_manager,
+                search_limit=settings.DEFERRED_TOOL_SEARCH_LIMIT,
+            )
+        )
 
     # KV cache: tag final system block + last tool AFTER all dynamic injection
     user_middleware.append(PromptCachingMiddleware())
@@ -221,6 +251,21 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     schedule_auto_retain(
         user_input, event_processor.output_text, context.user_id, session_id=session_id
     )
+
+    if (
+        context.deferred_manager is not None
+        and session_id
+        and context.deferred_manager.discovered_count > 0
+    ):
+        try:
+            from src.infra.tool.deferred_manager import persist_discovered_tools
+
+            await persist_discovered_tools(
+                session_id,
+                context.deferred_manager.discovered_names,
+            )
+        except Exception:
+            pass
 
     return {
         "output": event_processor.output_text,

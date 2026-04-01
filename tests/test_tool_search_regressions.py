@@ -127,6 +127,14 @@ def search_doc(query: str) -> str:
     return query
 
 
+def test_fast_agent_context_supports_deferred_tool_loading():
+    source = open("src/agents/fast_agent/context.py", encoding="utf-8").read()
+
+    assert "self.deferred_manager" in source
+    assert "DeferredToolManager(" in source
+    assert "restore_discovered_tools" in source
+
+
 @pytest.mark.asyncio
 async def test_tool_search_middleware_injects_search_tool_and_discovered_tools():
     manager = _StubManager(discovered=[search_doc], undiscovered=[])
@@ -148,3 +156,11 @@ async def test_tool_search_middleware_injects_search_tool_and_discovered_tools()
     tool_names = [tool.name for tool in captured["request"].tools]
     assert "search_tools" in tool_names
     assert "search_doc" in tool_names
+
+
+def test_fast_agent_nodes_enable_tool_search_middleware_and_persist_discoveries():
+    source = open("src/agents/fast_agent/nodes.py", encoding="utf-8").read()
+
+    assert "ToolSearchMiddleware(" in source
+    assert "persist_discovered_tools" in source
+    assert "ToolSearchTool(" in source

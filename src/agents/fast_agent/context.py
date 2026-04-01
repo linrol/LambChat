@@ -17,6 +17,7 @@ from src.infra.tool.transfer_file_tool import get_transfer_file_tool, get_transf
 from src.kernel.config import settings
 
 if TYPE_CHECKING:
+    from src.infra.tool.deferred_manager import DeferredToolManager
     from src.infra.tool.mcp_client import MCPClientManager
 
 logger = get_logger(__name__)
@@ -47,6 +48,7 @@ class FastAgentContext:
         self._mcp_loaded: bool = False
         self.tools: List[Any] = []
         self.skills: List[dict] = []
+        self.deferred_manager: Optional["DeferredToolManager"] = None
 
     async def get_tools(self) -> List[Any]:
         """获取所有工具（懒加载 MCP 工具）"""
@@ -126,7 +128,32 @@ class FastAgentContext:
             logger.info(
                 f"[FastAgentContext] Loaded {len(mcp_tools)} MCP tools: {[t.name for t in mcp_tools]}"
             )
-            self.tools.extend(mcp_tools)
+
+            if (
+                settings.ENABLE_DEFERRED_TOOL_LOADING
+                and mcp_tools
+                and (len(self.tools) + len(mcp_tools)) > settings.DEFERRED_TOOL_THRESHOLD
+            ):
+                from src.infra.tool.deferred_manager import (
+                    DeferredToolManager,
+                    restore_discovered_tools,
+                )
+
+                pre_discovered = await restore_discovered_tools(self.session_id)
+
+                self.deferred_manager = DeferredToolManager(
+                    all_deferred_tools=mcp_tools,
+                    session_id=self.session_id,
+                    disabled_tools=self.disabled_tools,
+                    pre_discovered_names=pre_discovered,
+                )
+                logger.info(
+                    f"[FastAgentContext] Deferred {len(mcp_tools)} MCP tools "
+                    f"(builtin={len(self.tools)}, threshold={settings.DEFERRED_TOOL_THRESHOLD}, "
+                    f"pre_restored={len(pre_discovered)})"
+                )
+            else:
+                self.tools.extend(mcp_tools)
         except Exception as e:
             logger.error(f"[FastAgentContext] Failed to load MCP tools: {e}", exc_info=True)
 
