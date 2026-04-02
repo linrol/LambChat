@@ -194,7 +194,9 @@ class SectionPromptMiddleware(AgentMiddleware):
 
     def __init__(self, *, sections: list[str] | tuple[str, ...]) -> None:
         super().__init__()
-        self._sections = tuple(_normalize_prompt_text(section) for section in sections if section.strip())
+        self._sections = tuple(
+            _normalize_prompt_text(section) for section in sections if section.strip()
+        )
 
     async def awrap_model_call(
         self,
