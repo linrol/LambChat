@@ -284,6 +284,18 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
             (sessionData.metadata?.current_run_id as string) ||
             null;
 
+          // 从 metadata 提取配置信息
+          const sessionConfig = {
+            agent_id: (sessionData.metadata?.agent_id as string) || undefined,
+            agent_options: (sessionData.metadata?.agent_options as Record<
+              string,
+              boolean | string | number
+            >) || undefined,
+            disabled_tools: (sessionData.metadata?.disabled_tools as string[]) || undefined,
+            disabled_skills: (sessionData.metadata?.disabled_skills as string[]) || undefined,
+            disabled_mcp_tools: (sessionData.metadata?.disabled_mcp_tools as string[]) || undefined,
+          };
+
           // 并行发起 events、status 和 feedback 请求，减少串行等待时间
           const eventsPromise = sessionApi.getEvents(targetSessionId);
           const statusPromise = currentRunId
@@ -402,6 +414,8 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
               );
             }
           }
+
+          return sessionConfig;
         }
       } catch (err) {
         console.error("Failed to load session:", err);
@@ -410,6 +424,8 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         setIsLoading(false);
         isLoadingHistoryRef.current = false;
       }
+
+      return null;
     },
     [options, createSSEContext, canReadFeedback],
   );
@@ -464,6 +480,10 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
       setError(null);
 
       try {
+        // 获取当前禁用的 skills 和 mcp_tools
+        const disabledSkills = options?.getDisabledSkills?.() || [];
+        const disabledMcpTools = options?.getDisabledMcpTools?.() || [];
+
         const submitData = (await sessionApi.submitChat(
           currentAgent,
           content,
@@ -471,6 +491,8 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
           agentOptions,
           attachments,
           pendingProjectIdRef.current ?? undefined,
+          disabledSkills,
+          disabledMcpTools,
         )) as {
           session_id: string;
           run_id: string;
@@ -497,13 +519,26 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         if (!sessionId && newSessionId) {
           setSessionId(newSessionId);
           const now = new Date().toISOString();
+
+          // 构建完整的对话配置
+          const conversationConfig: Record<string, unknown> = {
+            current_run_id: newRunId,
+            agent_id: currentAgent,
+            agent_options: agentOptions || {},
+            disabled_skills: disabledSkills,
+            disabled_mcp_tools: disabledMcpTools,
+          };
+          if (projectId) {
+            conversationConfig.project_id = projectId;
+          }
+
           const newSession: BackendSession = {
             id: newSessionId,
             agent_id: currentAgent,
             created_at: now,
             updated_at: now,
             is_active: true,
-            metadata: projectId ? { project_id: projectId } : {},
+            metadata: conversationConfig,
           };
           setNewlyCreatedSession(newSession);
           setCurrentProjectId(projectId);
@@ -524,6 +559,26 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
             .catch((err) => {
               console.warn("[sendMessage] Failed to generate title:", err);
             });
+        } else if (sessionId && newRunId) {
+          // 更新现有 session 的 metadata
+          const conversationConfig: Record<string, unknown> = {
+            ...((newlyCreatedSession?.metadata as Record<string, unknown>) || {}),
+            current_run_id: newRunId,
+            agent_id: currentAgent,
+            agent_options: agentOptions || {},
+            disabled_skills: disabledSkills,
+            disabled_mcp_tools: disabledMcpTools,
+          };
+
+          setNewlyCreatedSession((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  metadata: conversationConfig,
+                  updated_at: new Date().toISOString(),
+                }
+              : null,
+          );
         }
         if (newRunId) {
           setCurrentRunId(newRunId);

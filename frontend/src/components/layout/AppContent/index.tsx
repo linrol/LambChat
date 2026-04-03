@@ -17,7 +17,14 @@ import { useTools } from "../../../hooks/useTools";
 import { useSkills } from "../../../hooks/useSkills";
 import { useVersion } from "../../../hooks/useVersion";
 import { useProjectManager } from "../../../hooks/useProjectManager";
-import { Permission, type AgentInfo, type Project } from "../../../types";
+import { useSessionConfig } from "../../../hooks/useSessionConfig";
+import {
+  Permission,
+  type AgentInfo,
+  type Project,
+  type ToolCategory,
+  type SkillSource,
+} from "../../../types";
 import type { VersionInfo } from "../../../types";
 import type { TabType } from "./types";
 import { useDragAndDrop } from "./useDragAndDrop";
@@ -126,7 +133,7 @@ function ChatAppContent({
 }) {
   const { t, i18n } = useTranslation();
   const { enableSkills, settings } = useSettingsContext();
-  const { hasPermission, isAuthenticated, user } = useAuth();
+  const { hasPermission, isAuthenticated } = useAuth();
 
   const { isPageDragging, pageDragAttachments, setPageDragAttachments } =
     useDragAndDrop();
@@ -139,43 +146,33 @@ function ChatAppContent({
     isLoading: approvalLoading,
   } = useApprovals({ sessionId: null });
 
-  const disabledToolsVersion = useMemo(
-    () =>
-      JSON.stringify(
-        ((user?.metadata?.disabled_tools as string[] | undefined) ?? [])
-          .slice()
-          .sort(),
-      ),
-    [user?.metadata?.disabled_tools],
-  );
-
   const {
     tools,
     isLoading: toolsLoading,
-    enabledCount: enabledToolsCount,
     totalCount: totalToolsCount,
-    toggleTool,
-    toggleCategory,
-    toggleAll,
     getDisabledToolNames,
     refreshToolsForAgent,
-  } = useTools(disabledToolsVersion);
+  } = useTools();
 
   const {
     skills,
     isLoading: skillsLoading,
-    enabledCount: enabledSkillsCount,
     totalCount: totalSkillsCount,
     pendingSkillNames,
     isMutating: skillsMutating,
-    toggleSkillWrapper,
-    toggleCategory: toggleSkillCategory,
-    toggleAll: toggleAllSkills,
     fetchSkills,
   } = useSkills({ enabled: enableSkills });
 
   const projectManager = useProjectManager();
 
+  // 创建一个 ref 来存储 sessionConfig，供 useAgent 使用
+  const sessionConfigRef = useRef({
+    disabledSkills: [] as string[],
+    disabledMcpTools: [] as string[],
+    agentOptions: {} as Record<string, boolean | string | number>,
+  });
+
+  // 先初始化 useAgent 获取 agents 和 currentAgent
   const {
     messages,
     sessionId,
@@ -208,6 +205,8 @@ function ChatAppContent({
       clearApprovals();
     },
     getEnabledTools: getDisabledToolNames,
+    getDisabledSkills: () => sessionConfigRef.current.disabledSkills,
+    getDisabledMcpTools: () => sessionConfigRef.current.disabledMcpTools,
     onSkillAdded: (skillName: string, _description: string, filesCount: number) => {
       console.log(
         `[AppContent] Skill added: ${skillName} (${filesCount} files), refreshing skills list`,
@@ -220,12 +219,169 @@ function ChatAppContent({
   useEffect(() => {
     if (prevAgentRef.current !== currentAgent) {
       prevAgentRef.current = currentAgent;
-      refreshToolsForAgent(currentAgent, user?.metadata);
+      refreshToolsForAgent(currentAgent);
     }
-  }, [currentAgent, refreshToolsForAgent, user?.metadata]);
+  }, [currentAgent, refreshToolsForAgent]);
 
-  const { agentOptionValues, currentAgentOptions, handleToggleAgentOption } =
-    useAgentOptions(agents, currentAgent);
+  // 现在可以初始化 agentOptions
+  const {
+    agentOptionValues,
+    currentAgentOptions,
+    handleToggleAgentOption,
+    restoreAgentOptions,
+  } = useAgentOptions(agents, currentAgent);
+
+  // 对话级别的配置管理（独立于全局配置）
+  const {
+    config: sessionConfig,
+    toggleSkill: toggleSessionSkill,
+    toggleMcpTool: toggleSessionMcpTool,
+    setAgentOption: setSessionAgentOption,
+    resetToDefaults,
+    restoreConfig: restoreSessionConfig,
+  } = useSessionConfig({
+    getDefaultAgentOptions: () => agentOptionValues,
+  });
+
+  // 同步 sessionConfig 到 ref，供 useAgent 使用
+  useEffect(() => {
+    sessionConfigRef.current = sessionConfig;
+  }, [sessionConfig]);
+
+  // Compute effective tools: apply session-level MCP tool overrides (blacklist)
+  const effectiveTools = useMemo(() => {
+    const sessionDisabled = new Set(sessionConfig.disabledMcpTools);
+    if (sessionDisabled.size === 0) return tools;
+    return tools.map((t) => {
+      if (t.category !== "mcp") return t;
+      return { ...t, enabled: t.enabled && !sessionDisabled.has(t.name) };
+    });
+  }, [tools, sessionConfig.disabledMcpTools]);
+
+  // Compute effective skills: apply session-level skill overrides (blacklist)
+  const effectiveSkills = useMemo(() => {
+    const sessionDisabled = new Set(sessionConfig.disabledSkills);
+    if (sessionDisabled.size === 0) return skills;
+    return skills.map((s) => ({
+      ...s,
+      enabled: s.enabled && !sessionDisabled.has(s.name),
+    }));
+  }, [skills, sessionConfig.disabledSkills]);
+
+  // Effective toggle callbacks: only update session config (not global state)
+  const effectiveToggleTool = useCallback(
+    (toolName: string) => {
+      const tool = tools.find((t) => t.name === toolName);
+      if (!tool) return;
+
+      if (tool.category === "mcp") {
+        toggleSessionMcpTool(toolName);
+      }
+      // Other categories (builtin, human, sandbox) don't support session-level toggle
+    },
+    [tools, toggleSessionMcpTool],
+  );
+
+  const effectiveToggleCategory = useCallback(
+    (category: ToolCategory, enabled: boolean) => {
+      if (category === "mcp") {
+        // For MCP tools, update session config
+        tools
+          .filter((t) => t.category === "mcp" && !t.system_disabled)
+          .forEach((t) => {
+            const isInSessionDisabled = sessionConfig.disabledMcpTools.includes(t.name);
+            if (enabled && isInSessionDisabled) {
+              // Want enabled, currently in disabled list → remove
+              toggleSessionMcpTool(t.name);
+            } else if (!enabled && !isInSessionDisabled) {
+              // Want disabled, not in disabled list → add
+              toggleSessionMcpTool(t.name);
+            }
+          });
+      }
+      // For other categories, we don't support session-level toggle yet
+    },
+    [tools, sessionConfig.disabledMcpTools, toggleSessionMcpTool],
+  );
+
+  const effectiveToggleAll = useCallback(
+    (enabled: boolean) => {
+      // Sync MCP tools in session config (disabled list)
+      tools
+        .filter((t) => t.category === "mcp" && !t.system_disabled)
+        .forEach((t) => {
+          const isInSessionDisabled = sessionConfig.disabledMcpTools.includes(t.name);
+          if (enabled && isInSessionDisabled) {
+            toggleSessionMcpTool(t.name);
+          } else if (!enabled && !isInSessionDisabled) {
+            toggleSessionMcpTool(t.name);
+          }
+        });
+    },
+    [tools, sessionConfig.disabledMcpTools, toggleSessionMcpTool],
+  );
+
+  const effectiveToggleSkill = useCallback(
+    async (name: string): Promise<boolean> => {
+      // Only update session config, not global state
+      toggleSessionSkill(name);
+      return true;
+    },
+    [toggleSessionSkill],
+  );
+
+  const effectiveToggleSkillCategory = useCallback(
+    async (category: SkillSource, enabled: boolean): Promise<boolean> => {
+      // Only update session config for skills in this category
+      skills
+        .filter((s) => s.source === category)
+        .forEach((s) => {
+          const isInSessionDisabled = sessionConfig.disabledSkills.includes(s.name);
+          if (enabled && isInSessionDisabled) {
+            toggleSessionSkill(s.name);
+          } else if (!enabled && !isInSessionDisabled) {
+            toggleSessionSkill(s.name);
+          }
+        });
+      return true;
+    },
+    [skills, sessionConfig.disabledSkills, toggleSessionSkill],
+  );
+
+  const effectiveToggleAllSkills = useCallback(
+    async (enabled: boolean): Promise<boolean> => {
+      // Only update session config for all skills
+      skills.forEach((s) => {
+        const isInSessionDisabled = sessionConfig.disabledSkills.includes(s.name);
+        if (enabled && isInSessionDisabled) {
+          toggleSessionSkill(s.name);
+        } else if (!enabled && !isInSessionDisabled) {
+          toggleSessionSkill(s.name);
+        }
+      });
+      return true;
+    },
+    [skills, sessionConfig.disabledSkills, toggleSessionSkill],
+  );
+
+  // Effective agent option toggle: update both local state and session config
+  const effectiveToggleAgentOption = useCallback(
+    (key: string, value: boolean | string | number) => {
+      handleToggleAgentOption(key, value);
+      setSessionAgentOption(key, value);
+    },
+    [handleToggleAgentOption, setSessionAgentOption],
+  );
+
+  // Compute effective counts
+  const effectiveEnabledToolsCount = useMemo(
+    () => effectiveTools.filter((t) => t.enabled).length,
+    [effectiveTools],
+  );
+  const effectiveEnabledSkillsCount = useMemo(
+    () => effectiveSkills.filter((s) => s.enabled).length,
+    [effectiveSkills],
+  );
 
   const canSendMessage = hasPermission(Permission.CHAT_WRITE);
 
@@ -259,12 +415,41 @@ function ChatAppContent({
     }
   }, [newlyCreatedSession?.name, newlyCreatedSession?.id, sessionId]);
 
+  // 处理配置恢复
+  const handleConfigRestored = useCallback(
+    (config: {
+      agent_id?: string;
+      agent_options?: Record<string, boolean | string | number>;
+      disabled_skills?: string[];
+      disabled_mcp_tools?: string[];
+      disabled_tools?: string[];
+    }) => {
+      console.log("[AppContent] Restoring session config:", config);
+
+      // 使用 useSessionConfig 恢复对话级配置
+      restoreSessionConfig(config);
+
+      // 恢复 agent options 到 useAgentOptions
+      if (config.agent_options) {
+        restoreAgentOptions(config.agent_options);
+      }
+    },
+    [restoreSessionConfig, restoreAgentOptions],
+  );
+
   const { handleSelectSession, handleNewSession } = useSessionSync({
     activeTab: "chat",
     sessionId,
     loadHistory,
     clearMessages,
+    onConfigRestored: handleConfigRestored,
   });
+
+  // Wrapper that also resets session config on new session
+  const handleNewSessionWithReset = useCallback(() => {
+    handleNewSession();
+    resetToDefaults();
+  }, [handleNewSession, resetToDefaults]);
 
   const handleMobileClose = useCallback(() => setMobileSidebarOpen(false), [
     setMobileSidebarOpen,
@@ -277,9 +462,9 @@ function ChatAppContent({
     [handleSelectSession, setMobileSidebarOpen],
   );
   const handleNewSessionAndClose = useCallback(() => {
-    handleNewSession();
+    handleNewSessionWithReset();
     setMobileSidebarOpen(false);
-  }, [handleNewSession, setMobileSidebarOpen]);
+  }, [handleNewSessionWithReset, setMobileSidebarOpen]);
 
   return (
     <AppShell
@@ -296,7 +481,7 @@ function ChatAppContent({
       onSelectAgent={selectAgent}
       currentProjectId={currentProjectId}
       projectManager={projectManager}
-      onNewSession={handleNewSession}
+      onNewSession={handleNewSessionWithReset}
       onShowProfile={onShowProfile}
       sidebar={
         <SessionSidebar
@@ -346,26 +531,26 @@ function ChatAppContent({
           currentRunId={currentRunId}
           isLoading={isLoading}
           canSendMessage={canSendMessage}
-          tools={tools}
-          onToggleTool={toggleTool}
-          onToggleCategory={toggleCategory}
-          onToggleAll={toggleAll}
+          tools={effectiveTools}
+          onToggleTool={effectiveToggleTool}
+          onToggleCategory={effectiveToggleCategory}
+          onToggleAll={effectiveToggleAll}
           toolsLoading={toolsLoading}
-          enabledToolsCount={enabledToolsCount}
+          enabledToolsCount={effectiveEnabledToolsCount}
           totalToolsCount={totalToolsCount}
-          skills={skills}
-          onToggleSkill={toggleSkillWrapper}
-          onToggleSkillCategory={toggleSkillCategory}
-          onToggleAllSkills={toggleAllSkills}
+          skills={effectiveSkills}
+          onToggleSkill={effectiveToggleSkill}
+          onToggleSkillCategory={effectiveToggleSkillCategory}
+          onToggleAllSkills={effectiveToggleAllSkills}
           skillsLoading={skillsLoading}
           pendingSkillNames={pendingSkillNames}
           skillsMutating={skillsMutating}
-          enabledSkillsCount={enabledSkillsCount}
+          enabledSkillsCount={effectiveEnabledSkillsCount}
           totalSkillsCount={totalSkillsCount}
           enableSkills={enableSkills}
           agentOptions={currentAgentOptions}
-          agentOptionValues={agentOptionValues}
-          onToggleAgentOption={handleToggleAgentOption}
+          agentOptionValues={sessionConfig.agentOptions}
+          onToggleAgentOption={effectiveToggleAgentOption}
           approvals={approvals}
           onRespondApproval={respondToApproval}
           approvalLoading={approvalLoading}

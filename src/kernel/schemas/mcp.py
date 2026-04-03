@@ -55,6 +55,9 @@ class SystemMCPServer(MCPServerBase):
     """System-level MCP server configuration (admin managed)"""
 
     is_system: bool = Field(True, description="Always True for system servers")
+    disabled_tools: list[str] = Field(
+        default_factory=list, description="List of tool names disabled at system level"
+    )
     created_at: Optional[str] = Field(None, description="Creation timestamp")
     updated_at: Optional[str] = Field(None, description="Last update timestamp")
     updated_by: Optional[str] = Field(None, description="Admin user ID who last updated")
@@ -151,6 +154,12 @@ class MCPToolInfo(BaseModel):
     name: str = Field(..., description="Tool name")
     description: str = Field(default="", description="Tool description")
     parameters: list[dict[str, Any]] = Field(default_factory=list, description="Tool parameters")
+    system_disabled: bool = Field(
+        default=False, description="Whether this tool is disabled at system level"
+    )
+    user_disabled: bool = Field(
+        default=False, description="Whether this tool is disabled by the current user"
+    )
 
 
 class MCPToolDiscoveryResponse(BaseModel):

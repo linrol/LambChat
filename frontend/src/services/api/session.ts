@@ -194,6 +194,8 @@ export const sessionApi = {
     agentOptions?: Record<string, boolean | string | number>,
     attachments?: MessageAttachment[],
     projectId?: string,
+    disabledSkills?: string[],
+    disabledMcpTools?: string[],
   ): Promise<{
     session_id: string;
     run_id: string;
@@ -205,6 +207,8 @@ export const sessionApi = {
       session_id: sessionId,
       agent_options: agentOptions,
       attachments,
+      disabled_skills: disabledSkills,
+      disabled_mcp_tools: disabledMcpTools,
     };
     if (projectId) {
       body.project_id = projectId;

@@ -459,6 +459,13 @@ class MCPStorage:
             if not server:
                 return [], f"Server '{server_name}' not found"
 
+            # Get system-disabled tools for this server
+            system_disabled_tools = await self.get_system_disabled_tools()
+            server_disabled_tools = system_disabled_tools.get(server_name, set())
+
+            # Get user-disabled tools for this server
+            user_disabled_tool_names = await self.get_disabled_tool_names(user_id)
+
             from src.infra.tool.mcp_client import MCPClientManager
 
             manager = MCPClientManager(use_database=False)
@@ -479,10 +486,20 @@ class MCPStorage:
                 tool_name = tool.name
                 if tool_name.startswith(f"{server_name}:"):
                     tool_name = tool_name[len(server_name) + 1 :]
+
+                # Check if this tool is system-disabled
+                is_system_disabled = tool_name in server_disabled_tools
+
+                # Check if this tool is user-disabled (qualified name: server:tool)
+                qualified = f"{server_name}:{tool_name}"
+                is_user_disabled = qualified in user_disabled_tool_names
+
                 tool_info: dict[str, Any] = {
                     "name": tool_name,
                     "description": getattr(tool, "description", ""),
                     "parameters": [],
+                    "system_disabled": is_system_disabled,
+                    "user_disabled": is_user_disabled,
                 }
                 # Extract parameters if possible
                 try:
@@ -581,6 +598,61 @@ class MCPStorage:
         """Get set of fully qualified tool names that are disabled by the user."""
         prefs = await self.get_tool_preferences(user_id)
         return {name for name, enabled in prefs.items() if not enabled}
+
+    async def set_system_tool_disabled(
+        self, server_name: str, tool_name: str, disabled: bool
+    ) -> None:
+        """
+        Set system-level tool disabled status (admin only).
+
+        Args:
+            server_name: The MCP server name
+            tool_name: The tool name (without server prefix)
+            disabled: Whether the tool is disabled at system level
+        """
+        collection = self._get_system_collection()
+        server_doc = await collection.find_one({"name": server_name})
+        if not server_doc:
+            raise ValueError(f"System server '{server_name}' not found")
+
+        disabled_tools = server_doc.get("disabled_tools", [])
+        if disabled:
+            # Add to disabled list if not already there
+            if tool_name not in disabled_tools:
+                disabled_tools.append(tool_name)
+        else:
+            # Remove from disabled list if present
+            if tool_name in disabled_tools:
+                disabled_tools.remove(tool_name)
+
+        await collection.update_one(
+            {"name": server_name},
+            {
+                "$set": {
+                    "disabled_tools": disabled_tools,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            },
+        )
+
+        # Invalidate all caches since system-level change affects all users
+        await self._invalidate_all_cache()
+
+    async def get_system_disabled_tools(self) -> dict[str, set[str]]:
+        """
+        Get all system-disabled tools grouped by server.
+
+        Returns:
+            Dict mapping server_name to set of disabled tool names
+        """
+        collection = self._get_system_collection()
+        result: dict[str, set[str]] = {}
+        async for doc in collection.find({}):
+            server_name = doc["name"]
+            disabled_tools = doc.get("disabled_tools", [])
+            if disabled_tools:
+                result[server_name] = set(disabled_tools)
+        return result
 
     # ==========================================
     # Combined Operations (for runtime)

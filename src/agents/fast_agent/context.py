@@ -39,11 +39,15 @@ class FastAgentContext:
         agent_id: str = "fast",
         user_id: Optional[str] = None,
         disabled_tools: Optional[List[str]] = None,
+        disabled_skills: Optional[List[str]] = None,
+        disabled_mcp_tools: Optional[List[str]] = None,
     ):
         self.session_id = session_id
         self.agent_id = agent_id
         self.user_id = user_id
         self.disabled_tools = disabled_tools
+        self.disabled_skills = disabled_skills
+        self.disabled_mcp_tools = disabled_mcp_tools
         self.mcp_manager: Optional[MCPClientManager] = None
         self._mcp_loaded: bool = False
         self.tools: List[Any] = []
@@ -56,8 +60,8 @@ class FastAgentContext:
         return self.tools
 
     def filter_tools(self) -> List[Any]:
-        """根据 disabled_tools 过滤工具"""
-        if not self.disabled_tools:
+        """根据 disabled_tools 和 disabled_mcp_tools 过滤工具"""
+        if not self.disabled_tools and not self.disabled_mcp_tools:
             return self.tools
 
         builtin_tools = frozenset(
@@ -72,7 +76,10 @@ class FastAgentContext:
             ]
         )
 
-        disabled_set = set(self.disabled_tools)
+        # Merge all disabled names
+        disabled_set = set(self.disabled_tools or [])
+        disabled_set.update(self.disabled_mcp_tools or [])
+
         mcp_servers = set()
         exact_names = set()
 
@@ -128,6 +135,22 @@ class FastAgentContext:
             logger.info(
                 f"[FastAgentContext] Loaded {len(mcp_tools)} MCP tools: {[t.name for t in mcp_tools]}"
             )
+
+            # Filter MCP tools by disabled_mcp_tools blacklist if provided
+            if self.disabled_mcp_tools:
+                disabled_mcp_set = set(self.disabled_mcp_tools)
+                mcp_tools = [
+                    t
+                    for t in mcp_tools
+                    if t.name not in disabled_mcp_set
+                    and not (
+                        hasattr(t, "server")
+                        and f"{t.server}:{t.name.split(':')[-1]}" in disabled_mcp_set
+                    )
+                ]
+                logger.info(
+                    f"[FastAgentContext] Filtered out {len(self.disabled_mcp_tools)} disabled MCP tools, {len(mcp_tools)} remaining"
+                )
 
             if (
                 settings.ENABLE_DEFERRED_TOOL_LOADING
@@ -221,6 +244,15 @@ class FastAgentContext:
                     skill_dict["is_system"] = skill_dict.get("is_system", True)
                     if skill_dict.get("enabled", True):
                         self.skills.append(skill_dict)
+
+                # Filter skills by disabled_skills blacklist if provided
+                if self.disabled_skills:
+                    disabled_set = set(self.disabled_skills)
+                    self.skills = [s for s in self.skills if s.get("name") not in disabled_set]
+                    logger.info(
+                        f"[FastAgentContext] Filtered out {len(self.disabled_skills)} disabled skills, {len(self.skills)} remaining"
+                    )
+
                 logger.info(
                     f"[FastAgentContext] Loaded {len(self.skills)} skills for user: {self.user_id}"
                 )
