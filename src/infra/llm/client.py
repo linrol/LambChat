@@ -181,6 +181,14 @@ class LLMClient:
         model = model or settings.LLM_MODEL
         provider, model_name = _parse_provider(model)
 
+        # 当模型没有显式 provider 前缀（无 '/'）且与默认模型不同时，
+        # 使用默认模型的 provider，确保 API 格式一致性。
+        # 例如：代理服务(one-api/litellm)统一用 OpenAI 格式，
+        # 切换到 claude-xxx 模型不应自动切换为 Anthropic 格式。
+        if "/" not in model and model != settings.LLM_MODEL:
+            default_provider, _ = _parse_provider(settings.LLM_MODEL)
+            provider = default_provider
+
         if profile is None and settings.LLM_MAX_INPUT_TOKENS is not None:
             profile = {"max_input_tokens": settings.LLM_MAX_INPUT_TOKENS}
 
