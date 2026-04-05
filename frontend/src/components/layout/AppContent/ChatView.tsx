@@ -273,7 +273,6 @@ export function ChatView({
           </div>
         ) : (
           <Virtuoso
-            key={sessionId || undefined}
             ref={virtuosoRef}
             className="dark:divide-stone-800 overflow-x-hidden"
             data={messages}

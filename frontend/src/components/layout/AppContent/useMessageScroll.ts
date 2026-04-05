@@ -101,9 +101,14 @@ export function useMessageScroll(
   }, [messages.length]);
 
   // Scroll to bottom on session change (after messages load)
+  // Only trigger for session switches (not new session creation — sendMessage handles its own scrolling)
   const pendingScrollRef = useRef(false);
+  const prevSessionIdRef = useRef<string | null | undefined>(sessionId);
   useEffect(() => {
-    if (sessionId) pendingScrollRef.current = true;
+    if (sessionId && prevSessionIdRef.current) {
+      pendingScrollRef.current = true;
+    }
+    prevSessionIdRef.current = sessionId;
   }, [sessionId]);
 
   useEffect(() => {
