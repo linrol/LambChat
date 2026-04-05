@@ -4,7 +4,7 @@ import remarkBreaks from "remark-breaks";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import React, { memo, useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Download } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { clsx } from "clsx";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -95,6 +95,88 @@ function CodeBlock({
         fontSize="0.75rem"
         className="[&_.cm-editor]:rounded-none [&_.cm-gutters]:border-r-0"
       />
+    </div>
+  );
+}
+
+// Table block with copy & export toolbar
+function TableBlock({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = React.useState(false);
+  const tableRef = React.useRef<HTMLTableElement>(null);
+
+  const extractData = (): string[][] => {
+    if (!tableRef.current) return [];
+    const rows = tableRef.current.querySelectorAll("tr");
+    return Array.from(rows).map((row) =>
+      Array.from(row.querySelectorAll("th, td")).map(
+        (cell) => cell.textContent?.trim() || "",
+      ),
+    );
+  };
+
+  const handleCopy = async () => {
+    const data = extractData();
+    const tsv = data.map((row) => row.join("\t")).join("\n");
+    await navigator.clipboard.writeText(tsv);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleExport = () => {
+    const data = extractData();
+    const csv = data
+      .map((row) =>
+        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\r\n");
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `table-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="group/table relative my-3 overflow-x-auto rounded-lg shadow ring-1 ring-stone-200 dark:ring-stone-700">
+      {/* Floating toolbar — top-right, visible on hover */}
+      <div
+        className={clsx(
+          "absolute top-1 right-1 z-10 flex items-center gap-0.5 px-1 py-0.5 rounded-md",
+          "bg-stone-100/90 dark:bg-stone-800/90 backdrop-blur-sm shadow-sm",
+          "opacity-0 group-hover/table:opacity-100 transition-opacity duration-150",
+        )}
+      >
+        <button
+          onClick={handleCopy}
+          className={clsx(
+            "flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium transition-colors",
+            copied
+              ? "text-green-600 dark:text-green-400"
+              : "text-stone-500 hover:text-stone-700 hover:bg-stone-200/60 dark:text-stone-400 dark:hover:text-stone-200 dark:hover:bg-stone-700/50",
+          )}
+          title={copied ? t("chat.message.copied") : t("chat.message.copy")}
+        >
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+        </button>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-stone-500 hover:text-stone-700 hover:bg-stone-200/60 dark:text-stone-400 dark:hover:text-stone-200 dark:hover:bg-stone-700/50 transition-colors"
+          title={t("chat.message.exportCsv", "Export CSV")}
+        >
+          <Download size={13} />
+        </button>
+      </div>
+      <table
+        ref={tableRef}
+        className="min-w-full divide-y divide-stone-200 dark:divide-stone-700"
+      >
+        {children}
+      </table>
     </div>
   );
 }
@@ -218,14 +300,8 @@ export const MarkdownContent = memo(function MarkdownContent({
             }
             return <>{children}</>;
           },
-          // Tables with beautiful styling
-          table: ({ children }) => (
-            <div className="my-3 overflow-x-auto rounded-lg shadow ring-1 ring-stone-200 dark:ring-stone-700">
-              <table className="min-w-full divide-y divide-stone-200 dark:divide-stone-700">
-                {children}
-              </table>
-            </div>
-          ),
+          // Tables with copy & export toolbar
+          table: ({ children }) => <TableBlock>{children}</TableBlock>,
           thead: ({ children }) => (
             <thead className="bg-stone-50 dark:bg-stone-800">{children}</thead>
           ),
