@@ -92,7 +92,7 @@ const ModelItem = memo(function ModelItem({
           {model.description && (
             <span
               ref={iconRef}
-              className="shrink-0 cursor-pointer"
+              className="inline-flex items-center shrink-0 cursor-pointer ml-0.5"
               onMouseEnter={show}
               onMouseLeave={hide}
               onTouchStart={toggle}
