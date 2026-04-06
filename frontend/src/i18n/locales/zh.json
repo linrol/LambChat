@@ -878,6 +878,8 @@
     "themeSynced": "主题偏好已保存",
     "title": "个人信息",
     "toolsTab": "工具",
+    "toolsManagement": "MCP 工具",
+    "toolsManagementDesc": "启用或禁用 MCP 服务器的工具。",
     "toolsPreferences": "MCP 工具偏好",
     "toolsPreferencesDesc": "配置哪些 MCP 工具默认在所有对话中启用。这些设置可在每次对话中单独覆盖。",
     "uploadAvatar": "上传头像",

@@ -882,6 +882,8 @@
     "defaultModel": "デフォルトモデル",
     "defaultModelDesc": "新しい会話のデフォルトモデルを選択",
     "toolsTab": "ツール",
+    "toolsManagement": "MCPツール",
+    "toolsManagementDesc": "MCPサーバーのツールを有効または無効にします。",
     "toolsPreferences": "MCPツール設定",
     "toolsPreferencesDesc": "すべての会話でデフォルトで有効にするMCPツールを設定します。これらの設定は会話ごとに上書きできます。",
     "uploadAvatar": "アバターをアップロード"

@@ -878,6 +878,8 @@
     "themeSynced": "Theme preference saved",
     "title": "Profile",
     "toolsTab": "Tools",
+    "toolsManagement": "MCP Tools",
+    "toolsManagementDesc": "Enable or disable tools for your MCP servers.",
     "toolsPreferences": "MCP Tool Preferences",
     "toolsPreferencesDesc": "Configure which MCP tools are enabled by default across all conversations. These settings can be overridden per conversation.",
     "uploadAvatar": "Upload Avatar",
