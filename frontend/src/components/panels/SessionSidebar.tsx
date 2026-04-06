@@ -60,6 +60,20 @@ export function SessionSidebar({
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
 
+  // Track mobile breakpoint to avoid ref conflicts — both sidebars render
+  // sessionListContent in the DOM, causing shared refs (scrollEl, loadMoreRef)
+  // to be called twice. The desktop element wins (last call), breaking the
+  // IntersectionObserver on mobile.
+  const [isMobile, setIsMobile] = useState(
+    () => window.matchMedia("(max-width: 639px)").matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const handleNewSessionInProject = useCallback(
     (projectId: string) => {
       onSetPendingProjectId?.(projectId);
@@ -593,19 +607,19 @@ export function SessionSidebar({
         />
       )}
 
-      {/* Mobile sidebar */}
+      {/* Mobile sidebar — only render content on mobile to avoid ref conflicts */}
       <div
         className={`rounded-r-lg fixed inset-y-0 left-0 z-[70] w-64 flex flex-col bg-white dark:bg-stone-900 sm:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } transition-transform duration-300 ease-in-out`}
       >
-        {sessionListContent}
+        {isMobile ? sessionListContent : <div className="flex-1" />}
       </div>
 
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — only render content on desktop to avoid ref conflicts */}
       {!isCollapsed && (
         <div className="hidden h-full w-64 flex-col rounded-r-lg border-r border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sm:flex">
-          {sessionListContent}
+          {!isMobile ? sessionListContent : <div className="flex-1" />}
         </div>
       )}
 
