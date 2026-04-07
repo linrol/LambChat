@@ -491,11 +491,17 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         const disabledSkills = options?.getDisabledSkills?.() || [];
         const disabledMcpTools = options?.getDisabledMcpTools?.() || [];
 
+        // Merge session-level agent options (e.g. model) with ChatInput values
+        const fullAgentOptions = {
+          ...(options?.getAgentOptions?.()),
+          ...agentOptions,
+        };
+
         const submitData = (await sessionApi.submitChat(
           currentAgent,
           content,
           sessionId ?? undefined,
-          agentOptions,
+          fullAgentOptions,
           attachments,
           pendingProjectIdRef.current ?? undefined,
           disabledSkills,
@@ -531,7 +537,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
           const conversationConfig: Record<string, unknown> = {
             current_run_id: newRunId,
             agent_id: currentAgent,
-            agent_options: agentOptions || {},
+            agent_options: fullAgentOptions,
             disabled_skills: disabledSkills,
             disabled_mcp_tools: disabledMcpTools,
           };
@@ -573,7 +579,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
               {}),
             current_run_id: newRunId,
             agent_id: currentAgent,
-            agent_options: agentOptions || {},
+            agent_options: fullAgentOptions,
             disabled_skills: disabledSkills,
             disabled_mcp_tools: disabledMcpTools,
           };

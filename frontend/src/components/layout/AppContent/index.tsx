@@ -203,6 +203,7 @@ function ChatAppContent({
     getEnabledTools: getDisabledToolNames,
     getDisabledSkills: () => sessionConfigRef.current.disabledSkills,
     getDisabledMcpTools: () => sessionConfigRef.current.disabledMcpTools,
+    getAgentOptions: () => sessionConfigRef.current.agentOptions,
     onSkillAdded: (
       skillName: string,
       _description: string,

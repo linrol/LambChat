@@ -106,6 +106,7 @@ export interface UseAgentOptions {
   getEnabledTools?: () => string[];
   getDisabledSkills?: () => string[];
   getDisabledMcpTools?: () => string[];
+  getAgentOptions?: () => Record<string, boolean | string | number>;
   onSkillAdded?: (
     skillName: string,
     description: string,
