@@ -11,7 +11,11 @@ const LANGUAGES = [
   { code: "ru", name: "Russian", nativeName: "Русский" },
 ];
 
-export function LanguageToggle() {
+interface LanguageToggleProps {
+  className?: string;
+}
+
+export function LanguageToggle({ className }: LanguageToggleProps) {
   const { i18n, t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -58,7 +62,10 @@ export function LanguageToggle() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+        className={
+          className ??
+          "flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+        }
         title={t("common.language")}
         aria-label={t("common.language")}
         aria-expanded={isOpen}

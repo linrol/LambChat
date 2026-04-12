@@ -36,11 +36,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
     # 不需要认证的路径前缀
     PUBLIC_PREFIXES = (
         "/api/auth/oauth/",
+        "/api/auth/refresh",
+        "/api/auth/forgot-password",
+        "/api/auth/reset-password",
+        "/api/auth/verify-email",
+        "/api/auth/resend-verification",
         "/api/upload/file/",
         "/assets/",
         "/icons/",
         "/images/",
         "/shared/",
+        "/api/share/public/",
+        "/api/agents",
         "/auth/",
         "/favicon",
         "/static/",

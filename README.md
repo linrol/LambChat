@@ -24,7 +24,16 @@
 |:---:|:---:|:---:|
 | <img src="docs/images/best-practice/login-page.png" width="280" alt="Login"><br>**Login** | <img src="docs/images/best-practice/chat-home.png" width="280" alt="Chat"><br>**Chat** | <img src="docs/images/best-practice/chat-response.png" width="280" alt="Streaming"><br>**Streaming** |
 | <img src="docs/images/best-practice/skills-page.png" width="280" alt="Skills"><br>**Skills** | <img src="docs/images/best-practice/mcp-page.png" width="280" alt="MCP"><br>**MCP Config** | <img src="docs/images/best-practice/share-dialog.png" width="280" alt="Share"><br>**Share** |
-| <img src="docs/images/best-practice/roles-page.png" width="280" alt="Roles"><br>**Roles** | <img src="docs/images/best-practice/settings-page.png" width="280" alt="Settings"><br>**Settings** | <img src="docs/images/best-practice/mobile-view.png" width="200" alt="Mobile"><br>**Mobile** |
+| <img src="docs/images/best-practice/roles-page.png" width="280" alt="Roles"><br>**Roles** | <img src="docs/images/best-practice/settings-page.png" width="280" alt="Settings"><br>**Settings** | <img src="docs/images/best-practice/feedback-page.png" width="280" alt="Feedback"><br>**Feedback** |
+| <img src="docs/images/best-practice/mobile-view.png" width="200" alt="Mobile"><br>**Mobile** | <img src="docs/images/best-practice/tablet-view.png" width="280" alt="Tablet"><br>**Tablet** | <img src="docs/images/best-practice/shared-page.png" width="280" alt="Shared"><br>**Shared Session** |
+
+## 🎬 Use Cases
+
+| # | Case | Description | Demo |
+|---|------|-------------|------|
+| 1 | PDF Report Generation | Agent reads skill instructions → installs dependencies → generates 8 charts → writes LaTeX source → compiles into a 14-page PDF business report. Zero human intervention. | [View Session](https://lambchat.com/shared/Yaotot5Fav8j) |
+| 2 | PPT Presentation | Agent independently creates a 14-page business PPT with data tables, charts, analysis cards, and action roadmap based on supply chain data. | [View Session](https://lambchat.com/shared/VOjediSYBHR1) |
+| 3 | Static Blog Site | Builds a complete blog (5 pages + 8 sample articles) with tag filtering, pagination, responsive layout, and interactive effects. 10 subtasks all completed automatically. | [View Session](https://lambchat.com/shared/NuzvONPqCZLU) |
 
 ## 🏗️ Architecture
 
@@ -46,6 +55,17 @@
 </details>
 
 <details>
+<summary><b>🧠 Model Management</b></summary>
+
+- **Multi-Provider** — OpenAI, Anthropic, Google Gemini
+- **Channel Routing** — Same model from multiple channels via `model_id` routing
+- **Role-based Access** — Permission-controlled model visibility per role
+- **Per-user Preferences** — Default model selection persists across sessions
+- **Live Config Sync** — Distributed Redis pub/sub for real-time model updates
+
+</details>
+
+<details>
 <summary><b>🔌 MCP Integration</b></summary>
 
 - **System + User Level** — Global and per-user MCP configs
@@ -53,6 +73,7 @@
 - **Dynamic Caching** — Tool caching with manual refresh
 - **Multiple Transports** — SSE / HTTP
 - **Permission Control** — Transport-level access control
+- **Import/Export** — Bulk MCP configuration management
 
 </details>
 
@@ -63,6 +84,8 @@
 - **Access Control** — User-level permissions
 - **GitHub Sync** — Import skills from GitHub repos
 - **Skill Creator** — Built-in creation toolkit with evaluation tools
+- **Marketplace** — Browse, install, and publish skills
+- **Batch Operations** — Enable/disable/delete skills in bulk
 
 </details>
 
@@ -70,10 +93,13 @@
 <summary><b>💬 Feedback · 📁 Files · 🔄 Realtime · 🔐 Auth · ⚙️ Tasks · 📊 Observability</b></summary>
 
 - **Feedback** — Thumbs rating, text comments, session-linked, run-level stats
-- **Documents** — PDF / Word / Excel / PPT / Markdown / Mermaid preview + image viewer
-- **Cloud Storage** — S3 / OSS / MinIO integration, drag & drop upload
+- **File Library** — Browse revealed files, code preview, organized file management
+- **Documents** — PDF / Word / Excel / PPT / Markdown / Mermaid / Excalidraw preview + image viewer
+- **Cloud Storage** — S3 / OSS / MinIO / COS integration, drag & drop upload, presigned URLs
+- **Project Folders** — Organize sessions into projects with drag-and-drop
+- **Session Sharing** — Generate public share links for conversations
 - **Realtime** — Dual-write (Redis + MongoDB), WebSocket, auto-reconnect, session sharing
-- **Security** — JWT, RBAC (Admin/User/Guest), bcrypt, OAuth, email verification, sandbox
+- **Security** — JWT, RBAC (35+ permissions across 15 groups), bcrypt, OAuth (Google/GitHub/Apple), email verification, CAPTCHA, sandbox
 - **Tasks** — Concurrency control, cancellation, heartbeat, pub/sub notifications
 - **Observability** — LangSmith tracing, structured logging, health checks
 - **Channels** — Feishu (Lark) native integration, extensible multi-channel system
@@ -83,32 +109,35 @@
 <details>
 <summary><b>🎨 Frontend</b></summary>
 
-- **React 19 + Vite + TailwindCSS**
+- **React 19 + Vite 6 + TailwindCSS 3.4**
 - **ChatGPT-style** interface with dark/light theme
-- **i18n** — English, Chinese, Japanese, Korean
+- **i18n** — English, Chinese, Japanese, Korean, Russian
 - **Responsive** — Mobile, tablet, desktop
+- **Rich Content** — KaTeX math, syntax highlighting, Mermaid diagrams, table copy/CSV export, image preview lightbox
+- **Tool Panels** — Slide-up tool result panels with block preview
 
 </details>
 
 ## ⚙️ Configuration
 
-14 setting categories configurable via UI or environment variables:
+14+ setting categories configurable via UI or environment variables:
 
 | Category | Description |
 |----------|-------------|
 | Frontend | Default agent, welcome suggestions, UI preferences |
 | Agent | Debug mode, logging level |
 | LLM | Model, temperature, max tokens, API key & base URL |
-| Session | Session management |
-| Database | MongoDB connection |
-| Storage | Persistent storage, S3/OSS/MinIO |
+| Model | Multi-provider model management, channel routing |
+| Session | Session management, message history, SSE cache |
+| Database | MongoDB connection, optional PostgreSQL |
+| Storage | Persistent storage, S3/OSS/MinIO/COS |
 | Security | Encryption & security policies |
-| Sandbox | Code sandbox settings |
+| Sandbox | Code sandbox settings (Daytona / E2B) |
 | Skills | Skill system config |
 | Tools | Tool system settings |
 | Tracing | LangSmith & tracing |
-| User | User management |
-| Memory | Memory system (hindsight) |
+| User | User management, registration, default role |
+| Memory | Memory system (native / hindsight / memu) |
 
 ## 🚀 Quick Start
 
@@ -147,22 +176,32 @@ mypy src/           # Type check
 src/
 ├── agents/          # Agent implementations (core, fast, search)
 ├── api/             # FastAPI routes & middleware
+│   └── routes/      # 25+ route modules (auth, chat, mcp, skills, etc.)
 ├── infra/           # Infrastructure services
 │   ├── agent/       # Agent config & events
-│   ├── auth/        # JWT authentication
+│   ├── auth/        # JWT, OAuth, RBAC, CAPTCHA
+│   ├── backend/     # LLM backend abstraction
 │   ├── channel/     # Multi-channel (Feishu, etc.)
+│   ├── email/       # Email service (Resend)
+│   ├── envvar/      # User environment variables
 │   ├── feedback/    # Feedback system
+│   ├── folder/      # Project folder management
 │   ├── llm/         # LLM integration
+│   ├── memory/      # Cross-session memory (native, hindsight, memu)
+│   ├── model/       # Model management
 │   ├── mcp/         # MCP protocol
-│   ├── memory/      # Memory & hindsight
-│   ├── role/        # RBAC
-│   ├── sandbox/     # Sandbox execution
+│   ├── role/        # RBAC roles
+│   ├── sandbox/     # Sandbox execution (Daytona / E2B)
 │   ├── session/     # Session management (dual-write)
+│   ├── settings/    # Settings storage + pub/sub sync
+│   ├── share/       # Share links
 │   ├── skill/       # Skills system
-│   ├── storage/     # S3/OSS/MinIO
+│   ├── storage/     # MongoDB, Redis, PostgreSQL, S3
 │   ├── task/        # Task management
 │   ├── tool/        # Tool registry & MCP client
-│   └── ...
+│   ├── tracing/     # LangSmith tracing
+│   ├── upload/      # File upload handling
+│   └── revealed_file/  # File library
 ├── kernel/          # Core schemas, config, types
 └── skills/          # Built-in skills
 ```

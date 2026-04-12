@@ -18,10 +18,10 @@ export const FEATURES: FeatureItem[] = [
     gradient: "from-violet-500 to-purple-600",
   },
   {
-    icon: "🔍",
-    titleKey: "webSearch",
-    descKey: "webSearchDesc",
-    gradient: "from-sky-500 to-blue-600",
+    icon: "🧠",
+    titleKey: "modelManagement",
+    descKey: "modelManagementDesc",
+    gradient: "from-cyan-500 to-blue-600",
   },
   {
     icon: "🔌",
@@ -87,19 +87,24 @@ export const FEATURES: FeatureItem[] = [
 
 export const TECH_STACK = [
   {
-    labelKey: "sandboxExecution",
-    label: "FastAPI",
-    color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+    label: "LangGraph",
+    color: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
   },
   {
-    labelKey: "harnessEngineeringAgent",
-    label: "React 19",
-    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    label: "deepagents",
+    color: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
   },
   {
-    labelKey: "customSkillsMcp",
-    label: "MongoDB",
-    color: "bg-green-500/10 text-green-600 dark:text-green-400",
+    label: "MCP",
+    color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    label: "Skills",
+    color: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  },
+  {
+    label: "E2B",
+    color: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
   },
 ];
 
@@ -128,9 +133,9 @@ export const RESPONSIVE_SHOTS: ScreenshotItem[] = [
 ];
 
 export const STATS = [
-  { num: "14", key: "settingCategories" },
-  { num: "4", key: "agentTypes" },
-  { num: "4", key: "languages" },
+  { num: "14+", key: "settingCategories" },
+  { num: "3", key: "agentTypes" },
+  { num: "5", key: "languages" },
   { num: "3+", key: "oauthProviders" },
   { num: "SSE", key: "streamingOutput" },
 ];

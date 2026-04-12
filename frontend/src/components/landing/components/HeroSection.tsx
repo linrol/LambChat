@@ -118,10 +118,10 @@ export function HeroSection({ onLogin }: HeroSectionProps) {
             </span>
             {TECH_STACK.map((tech) => (
               <span
-                key={tech.labelKey}
+                key={tech.label}
                 className={`blog-tech-pill inline-flex items-center rounded-full px-3 py-1 text-[11px] sm:text-xs font-medium ${tech.color} border border-stone-100/60 dark:border-stone-700/20`}
               >
-                {t(`landing.${tech.labelKey}`)}
+                {tech.label}
               </span>
             ))}
           </div>

@@ -450,7 +450,7 @@ export function SharedPage() {
               alt=""
               className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg transition-transform duration-300 group-hover:scale-105"
             />
-            <span className="text-sm sm:text-[15px] font-bold tracking-tight text-stone-900 dark:text-stone-100 font-serif">
+            <span className="text-md sm:text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100 font-serif">
               {APP_NAME}
             </span>
           </Link>

@@ -105,10 +105,10 @@ export function Footer({ onScrollToSection }: FooterProps) {
               <div className="flex flex-col gap-2.5">
                 {TECH_STACK.map((tech) => (
                   <span
-                    key={tech.labelKey}
+                    key={tech.label}
                     className={`inline-flex items-center self-start rounded-full px-3 py-1 text-[11px] font-medium ${tech.color} border border-stone-100/80 dark:border-stone-700/30`}
                   >
-                    {t(`landing.${tech.labelKey}`)}
+                    {tech.label}
                   </span>
                 ))}
               </div>

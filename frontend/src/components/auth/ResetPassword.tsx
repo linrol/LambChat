@@ -89,9 +89,9 @@ export function ResetPassword() {
           </div>
         </div>
 
-        <div className="fixed right-3 top-3 z-50 flex items-center gap-1.5 rounded-lg bg-white/40 p-1.5 shadow-sm transition-colors hover:bg-white/60 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 sm:right-4 sm:top-4">
-          <LanguageToggle />
-          <ThemeToggle />
+        <div className="fixed right-3 top-3 z-50 flex items-center gap-1.5 sm:right-4 sm:top-4">
+          <LanguageToggle className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/40 shadow-sm transition-colors hover:bg-white/60 text-stone-600 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 dark:text-stone-300" />
+          <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/40 shadow-sm transition-colors hover:bg-white/60 text-stone-600 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 dark:text-stone-300" />
         </div>
 
         <div className="grid min-h-screen place-items-center px-4 py-8 sm:px-6">
@@ -134,9 +134,9 @@ export function ResetPassword() {
           </div>
         </div>
 
-        <div className="fixed right-3 top-3 z-50 flex items-center gap-1.5 rounded-lg bg-white/40 p-1.5 shadow-sm transition-colors hover:bg-white/60 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 sm:right-4 sm:top-4">
-          <LanguageToggle />
-          <ThemeToggle />
+        <div className="fixed right-3 top-3 z-50 flex items-center gap-1.5 sm:right-4 sm:top-4">
+          <LanguageToggle className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/40 shadow-sm transition-colors hover:bg-white/60 text-stone-600 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 dark:text-stone-300" />
+          <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/40 shadow-sm transition-colors hover:bg-white/60 text-stone-600 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 dark:text-stone-300" />
         </div>
 
         <div className="grid min-h-screen place-items-center px-4 py-8 sm:px-6">
@@ -177,9 +177,9 @@ export function ResetPassword() {
         </div>
       </div>
 
-      <div className="fixed right-3 top-3 z-50 flex items-center gap-1.5 rounded-lg bg-white/40 p-1.5 shadow-sm transition-colors hover:bg-white/60 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 sm:right-4 sm:top-4">
-        <LanguageToggle />
-        <ThemeToggle />
+      <div className="fixed right-3 top-3 z-50 flex items-center gap-1.5 sm:right-4 sm:top-4">
+        <LanguageToggle className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/40 shadow-sm transition-colors hover:bg-white/60 text-stone-600 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 dark:text-stone-300" />
+        <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/40 shadow-sm transition-colors hover:bg-white/60 text-stone-600 dark:bg-stone-800/40 dark:hover:bg-stone-800/60 dark:text-stone-300" />
       </div>
 
       <div className="grid min-h-screen place-items-center px-4 py-8 sm:px-6">
