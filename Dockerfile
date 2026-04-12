@@ -20,14 +20,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install Node.js 20.x and build dependencies
+# Install uv (Node.js not needed at runtime — e2b uses remote sandboxes)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    build-essential \
-    libffi-dev \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends \
-    nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -37,8 +32,8 @@ RUN pip install --no-cache-dir uv
 # Copy dependency files
 COPY pyproject.toml uv.lock* README.md ./
 
-# Install dependencies into a local venv
-RUN UV_PROJECT_ENVIRONMENT=/app/.venv uv sync --frozen --no-dev --no-cache
+# Install dependencies directly (no venv)
+RUN uv sync --frozen --no-dev --no-cache
 
 # Copy source code
 COPY src/ ./src/
@@ -56,8 +51,8 @@ RUN groupadd -r app && useradd -r -g app app && \
 # Switch to non-root user
 USER app
 
-EXPOSE 8080
+EXPOSE 8000
 
 ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 
-CMD ["uv", "run", "--no-group", "dev", "python", "main.py"]
+CMD ["uv", "run", "python", "main.py"]

@@ -20,6 +20,7 @@ build/
 # Node
 frontend/node_modules
 frontend/.npm
+node_modules
 
 # IDE
 .idea/
@@ -43,3 +44,16 @@ docs/
 *.log
 .claude/
 .workspace/
+.omc/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+deploy/
+nginx/
+k8s/
+scripts/
+
+# Uploads & runtime
+uploads/
+*.tar.gz
