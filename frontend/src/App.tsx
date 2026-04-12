@@ -172,7 +172,9 @@ function AuthPageWrapper({
   return (
     <AuthPage
       initialMode={initialMode}
-      onSuccess={() => navigate("/chat", { replace: true })}
+      onSuccess={(redirectPath) =>
+        navigate(redirectPath ?? "/chat", { replace: true })
+      }
     />
   );
 }

@@ -378,7 +378,7 @@ export function MCPPanel() {
             <>
               <button
                 onClick={handleImportClick}
-                className="btn-secondary"
+                className="btn-secondary h-10"
                 title={t("mcp.importFromJSON")}
               >
                 <Upload size={16} className="sm:size-[18px]" />
@@ -386,13 +386,13 @@ export function MCPPanel() {
               </button>
               <button
                 onClick={handleExport}
-                className="btn-secondary"
+                className="btn-secondary h-10"
                 title={t("mcp.exportToJSON")}
               >
                 <Download size={16} className="sm:size-[18px]" />
                 <span className="hidden sm:inline">{t("common.export")}</span>
               </button>
-              <button onClick={handleCreate} className="btn-primary">
+              <button onClick={handleCreate} className="btn-primary h-10">
                 <Plus size={16} className="sm:size-[18px]" />
                 <span className="hidden sm:inline">{t("mcp.addServer")}</span>
               </button>

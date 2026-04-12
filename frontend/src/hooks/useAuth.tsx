@@ -44,7 +44,10 @@ function applyUserMetadata(metadata?: { language?: string; theme?: string }) {
 
 // 认证上下文类型
 interface AuthContextType extends AuthState {
-  login: (credentials: LoginRequest, turnstileToken?: string) => Promise<void>;
+  login: (
+    credentials: LoginRequest,
+    turnstileToken?: string,
+  ) => Promise<string | null>;
   register: (
     userData: UserCreate,
     turnstileToken?: string,
@@ -182,15 +185,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           authApi.logout();
           setToken(null);
           setIsLoading(false);
-          return;
+          return null;
         }
 
         // 登录成功后，跳转到之前的页面
         const redirectPath = getRedirectPath();
         if (redirectPath) {
           clearRedirectPath();
-          window.location.href = redirectPath;
         }
+        return redirectPath ?? null;
       } finally {
         setIsLoading(false);
       }

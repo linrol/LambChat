@@ -10,11 +10,16 @@ import { useTranslation } from "react-i18next";
 import { Turnstile } from "react-turnstile";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../contexts/ThemeContext";
-import { LoadingSpinner } from "../common/LoadingSpinner";
+import { Loading, LoadingSpinner } from "../common/LoadingSpinner";
 import { ThemeToggle } from "../common/ThemeToggle";
 import { LanguageToggle } from "../common/LanguageToggle";
 import { authApi } from "../../services/api";
 import { APP_NAME, GITHUB_URL } from "../../constants";
+import {
+  AUTH_REDIRECT_ANIMATION_MS,
+  AUTH_REDIRECT_FAILSAFE_MS,
+  resolvePostAuthRedirectPath,
+} from "./authRedirectTransition";
 
 type AuthMode = "login" | "register";
 
@@ -27,7 +32,7 @@ interface TurnstileConfig {
 }
 
 interface AuthPageProps {
-  onSuccess?: () => void;
+  onSuccess?: (redirectPath?: string) => void;
   /** Force initial auth mode */
   initialMode?: AuthMode;
 }
@@ -50,6 +55,7 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0); // 用于强制重新渲染 Turnstile
   const submitLabel = mode === "login" ? t("auth.login") : t("auth.register");
@@ -77,6 +83,21 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
   // Use ref to access current mode without adding it to deps
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  const redirectTimerRef = useRef<number | null>(null);
+  const redirectFailsafeRef = useRef<number | null>(null);
+
+  const clearRedirectTimers = () => {
+    if (redirectTimerRef.current !== null) {
+      window.clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = null;
+    }
+    if (redirectFailsafeRef.current !== null) {
+      window.clearTimeout(redirectFailsafeRef.current);
+      redirectFailsafeRef.current = null;
+    }
+  };
+
+  useEffect(() => clearRedirectTimers, []);
 
   // 获取 OAuth 提供商列表和认证设置
   useEffect(() => {
@@ -131,6 +152,27 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
     }
   };
 
+  const beginSuccessRedirect = (redirectPath?: string | null) => {
+    const nextPath = resolvePostAuthRedirectPath(redirectPath);
+    clearRedirectTimers();
+    setIsRedirecting(true);
+
+    redirectFailsafeRef.current = window.setTimeout(() => {
+      setIsRedirecting(false);
+      setIsSubmitting(false);
+    }, AUTH_REDIRECT_FAILSAFE_MS);
+
+    redirectTimerRef.current = window.setTimeout(() => {
+      try {
+        onSuccess?.(nextPath);
+      } catch (err) {
+        console.error("[AuthPage] Failed to redirect after login:", err);
+        setIsRedirecting(false);
+        setIsSubmitting(false);
+      }
+    }, AUTH_REDIRECT_ANIMATION_MS);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -178,12 +220,17 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
     }
 
     setIsSubmitting(true);
+    let startedRedirect = false;
 
     try {
       if (mode === "login") {
-        await login({ username, password }, turnstileToken || undefined);
+        const redirectPath = await login(
+          { username, password },
+          turnstileToken || undefined,
+        );
         toast.success(t("auth.loginSuccess"));
-        onSuccess?.();
+        startedRedirect = true;
+        beginSuccessRedirect(redirectPath);
       } else {
         const result = await register(
           { username, email, password },
@@ -199,7 +246,8 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
           return;
         }
         toast.success(t("auth.registerSuccess"));
-        onSuccess?.();
+        startedRedirect = true;
+        beginSuccessRedirect();
       }
     } catch (err) {
       const errorMessage = (err as Error).message || t("auth.operationFailed");
@@ -234,7 +282,9 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
       setTurnstileToken(null);
       setTurnstileKey((prev) => prev + 1);
     } finally {
-      setIsSubmitting(false);
+      if (!startedRedirect) {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -248,6 +298,19 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
     setEmail("");
     setConfirmPassword("");
   };
+
+  if (isRedirecting) {
+    return (
+      <div className="auth-shell flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <Loading size="lg" className="justify-center" />
+          <p className="mt-4 text-stone-600 dark:text-stone-400">
+            {t("auth.completingLogin")}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-shell min-h-screen overflow-y-auto overflow-x-hidden">
@@ -488,7 +551,7 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
               {/* 提交按钮 */}
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isRedirecting}
                 className="auth-primary-button w-full rounded-xl py-3 text-sm font-medium transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 sm:py-3.5"
               >
                 <span className="inline-flex items-center justify-center gap-2">
