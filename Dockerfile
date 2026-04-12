@@ -39,7 +39,7 @@ COPY pyproject.toml uv.lock* README.md ./
 
 # Create venv and install dependencies (skip project itself and dev deps)
 RUN uv venv /opt/app-venv && \
-    /opt/app-venv/bin/uv sync --frozen --no-dev --no-install-project
+    uv sync --frozen --no-dev --no-install-project --python /opt/app-venv/bin/python
 
 # Copy source code
 COPY src/ ./src/
