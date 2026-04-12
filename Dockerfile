@@ -37,8 +37,8 @@ RUN pip install --no-cache-dir uv
 # Copy dependency files
 COPY pyproject.toml uv.lock* README.md ./
 
-# Install dependencies directly (no venv)
-RUN uv sync --frozen --no-dev --no-cache
+# Install dependencies into a local venv
+RUN UV_PROJECT_ENVIRONMENT=/app/.venv uv sync --frozen --no-dev --no-cache
 
 # Copy source code
 COPY src/ ./src/
@@ -57,5 +57,7 @@ RUN groupadd -r app && useradd -r -g app app && \
 USER app
 
 EXPOSE 8080
+
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 
 CMD ["uv", "run", "--no-group", "dev", "python", "main.py"]
