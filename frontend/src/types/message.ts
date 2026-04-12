@@ -59,6 +59,8 @@ export interface TokenUsagePart {
   total_tokens: number;
   cache_creation_tokens?: number;
   cache_read_tokens?: number;
+  model_id?: string;
+  model?: string;
 }
 
 // 取消状态块类型

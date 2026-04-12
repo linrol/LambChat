@@ -457,6 +457,7 @@ class BaseGraphAgent(ABC):
 
         # 发送 token 使用统计
         if event_processor.total_input_tokens > 0 or event_processor.total_output_tokens > 0:
+            agent_options = kwargs.get("agent_options") or {}
             await presenter.emit(
                 presenter.present_token_usage(
                     input_tokens=event_processor.total_input_tokens,
@@ -465,6 +466,8 @@ class BaseGraphAgent(ABC):
                     or event_processor.total_input_tokens + event_processor.total_output_tokens,
                     cache_creation_tokens=event_processor.total_cache_creation_tokens,
                     cache_read_tokens=event_processor.total_cache_read_tokens,
+                    model_id=agent_options.get("model_id"),
+                    model=agent_options.get("model"),
                 )
             )
 

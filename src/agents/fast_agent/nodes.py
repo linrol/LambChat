@@ -245,7 +245,13 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
         schedule_auto_memory_capture(context.user_id, user_input)
 
     # 发送 token 使用统计事件
-    await emit_token_usage(event_processor, presenter, start_time)
+    await emit_token_usage(
+        event_processor,
+        presenter,
+        start_time,
+        model_id=model_id,
+        model=selected_model,
+    )
 
     # 获取内层 graph 的最终状态
     inner_state = await inner_graph.aget_state(inner_config)

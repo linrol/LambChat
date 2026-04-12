@@ -330,6 +330,7 @@
       "filePath": "Путь к файлу",
       "generating": "Генерация...",
       "mermaidError": "Ошибка Mermaid",
+      "model": "Модель",
       "parameters": "Параметры",
       "result": "Результат",
       "running": "Выполняется...",

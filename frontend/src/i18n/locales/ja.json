@@ -330,6 +330,7 @@
       "filePath": "ファイルパス",
       "generating": "生成中...",
       "mermaidError": "Mermaidエラー",
+      "model": "モデル",
       "parameters": "パラメータ",
       "result": "結果",
       "running": "実行中...",

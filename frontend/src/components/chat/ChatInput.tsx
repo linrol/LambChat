@@ -713,9 +713,7 @@ export const ChatInput = memo(function ChatInput({
                     canSubmit ? "hover:scale-105 active:scale-95" : ""
                   }`}
                   style={{
-                    backgroundColor: canSubmit
-                      ? "color-mix(in srgb, var(--theme-primary) 10%, transparent)"
-                      : "var(--theme-primary-light)",
+                    backgroundColor: "transparent",
                     border: canSubmit
                       ? "1px solid color-mix(in srgb, var(--theme-primary) 40%, transparent)"
                       : "1px solid var(--theme-border)",

@@ -348,6 +348,8 @@ export function processMessageEvent(
         total_tokens: data.total_tokens || 0,
         cache_creation_tokens: data.cache_creation_tokens || 0,
         cache_read_tokens: data.cache_read_tokens || 0,
+        model_id: data.model_id,
+        model: data.model,
       };
       if (data.duration) result.duration = data.duration * 1000;
       break;

@@ -68,6 +68,9 @@ async def emit_token_usage(
     event_processor: AgentEventProcessor,
     presenter,
     start_time: float,
+    *,
+    model_id: str | None = None,
+    model: str | None = None,
 ) -> None:
     """发送 token 使用统计事件"""
     import time
@@ -92,6 +95,8 @@ async def emit_token_usage(
                     duration=duration,
                     cache_creation_tokens=cache_creation_tokens,
                     cache_read_tokens=cache_read_tokens,
+                    model_id=model_id,
+                    model=model,
                 )
             )
         except Exception as e:

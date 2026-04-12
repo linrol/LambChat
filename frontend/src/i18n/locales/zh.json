@@ -339,6 +339,7 @@
       "filePath": "文件路径",
       "generating": "生成中...",
       "mermaidError": "Mermaid 错误",
+      "model": "模型",
       "parameters": "参数",
       "result": "结果",
       "running": "运行中...",

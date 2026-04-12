@@ -4,6 +4,7 @@ import { ChevronDown, Check, Info } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { ModelIconImg } from "./modelIcon.tsx";
+import { shouldCloseModelSelector } from "./modelSelectorGuards";
 import type { ModelOption } from "../../services/api/model";
 
 interface ModelItemProps {
@@ -116,6 +117,7 @@ const ModelSelector = memo(function ModelSelector({
   const [showSelector, setShowSelector] = useState(false);
   const [defaultTick, setDefaultTick] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentModelInfo = models.find((m) => m.id === currentModelId);
 
@@ -162,8 +164,11 @@ const ModelSelector = memo(function ModelSelector({
 
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
+        shouldCloseModelSelector(
+          event.target as Node | null,
+          containerRef.current,
+          dropdownRef.current,
+        )
       ) {
         setShowSelector(false);
       }
@@ -216,32 +221,22 @@ const ModelSelector = memo(function ModelSelector({
 
       {showSelector &&
         createPortal(
-          <>
-            <div
-              style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 300,
-                backgroundColor: "rgba(0, 0, 0, 0.5)",
-              }}
-              onClick={() => setShowSelector(false)}
-            />
-            <div
-              className="fixed z-[301] w-72 max-h-80 rounded-xl bg-white dark:bg-stone-800 shadow-lg border border-stone-200 dark:border-stone-700 overflow-hidden animate-scale-in"
-              style={dropdownStyle}
-            >
-              <div className="overflow-y-auto overscroll-contain max-h-full">
-                {models.map((model) => (
-                  <ModelItem
-                    key={model.id}
-                    model={model}
-                    isSelected={model.id === currentModelId}
-                    onSelect={() => handleSelectModel(model.id, model.value)}
-                  />
-                ))}
-              </div>
+          <div
+            ref={dropdownRef}
+            className="fixed z-[301] w-72 max-h-80 rounded-xl bg-white dark:bg-stone-800 shadow-lg border border-stone-200 dark:border-stone-700 overflow-hidden animate-scale-in"
+            style={dropdownStyle}
+          >
+            <div className="overflow-y-auto overscroll-contain max-h-full">
+              {models.map((model) => (
+                <ModelItem
+                  key={model.id}
+                  model={model}
+                  isSelected={model.id === currentModelId}
+                  onSelect={() => handleSelectModel(model.id, model.value)}
+                />
+              ))}
             </div>
-          </>,
+          </div>,
           document.body,
         )}
     </div>

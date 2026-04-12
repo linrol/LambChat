@@ -330,6 +330,7 @@
       "filePath": "파일 경로",
       "generating": "생성 중...",
       "mermaidError": "Mermaid 오류",
+      "model": "모델",
       "parameters": "매개변수",
       "result": "결과",
       "running": "실행 중...",

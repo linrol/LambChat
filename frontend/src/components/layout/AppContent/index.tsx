@@ -32,6 +32,10 @@ import { useDragAndDrop } from "./useDragAndDrop";
 import { useWebSocketNotifications } from "./useWebSocketNotifications";
 import { useAgentOptions } from "./useAgentOptions";
 import { useSessionSync } from "./useSessionSync";
+import {
+  reconcileCurrentModelSelection,
+  resolveDefaultModelSelection,
+} from "./modelSelection";
 import { ChatView } from "./ChatView";
 import { Header } from "./Header";
 import { TabContent } from "./TabContent";
@@ -285,20 +289,29 @@ function ChatAppContent({
   // effects so they don't overwrite the session-specific model selection.
   const isSessionRestoredRef = useRef(false);
 
-  // Resolve currentModelId from availableModels if not set
+  // Keep the current session model stable. Only fall back to the persisted
+  // default when the current selection is missing or invalid.
   useEffect(() => {
     if (isSessionRestoredRef.current) return;
-    if (!currentModelId && availableModels && availableModels.length > 0) {
-      const stored = localStorage.getItem("defaultModelId") || "";
-      const match = stored
-        ? availableModels.find((m) => m.id === stored)
-        : availableModels[0];
-      if (match) {
-        setCurrentModelId(match.id);
-        setCurrentModelValue(match.value);
-      }
+    const nextSelection = reconcileCurrentModelSelection({
+      availableModels,
+      currentModelId,
+      currentModelValue,
+      storedDefaultId: localStorage.getItem("defaultModelId") || "",
+      storedDefaultValue: localStorage.getItem("defaultModel") || "",
+      fallbackDefaultValue: defaultModel,
+    });
+
+    if (nextSelection.modelId && nextSelection.modelId !== currentModelId) {
+      setCurrentModelId(nextSelection.modelId);
     }
-  }, [availableModels, currentModelId]);
+    if (
+      nextSelection.modelValue &&
+      nextSelection.modelValue !== currentModelValue
+    ) {
+      setCurrentModelValue(nextSelection.modelValue);
+    }
+  }, [availableModels, currentModelId, currentModelValue, defaultModel]);
 
   // Sync currentModel → sessionConfig.agentOptions so the UI and backend data
   // always agree.  Covers: init, preference change, defaultModel change, new-session
@@ -311,32 +324,6 @@ function ChatAppContent({
       setSessionAgentOption("model_id", currentModelId);
     }
   }, [currentModelValue, currentModelId, setSessionAgentOption]);
-
-  useEffect(() => {
-    if (isSessionRestoredRef.current) return;
-    const storedValue = localStorage.getItem("defaultModel") || defaultModel;
-    const storedId = localStorage.getItem("defaultModelId") || "";
-    setCurrentModelValue(storedValue);
-    if (storedId) setCurrentModelId(storedId);
-  }, [defaultModel]);
-
-  // Listen for model preference updates from ProfilePreferencesTab
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (typeof detail === "string") {
-        // Legacy event: just a model value string
-        setCurrentModelValue(detail);
-      } else if (detail && typeof detail === "object") {
-        // New event: { modelId, modelValue }
-        if (detail.modelId) setCurrentModelId(detail.modelId);
-        if (detail.modelValue) setCurrentModelValue(detail.modelValue);
-      }
-    };
-    window.addEventListener("model-preference-updated", handler);
-    return () =>
-      window.removeEventListener("model-preference-updated", handler);
-  }, []);
 
   const handleSelectModel = useCallback(
     (modelId: string, modelValue: string) => {
@@ -578,18 +565,32 @@ function ChatAppContent({
 
   // Wrapper that also resets session config on new session
   const handleNewSessionWithReset = useCallback(() => {
+    const nextSelection = resolveDefaultModelSelection({
+      availableModels,
+      storedDefaultId: localStorage.getItem("defaultModelId") || "",
+      storedDefaultValue: localStorage.getItem("defaultModel") || "",
+      fallbackDefaultValue: defaultModel,
+    });
+
     handleNewSession();
     resetToDefaults();
     isSessionRestoredRef.current = false;
-    // Re-apply current model so it persists across new sessions
-    if (currentModelValue) setSessionAgentOption("model", currentModelValue);
-    if (currentModelId) setSessionAgentOption("model_id", currentModelId);
+
+    setCurrentModelId(nextSelection.modelId);
+    setCurrentModelValue(nextSelection.modelValue);
+
+    if (nextSelection.modelValue) {
+      setSessionAgentOption("model", nextSelection.modelValue);
+    }
+    if (nextSelection.modelId) {
+      setSessionAgentOption("model_id", nextSelection.modelId);
+    }
   }, [
+    availableModels,
+    defaultModel,
     handleNewSession,
     resetToDefaults,
     setSessionAgentOption,
-    currentModelValue,
-    currentModelId,
   ]);
 
   const handleMobileClose = useCallback(

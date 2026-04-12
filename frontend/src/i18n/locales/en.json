@@ -339,6 +339,7 @@
       "filePath": "File Path",
       "generating": "Generating...",
       "mermaidError": "Mermaid Error",
+      "model": "Model",
       "parameters": "Parameters",
       "result": "Result",
       "running": "Running...",

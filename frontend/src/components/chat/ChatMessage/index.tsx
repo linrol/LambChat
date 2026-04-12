@@ -17,6 +17,10 @@ import { MessagePartRenderer } from "./MessagePartRenderer";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { ShareButton } from "./ShareButton";
 import { CollapsiblePill } from "../../common/CollapsiblePill";
+import { useSettingsContext } from "../../../contexts/SettingsContext";
+import { ModelIconImg } from "../../agent/modelIcon.tsx";
+import { shouldCloseTokenDetailsPopover } from "./tokenDetailsPopoverGuards";
+import { resolveTokenUsageModelDetails } from "./tokenUsageModel";
 
 // Skeleton-style loading animation component - refined thin lines
 function ThinkingIndicator() {
@@ -62,23 +66,33 @@ function TokenDetailsButton({
   tokenUsage,
   duration,
   timestamp,
+  modelDetails,
   isLastMessage,
 }: {
   tokenUsage?: TokenUsagePart;
   duration?: number;
   timestamp?: Date;
+  modelDetails?: {
+    name: string;
+    value: string;
+    provider?: string;
+  } | null;
   isLastMessage?: boolean;
 }) {
   const { t } = useTranslation();
   const [showDetails, setShowDetails] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   // Close details when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
+        shouldCloseTokenDetailsPopover(
+          event.target as Node | null,
+          buttonRef.current,
+          popupRef.current,
+        )
       ) {
         setShowDetails(false);
       }
@@ -109,6 +123,7 @@ function TokenDetailsButton({
       {/* ChatGPT style details popup */}
       {showDetails && (
         <div
+          ref={popupRef}
           className={clsx(
             "absolute bottom-full mb-2 left-0 z-50",
             "min-w-[150px] w-auto p-3 rounded-lg shadow-lg",
@@ -170,6 +185,21 @@ function TokenDetailsButton({
                 </span>
               </div>
             )}
+            {modelDetails && (
+              <div className="flex justify-between gap-4 border-t border-stone-100 dark:border-stone-700 pt-1.5 mt-1.5">
+                <span className="text-stone-500 dark:text-stone-400">
+                  {t("chat.message.model")}
+                </span>
+                <span className="flex items-center gap-1.5 text-stone-700 dark:text-stone-200 font-medium">
+                  <ModelIconImg
+                    model={modelDetails.value}
+                    provider={modelDetails.provider}
+                    size={16}
+                  />
+                  <span>{modelDetails.name}</span>
+                </span>
+              </div>
+            )}
             {timestamp && (
               <div className="flex justify-between gap-4 border-t border-stone-100 dark:border-stone-700 pt-1.5 mt-1.5">
                 <span className="text-stone-500 dark:text-stone-400">
@@ -202,8 +232,14 @@ export function ChatMessage({
   isLastMessage,
 }: ChatMessageProps) {
   const { t } = useTranslation();
+  const { availableModels } = useSettingsContext();
   const isUser = message.role === "user";
   const isStreaming = message.isStreaming && !message.content;
+  const modelDetails = resolveTokenUsageModelDetails({
+    modelId: message.tokenUsage?.model_id,
+    model: message.tokenUsage?.model,
+    availableModels,
+  });
 
   // If there are parts, render in order; otherwise fall back to old rendering method
   const hasParts = message.parts && message.parts.length > 0;
@@ -357,6 +393,7 @@ export function ChatMessage({
                 tokenUsage={message.tokenUsage}
                 duration={message.duration}
                 timestamp={message.timestamp}
+                modelDetails={modelDetails}
                 isLastMessage={isLastMessage}
               />
             )}
