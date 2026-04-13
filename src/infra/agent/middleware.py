@@ -372,7 +372,7 @@ def create_retry_middleware(
             ModelRetryMiddleware(
                 max_retries=settings.LLM_MAX_RETRIES,
                 retry_on=_is_retryable_error,
-                on_failure="raise",
+                on_failure="error",
                 backoff_factor=2.0,
                 initial_delay=settings.LLM_RETRY_DELAY,
                 max_delay=60.0,
