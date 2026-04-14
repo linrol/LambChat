@@ -21,11 +21,23 @@ export function closeCurrentToolPanel() {
 interface ToolResultPanelProps {
   open: boolean;
   onClose: () => void;
-  title: string;
-  icon: React.ReactNode;
-  status: CollapsibleStatus;
+  title?: string;
+  icon?: React.ReactNode;
+  status?: CollapsibleStatus;
   subtitle?: string;
   children: React.ReactNode;
+  /** "sidebar" (default) = right side panel; "center" = fullscreen overlay */
+  viewMode?: "sidebar" | "center";
+  /** Extra action buttons rendered in sidebar header, between title and close */
+  headerActions?: React.ReactNode;
+  /** Custom header replacing the default one (rendered outside scroll area) */
+  customHeader?: React.ReactNode;
+  /** Footer rendered below the scrollable content area */
+  footer?: React.ReactNode;
+  /** Custom overlay className (overrides default) */
+  overlayClass?: string;
+  /** Custom panel className (overrides default) */
+  panelClass?: string;
 }
 
 const statusConfig: Record<
@@ -62,13 +74,19 @@ const statusConfig: Record<
 export function ToolResultPanel({
   open,
   onClose,
-  title,
+  title = "",
   icon,
-  status,
+  status = "idle",
   subtitle,
   children,
+  viewMode = "sidebar",
+  headerActions,
+  customHeader,
+  footer,
+  overlayClass,
+  panelClass,
 }: ToolResultPanelProps) {
-  const [isMobile, setIsMobile] = useState(true); // default mobile to avoid flash on small screens
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const [sidebarWidth, setSidebarWidth] = useState(() =>
     parseInt(localStorage.getItem("sidebar-preview-width") || "45", 10),
   );
@@ -80,6 +98,7 @@ export function ToolResultPanel({
   // Track viewport size
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
+    setIsMobile(mq.matches); // set initial value immediately
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
@@ -96,17 +115,18 @@ export function ToolResultPanel({
 
   // Signal main layout compression (desktop sidebar mode)
   useEffect(() => {
-    if (!open || isMobile) return;
+    if (!open || isMobile || viewMode === "center") return;
     document.documentElement.setAttribute("data-sidebar-preview", "open");
     return () =>
       document.documentElement.removeAttribute("data-sidebar-preview");
-  }, [open, isMobile]);
+  }, [open, isMobile, viewMode]);
 
-  // Body scroll lock
+  // Body scroll lock (mobile bottom-sheet + center fullscreen)
   useEffect(() => {
     if (!open) return;
-    if (!isMobile) return; // sidebar mode keeps scroll
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (!isMobile && viewMode !== "center") return; // sidebar keeps scroll
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = "hidden";
     if (scrollbarWidth > 0) {
       document.body.style.paddingRight = `${scrollbarWidth}px`;
@@ -115,7 +135,7 @@ export function ToolResultPanel({
       document.body.style.overflow = "";
       document.body.style.paddingRight = "";
     };
-  }, [open, isMobile]);
+  }, [open, isMobile, viewMode]);
 
   // ESC key
   useEffect(() => {
@@ -130,6 +150,7 @@ export function ToolResultPanel({
   // Register as the active panel (singleton — closes any previous panel)
   useEffect(() => {
     if (!open) return;
+    closeCurrentToolPanel(); // auto-close any previously open panel
     _currentClose = onClose;
     return () => {
       if (_currentClose === onClose) _currentClose = null;
@@ -200,34 +221,41 @@ export function ToolResultPanel({
   if (!open) return null;
 
   const cfg = statusConfig[status];
+  const isCenter = viewMode === "center";
+  const isSidebar = !isCenter;
+  const hasCustomHeader = !!customHeader;
 
   const content = (
     <div
       className={`w-full flex flex-col bg-white dark:bg-[#1e1e1e] pointer-events-auto ${
-        isMobile
-          ? "max-h-[92vh] rounded-t-2xl overflow-hidden shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.5)] animate-[slide-up-fullscreen_280ms_cubic-bezier(0.16,1,0.3,1)]"
-          : "h-full sm:rounded-l-2xl relative shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.4)] animate-[slide-in-right_200ms_ease-out]"
+        panelClass
+          ? panelClass
+          : isCenter
+            ? "overflow-hidden h-full w-full relative"
+            : isMobile
+              ? "max-h-[92vh] rounded-t-2xl overflow-hidden shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.5)] animate-[slide-up-fullscreen_280ms_cubic-bezier(0.16,1,0.3,1)]"
+              : "h-full sm:rounded-l-2xl relative shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.4)] animate-[slide-in-right_200ms_ease-out]"
       }`}
       ref={(el) => {
         // Merge refs
-        if (isMobile && sheetRef) {
+        if (isMobile && !isCenter && sheetRef) {
           (sheetRef as React.MutableRefObject<HTMLElement | null>).current = el;
         }
-        if (!isMobile) {
+        if (!isMobile && isSidebar && !panelClass) {
           (panelRef as React.MutableRefObject<HTMLDivElement | null>).current =
             el;
         }
       }}
-      {...(!isMobile ? { "data-sidebar-panel": "" } : {})}
+      {...(isSidebar && !isMobile ? { "data-sidebar-panel": "" } : {})}
       style={
-        !isMobile
+        isSidebar && !isMobile && !panelClass
           ? { maxWidth: `${sidebarWidth}%`, minWidth: "min(320px, 80vw)" }
           : undefined
       }
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Desktop resize handle */}
-      {!isMobile && (
+      {/* Desktop resize handle (sidebar only, not when using custom panelClass) */}
+      {isSidebar && !isMobile && !panelClass && (
         <>
           <div
             ref={indicatorRef}
@@ -249,72 +277,108 @@ export function ToolResultPanel({
         </>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col shrink-0 bg-gradient-to-r from-stone-50 to-white dark:from-[#252526] dark:to-[#1e1e1e]">
-        {/* Mobile drag handle */}
-        {isMobile && (
-          <div className="flex justify-center pt-2 pb-1">
-            <div className="w-9 h-1 rounded-full bg-stone-300 dark:bg-stone-600" />
-          </div>
-        )}
-        <div className="flex items-center gap-2.5 px-4 sm:px-5 py-3 sm:py-4 border-b border-stone-200 dark:border-[#333]">
-          {/* Status + Icon */}
-          <div className="flex items-center gap-2 shrink-0">
-            {status === "loading" ? (
-              <LoadingSpinner
-                size="xs"
-                className="shrink-0"
-                color="text-amber-500 dark:text-amber-400"
-              />
-            ) : (
-              <div
-                className={`flex items-center justify-center w-7 h-7 rounded-lg ${cfg.bg}`}
-              >
-                <span className={cfg.color}>{cfg.icon || icon}</span>
+      {/* Header section — sidebar mode only */}
+      {isSidebar && (
+        <div className="flex flex-col shrink-0 bg-gradient-to-r from-stone-50 to-white dark:from-[#252526] dark:to-[#1e1e1e]">
+          {/* Mobile drag handle */}
+          {isMobile && (
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="w-9 h-1 rounded-full bg-stone-300 dark:bg-stone-600" />
+            </div>
+          )}
+          {hasCustomHeader ? (
+            customHeader
+          ) : (
+            <div className="flex items-center gap-2.5 px-4 sm:px-5 py-3 sm:py-4 border-b border-stone-200 dark:border-[#333]">
+              {/* Status + Icon */}
+              <div className="flex items-center gap-2 shrink-0">
+                {status === "loading" ? (
+                  <LoadingSpinner
+                    size="xs"
+                    className="shrink-0"
+                    color="text-amber-500 dark:text-amber-400"
+                  />
+                ) : (
+                  <div
+                    className={`flex items-center justify-center w-7 h-7 rounded-lg ${cfg.bg}`}
+                  >
+                    <span className={cfg.color}>{cfg.icon || icon}</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Title */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-stone-900 dark:text-stone-100 text-base truncate">
-              {title}
-            </h3>
-            {subtitle && (
-              <p className="text-xs text-stone-400 dark:text-stone-500 truncate mt-0.5">
-                {subtitle}
-              </p>
-            )}
-          </div>
+              {/* Title */}
+              {title && (
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-stone-900 dark:text-stone-100 text-base truncate">
+                    {title}
+                  </h3>
+                  {subtitle && (
+                    <p className="text-xs text-stone-400 dark:text-stone-500 truncate mt-0.5">
+                      {subtitle}
+                    </p>
+                  )}
+                </div>
+              )}
 
-          {/* Close */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-stone-200/80 dark:hover:bg-stone-700/60 active:bg-stone-200 dark:active:bg-stone-600/60 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
-            aria-label="Close"
-          >
-            <X size={18} className="text-stone-500 dark:text-stone-400" />
-          </button>
+              {/* Extra header actions */}
+              {headerActions}
+
+              {/* Close */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-stone-200/80 dark:hover:bg-stone-700/60 active:bg-stone-200 dark:active:bg-stone-600/60 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
+                aria-label="Close"
+              >
+                <X size={18} className="text-stone-500 dark:text-stone-400" />
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* Floating close button (center mode only, no customHeader) */}
+      {isCenter && !hasCustomHeader && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="absolute top-3 right-3 z-[310] flex items-center justify-center w-10 h-10 rounded-full bg-black/70 hover:bg-black/90 text-white shadow-lg transition-all duration-200 cursor-pointer"
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+      )}
 
       {/* Content */}
-      <div className="flex-1 overflow-auto min-h-0 overscroll-contain">
+      <div
+        className={`flex-1 overflow-auto min-h-0 overscroll-contain ${
+          isCenter && !hasCustomHeader ? "!overflow-hidden" : ""
+        }`}
+      >
         {children}
       </div>
+
+      {/* Footer */}
+      {footer && <div className="shrink-0">{footer}</div>}
     </div>
   );
 
   return createPortal(
     <div
       className={`fixed inset-0 z-[300] flex flex-col ${
-        isMobile
-          ? "bg-black/50 items-end justify-end"
-          : "bg-black/50 sm:bg-transparent sm:pointer-events-none sm:items-end sm:justify-stretch"
+        overlayClass
+          ? overlayClass
+          : isCenter
+            ? "bg-stone-900"
+            : isMobile
+              ? "bg-black/50 items-end justify-end"
+              : "bg-black/50 sm:bg-transparent sm:pointer-events-none sm:items-end sm:justify-stretch"
       }`}
       onClick={() => {
         if (!isResizing.current && !justResized.current) onClose();

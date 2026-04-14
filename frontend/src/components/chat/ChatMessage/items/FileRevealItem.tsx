@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { LoadingSpinner, ImageViewer } from "../../../common";
 import DocumentPreview from "../../../documents/DocumentPreview";
 import { DelayedUnmount } from "../../../common/DelayedUnmount";
-import { closeCurrentToolPanel } from "./ToolResultPanel";
 import { getFileTypeInfo } from "../../../documents/utils";
 import { getFullUrl } from "../../../../services/api";
 
@@ -150,7 +149,6 @@ export function FileRevealItem({
     )
       return;
     if (window.innerWidth >= 640) {
-      closeCurrentToolPanel();
       setShowPreview(true);
     }
   }, [success, filePath, isImage, showPreview]);
@@ -301,7 +299,6 @@ export function FileRevealItem({
             className="flex items-center gap-2 px-3 py-2 bg-stone-50 dark:bg-stone-800/50 border-t border-stone-200 dark:border-stone-700"
             onClick={() => {
               if (!isImage) {
-                closeCurrentToolPanel();
                 setShowPreview(true);
               }
             }}
@@ -326,7 +323,6 @@ export function FileRevealItem({
             if (isImage && s3Url) {
               setImageViewerSrc(s3Url);
             } else {
-              closeCurrentToolPanel();
               setShowPreview(true);
             }
           }}
