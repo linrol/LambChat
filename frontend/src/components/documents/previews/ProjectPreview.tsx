@@ -300,7 +300,11 @@ export default function ProjectPreview({
               visibleFiles: config.visibleFiles,
               classes: {
                 "sp-wrapper": "!h-full !flex !flex-col",
-                "sp-layout": "!h-full !border-0",
+                "sp-layout": "!h-full !border-0 !bg-transparent",
+                "sp-preview-container": "!bg-transparent dark:!bg-stone-900",
+                "sp-preview-iframe": "!bg-white dark:!bg-stone-900",
+                "sp-stack": "!bg-white dark:!bg-stone-900",
+                "sp-tabs": "!bg-white dark:!bg-stone-800",
               },
             }}
           >
@@ -395,7 +399,11 @@ export function ProjectPreviewCompact({
               visibleFiles: config.visibleFiles,
               classes: {
                 "sp-wrapper": "!h-full",
-                "sp-layout": "!h-full !border-0",
+                "sp-layout": "!h-full !border-0 !bg-transparent",
+                "sp-preview-container": "!bg-transparent dark:!bg-stone-900",
+                "sp-preview-iframe": "!bg-white dark:!bg-stone-900",
+                "sp-stack": "!bg-white dark:!bg-stone-900",
+                "sp-tabs": "!bg-white dark:!bg-stone-800",
               },
             }}
           >
